@@ -1,0 +1,50 @@
+# ================================================================================
+# 算法 3: DRAEM (基于自监督学习)
+# ================================================================================
+# 原理: 在训练阶段通过数据增强生成合成异常样本，训练一个判别网络
+#       来学习区分正常区域和异常区域。无需真实异常样本即可训练。
+#
+# 特点: 无需真实异常样本，对小缺陷检测效果较好
+# ================================================================================
+
+dataset:
+  name: mvtec
+  format: mvtec
+  path: ./data/processed/my_product    # 修改为你的数据路径
+  category: my_product                  # 修改为你的产品类别
+  task: segmentation
+  image_size: [256, 256]
+  train_batch_size: 4                  # DRAEM 显存占用大，batch_size 设小
+  eval_batch_size: 4
+  num_workers: 4
+
+model:
+  name: draem
+  anomaly_source_path: null            # 可选：纹理数据集路径
+
+optimization:
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  optimizer: Adam
+
+trainer:
+  max_epochs: 200                      # 需要训练 200 个 epoch
+  accelerator: auto
+  devices: 1
+  check_val_every_n_epoch: 10          # 每 10 个 epoch 验证一次
+
+# 必须输出的 4 个硬性指标
+metrics:
+  image:
+    - AUROC                           # 图像级 AUROC
+    - AUPR                            # 图像级 AUPR
+  pixel:
+    - AUROC                           # 像素级 AUROC
+    - PRO                             # Per-Region Overlap
+  threshold:
+    method: adaptive
+
+project:
+  seed: 42
+  path: ./results
+  default_root_dir: results/draem

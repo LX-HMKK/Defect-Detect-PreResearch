@@ -1,0 +1,17 @@
+{
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/venv",
+    "**/env"
+  ],
+  "ignore": [
+    "**/old",
+    "**/deprecated"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportGeneralTypeIssues": "warning",
+  "pythonVersion": "3.8",
+  "typeCheckingMode": "basic"
+}

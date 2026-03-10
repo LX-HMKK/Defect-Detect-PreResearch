@@ -1,0 +1,51 @@
+# ================================================================================
+# 算法 1: AutoEncoder (基于重构)
+# ================================================================================
+# 原理: 训练编码器-解码器网络，学习正常样本的压缩表示。
+#       异常样本无法被良好重构，通过重构误差检测异常。
+# 
+# 特点: 经典基线方法，结构简单，易于理解和调试
+# ================================================================================
+
+dataset:
+  name: mvtec
+  format: mvtec
+  path: ./data/processed/my_product    # 修改为你的数据路径
+  category: my_product                  # 修改为你的产品类别
+  task: segmentation
+  image_size: [256, 256]
+  train_batch_size: 8
+  eval_batch_size: 8
+  num_workers: 4
+
+model:
+  name: autoencoder
+  backbone: resnet18
+  bottleneck_dim: 64
+  pre_trained: true
+
+optimization:
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  optimizer: Adam
+
+trainer:
+  max_epochs: 100              # 需要训练 100 个 epoch
+  accelerator: auto
+  devices: 1
+
+# 必须输出的 4 个硬性指标
+metrics:
+  image:
+    - AUROC                   # 图像级 AUROC
+    - AUPR                    # 图像级 AUPR
+  pixel:
+    - AUROC                   # 像素级 AUROC
+    - PRO                     # Per-Region Overlap
+  threshold:
+    method: adaptive
+
+project:
+  seed: 42
+  path: ./results
+  default_root_dir: results/autoencoder

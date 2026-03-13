@@ -46,7 +46,8 @@ anomaly_detection_demo/
 ├── 🐍 run_ui.py                       # 入口 4: 启动 UI
 │
 ├── 📄 requirements.txt                  # Python 依赖
-└── 📄 README.md                         # 本文件
+├── 📄 README.md                         # 本文件
+└── 📄 AGENTS.md                        # Agent 开发指南
 ```
 
 ---
@@ -252,6 +253,29 @@ pip install anomalib gradio opencv-python numpy pandas scikit-learn
 ```
 
 详见 `requirements.txt`
+
+---
+
+## 🔧 类型检查与测试
+
+### 类型检查
+```bash
+# 使用 pyright
+pyright modules/
+pyright .
+```
+
+### 单模块测试
+```bash
+# 测试数据处理
+python -c "from modules.data_processing.dataset_formatter import MVTecFormatter; print('OK')"
+
+# 测试评测指标
+python -c "from modules.evaluation.metrics import MetricsEvaluator; print('OK')"
+
+# 测试训练器
+python -c "from modules.algorithm.trainer import AnomalyDetectionTrainer; print('OK')"
+```
 
 ---
 

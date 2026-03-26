@@ -3,20 +3,50 @@
 # ================================================================================
 # 原理: 训练编码器-解码器网络，学习正常样本的压缩表示。
 #       异常样本无法被良好重构，通过重构误差检测异常。
-# 
+#
 # 特点: 经典基线方法，结构简单，易于理解和调试
 # ================================================================================
+
+# ================================================================================
+# 运行配置（直接运行 python run_training.py 时使用此配置）
+# ================================================================================
+run:
+  model: autoencoder                    # 模型名称
+  data_path: ./data/processed          # 数据目录路径
+  category: my_product                  # 产品类别名称
+  device: cuda                          # 计算设备 (auto/cpu/cuda)
+  output_dir: ./results                # 输出目录
 
 dataset:
   name: mvtec
   format: mvtec
-  path: ./data/processed/my_product    # 修改为你的数据路径
-  category: my_product                  # 修改为你的产品类别
+  path: ./data/processed
+  category: my_product
   task: segmentation
-  image_size: [256, 256]
   train_batch_size: 8
   eval_batch_size: 8
   num_workers: 4
+  image_size:
+    - 256
+    - 256
+  center_crop:
+    - 224
+    - 224
+  normalization: imagenet
+  transform_config:
+    train: null
+    eval: null
+  test_split_mode: from_dir
+  test_split_ratio: 0.2
+  val_split_mode: same_as_test
+  val_split_ratio: 0.5
+  tiling:
+    apply: false
+    tile_size: null
+    stride: null
+    remove_border_count: 0
+    use_random_tiling: false
+    random_tile_count: 16
 
 model:
   name: autoencoder
@@ -25,27 +55,65 @@ model:
   pre_trained: true
 
 optimization:
-  learning_rate: 0.001
-  weight_decay: 0.00001
-  optimizer: Adam
+  export_mode: null
+  optimizer:
+    class: Adam
+    learning_rate: 0.001
+    weight_decay: 0.00001
 
-trainer:
-  max_epochs: 100              # 需要训练 100 个 epoch
-  accelerator: auto
-  devices: 1
-
-# 必须输出的 4 个硬性指标
 metrics:
   image:
-    - AUROC                   # 图像级 AUROC
-    - AUPR                    # 图像级 AUPR
+    - F1Score
+    - AUROC
   pixel:
-    - AUROC                   # 像素级 AUROC
-    - PRO                     # Per-Region Overlap
+    - F1Score
+    - AUROC
   threshold:
     method: adaptive
+    manual_image: null
+    manual_pixel: null
+
+visualization:
+  show_images: false
+  save_images: true
+  log_images: true
+  image_save_path: null
+  mode: full
 
 project:
   seed: 42
   path: ./results
+  unique_dir: false
+
+logging:
+  logger: []
+  log_graph: false
+
+trainer:
+  enable_checkpointing: true
   default_root_dir: results/autoencoder
+  gradient_clip_val: 0
+  gradient_clip_algorithm: norm
+  num_nodes: 1
+  devices: 1
+  enable_progress_bar: true
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 999
+  fast_dev_run: false
+  accumulate_grad_batches: 1
+  max_epochs: 100
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  limit_test_batches: 1.0
+  limit_predict_batches: 1.0
+  val_check_interval: 999
+  log_every_n_steps: 50
+  accelerator: auto
+  strategy: null
+  sync_batchnorm: false
+  num_sanity_val_steps: 0

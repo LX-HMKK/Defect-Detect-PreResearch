@@ -50,6 +50,7 @@ weights/
 data/my_dataset/
 data/dtd_images/
 !data/.gitkeep
+data/
 
 # Logs
 *.log

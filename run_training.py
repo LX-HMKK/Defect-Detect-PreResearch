@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 """
 入口脚本 2: 模型训练
-用法: python run_training.py --model all --category my_product --data_path ./data/processed
+用法: 
+    python run_training.py              # 直接运行（从 patchcore.yaml 读取配置）
+    python run_training.py --model all  # 训练所有模型
+    python run_training.py -m patchcore # 指定模型
 """
 
 import sys

@@ -35,19 +35,35 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union, Any, Mapping
 import argparse
+from io import StringIO
 
 import torch
+import cv2  # Import cv2 first to avoid DLL loading issues with anomalib
 import pandas as pd
 from tqdm import tqdm
 
-# anomalib 导入
+# 压制 anomalib 的 OpenVINO 等无用警告信息
+class _StdoutSuppressor:
+    """临时压制 stdout 输出"""
+    def __enter__(self):
+        self._old_stdout = sys.stdout
+        self._old_stderr = sys.stderr
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
+        return self
+    def __exit__(self, *args):
+        sys.stdout = self._old_stdout
+        sys.stderr = self._old_stderr
+
+# anomalib 导入（压制其内部 print 的 OpenVINO/wandb 警告）
 try:
-    from anomalib.config import get_configurable_parameters
-    from anomalib.data import get_datamodule
-    from anomalib.models import get_model
-    from anomalib.utils.callbacks import LoadModelCallback, get_callbacks
-    from pytorch_lightning import Trainer, seed_everything
-    from omegaconf import OmegaConf, DictConfig, ListConfig
+    with _StdoutSuppressor():
+        from anomalib.config import get_configurable_parameters
+        from anomalib.data import get_datamodule
+        from anomalib.models import get_model
+        from anomalib.utils.callbacks import LoadModelCallback, get_callbacks
+        from pytorch_lightning import Trainer, seed_everything
+        from omegaconf import OmegaConf, DictConfig, ListConfig
 except ImportError as e:
     print(f"❌ 错误: 未安装 anomalib。请运行: pip install anomalib")
     raise
@@ -209,7 +225,7 @@ class AnomalyDetectionTrainer:
         self.setup()
         
         # 创建回调函数
-        callbacks = get_callbacks(self.config, self.model)
+        callbacks = get_callbacks(self.config)
         
         # 创建训练器
         self.trainer = Trainer(
@@ -221,6 +237,7 @@ class AnomalyDetectionTrainer:
             accumulate_grad_batches=self.config.trainer.get('accumulate_grad_batches', 1),
             check_val_every_n_epoch=self.config.trainer.get('check_val_every_n_epoch', 1),
             default_root_dir=self.config.project.default_root_dir,
+            num_sanity_val_steps=self.config.trainer.get('num_sanity_val_steps', 0),
         )
         
         # 训练
@@ -229,6 +246,17 @@ class AnomalyDetectionTrainer:
             print("   💡 PatchCore 无需训练 epoch，正在构建特征记忆库...")
         
         self.trainer.fit(model=self.model, datamodule=self.datamodule)  # type: ignore
+        
+        # BUG FIX: PatchCore 的 training_epoch_end 未实现，内存库未构建
+        # 手动构建内存库
+        if self.model_name == 'patchcore' and hasattr(self.model, 'embeddings'):
+            import torch
+            if len(self.model.embeddings) > 0:
+                print("   🔧 修复 PatchCore 内存库...")
+                embeddings = torch.vstack(self.model.embeddings)
+                coreset_ratio = self.config.model.get('coreset_sampling_ratio', 0.1)
+                self.model.model.subsample_embedding(embeddings, coreset_ratio)
+                print(f"   ✅ 内存库已构建: {self.model.model.memory_bank.shape}")
         
         print("✅ 训练完成")
         return {'status': 'success', 'epochs': self.config.trainer.max_epochs}
@@ -433,50 +461,80 @@ def compare_models(results_dir: str, category: str):
     print(f"📄 报告已保存: {md_path}")
 
 
+def _load_run_config_from_yaml(model_name: str) -> Dict[str, Any]:
+    """从 YAML 配置文件加载 run 配置"""
+    config_path = Path(__file__).parent.parent.parent / MODEL_INFO[model_name]['config_file']
+    if not config_path.exists():
+        return {}
+    config = OmegaConf.load(config_path)
+    if hasattr(config, 'run'):
+        return OmegaConf.to_container(config.run, resolve=True)
+    return {}
+
+
 def main():
-    """命令行入口"""
+    """命令行入口 - 支持无参数运行（从 YAML 读取配置）"""
     parser = argparse.ArgumentParser(
         description='核心算法复现模块 - 训练和评估3种异常检测算法'
     )
-    parser.add_argument('--model', '-m', type=str, required=True,
+    # 参数变为可选，有值时命令行优先
+    parser.add_argument('--model', '-m', type=str, default=None,
                         choices=SUPPORTED_MODELS + ['all'],
                         help='模型名称 (autoencoder/patchcore/draem/all)')
-    parser.add_argument('--data_path', '-d', type=str, required=True,
+    parser.add_argument('--data_path', '-d', type=str, default=None,
                         help='数据集路径（MVTec AD 格式）')
-    parser.add_argument('--category', '-c', type=str, required=True,
+    parser.add_argument('--category', '-c', type=str, default=None,
                         help='产品类别名称')
-    parser.add_argument('--output_dir', '-o', type=str, default='./results',
+    parser.add_argument('--output_dir', '-o', type=str, default=None,
                         help='结果输出目录')
     parser.add_argument('--eval_only', action='store_true',
                         help='仅评估模式（不训练）')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='评估时使用的权重路径')
-    parser.add_argument('--device', type=str, default='auto',
+    parser.add_argument('--device', type=str, default=None,
                         help='计算设备 (auto/cpu/cuda)')
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument('--seed', type=int, default=None,
                         help='随机种子')
     
     args = parser.parse_args()
     
+    # 如果命令行没有指定参数，从 YAML 配置读取
+    # 默认使用 patchcore 模型的配置
+    default_model = args.model if args.model else 'patchcore'
+    yaml_config = _load_run_config_from_yaml(default_model)
+    
+    # 合并配置：命令行参数优先
+    model = args.model or yaml_config.get('model', default_model)
+    data_path = args.data_path or yaml_config.get('data_path', './data/processed')
+    category = args.category or yaml_config.get('category', 'my_product')
+    output_dir = args.output_dir or yaml_config.get('output_dir', './results')
+    device = args.device or yaml_config.get('device', 'cuda')
+    seed = args.seed if args.seed is not None else yaml_config.get('seed', 42)
+    
     print("="*70)
     print("🔬 核心算法复现模块 (Algorithm Implementation Module)")
     print("="*70)
-    print(f"\n📂 数据集路径: {args.data_path}")
-    print(f"📦 产品类别: {args.category}")
+    print(f"\n📂 数据集路径: {data_path}")
+    print(f"📦 产品类别: {category}")
+    print(f"⚙️  计算设备: {device}")
+    if args.model:
+        print(f"   (命令行参数)")
+    else:
+        print(f"   (从 {model}.yaml 读取)")
     
     # 确定要运行的模型
-    models_to_run = SUPPORTED_MODELS if args.model == 'all' else [args.model]
+    models_to_run = SUPPORTED_MODELS if model == 'all' else [model]
     
     # 训练和评估
     for model_name in models_to_run:
         try:
             trainer = AnomalyDetectionTrainer(
                 model_name=model_name,
-                data_path=args.data_path,
-                category=args.category,
-                output_dir=args.output_dir,
-                device=args.device,
-                seed=args.seed
+                data_path=data_path,
+                category=category,
+                output_dir=output_dir,
+                device=device,
+                seed=seed
             )
             
             if args.eval_only:
@@ -492,7 +550,7 @@ def main():
     
     # 生成对比报告
     if len(models_to_run) > 1:
-        compare_models(args.output_dir, args.category)
+        compare_models(output_dir, category)
     
     print("\n" + "="*70)
     print("✅ 所有任务已完成!")

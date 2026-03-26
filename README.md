@@ -1,10 +1,35 @@
 # 🔍 工业图像异常检测系统
 
-基于 **anomalib** 实现的三算法对比演示项目，严格按照 **4 大模块** 组织代码。
+基于 **anomalib** 库实现的无监督工业异常检测算法复现与性能评测系统。
 
-## 📋 项目概述
+---
 
-从 4 个主流方向中挑选 **3 个最易复现**的算法：
+## 📋 项目背景与目标
+
+### 项目背景
+
+本项目针对征图Focusight触控面板产线的实际需求，研究无监督异常检测算法在工业场景下的适应性与可用性。
+
+**工业痛点：**
+- 缺陷样本极度稀缺（仅占总产量1%甚至更低）
+- 缺陷标注成本高昂，需要专业人员
+- 缺陷类型多样，存在大量未知缺陷
+- 传统有监督方法泛化能力不足
+
+**无监督方法优势：**
+- 仅使用正常样本训练，符合工业数据分布特点
+- 对未知缺陷具有更好的适应性
+- 无需缺陷标注，大幅降低数据准备成本
+
+### 项目要求（任务书约束）
+
+| 约束项 | 要求 |
+|:---|:---|
+| 训练样本 | 仅使用正常样本，数量 ≤ 150 张 |
+| 评估指标 | AUROC, AUPR (图像级), Pixel-AUROC, PRO (像素级) |
+| 算法覆盖 | 4类方向选3类：重构类、特征建模类、自监督类、预训练大模型类 |
+
+### 技术选型（3类算法）
 
 | 算法 | 方向 | 原理 | 复现难度 | 训练时间 |
 |:---:|:---:|:---|:---:|:---:|
@@ -14,10 +39,35 @@
 
 ---
 
+## ⚠️ 数据约束与已知问题
+
+### 关键约束
+
+| 约束 | 说明 | 当前状态 |
+|:---|:---|:---|
+| 训练样本 ≤ 150 | 任务书要求，仅用正常样本 | ⚠️ 当前 train/good 有 200 张 |
+| 数据格式 | MVTec AD 格式 | ✅ 已符合 |
+| Ground Truth | 需与测试图片命名匹配 | ⚠️ mask 有 `_mask` 后缀 |
+
+### 已知问题：AUROC = 50%
+
+**现象：** 训练完成但评估指标接近随机基线（0.5）
+
+**可能原因：**
+1. 训练样本超限（200 > 150），不符合任务书要求
+2. 图像尺寸（409x1421）与 MVTec AD 标准不同，可能在预处理中被裁剪
+3. Ground truth mask 与测试图片的匹配可能存在边界对齐问题
+
+**建议：**
+- 先用 MVTec AD 公开数据集验证算法基线
+- 企业数据需严格通过 `run_data_processing.py` 处理并限制 150 张
+
+---
+
 ## 🗂️ 项目结构（4大模块）
 
 ```
-anomaly_detection_demo/
+Defect-Detect-PreResearch/
 │
 ├── 📁 modules/                          # ===== 核心代码模块 =====
 │   ├── 📁 data_processing/             # 模块 1: 数据集处理模块
@@ -29,14 +79,15 @@ anomaly_detection_demo/
 │   └── 📁 ui/                          # 模块 4: UI 界面演示模块
 │       └── demo.py                    #   └─ Gradio 交互界面
 │
-├── 📁 configs/                          # 算法配置文件
+├── 📁 configs/                          # 算法配置文件（YAML）
 │   ├── autoencoder.yaml               # AutoEncoder 配置
-│   ├── patchcore.yaml                 # PatchCore 配置
+│   ├── patchcore.yaml                 # PatchCore 配置（可直接运行）
 │   └── draem.yaml                     # DRAEM 配置
 │
 ├── 📁 data/                             # 数据目录
-│   ├── 📁 raw/                        # 原始企业数据
-│   └── 📁 processed/                  # 处理后数据 (MVTec AD 格式)
+│   ├── 📁 region1/                    # 企业数据 region1 (MVTec AD 格式)
+│   ├── 📁 region5/                    # 企业数据 region5 (MVTec AD 格式)
+│   └── ...
 │
 ├── 📁 results/                          # 训练结果
 │
@@ -57,57 +108,61 @@ anomaly_detection_demo/
 ### 步骤 1: 环境配置
 
 ```bash
-# 创建虚拟环境
-python -m venv venv
+# 使用 miniforge 创建虚拟环境
+"C:\ProgramData\miniforge3\Scripts\conda.exe" create -n anomalib python=3.10 -y
 
 # 激活环境
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+"C:\ProgramData\miniforge3\Scripts\conda.exe" activate anomalib
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装 PyTorch CUDA 版本（RTX 4060 需要 CUDA 11.8）
+"C:\ProgramData\miniforge3\Scripts\conda.exe" install -n anomalib -c pytorch -c conda-forge pytorch torchvision pytorch-lightning lightning scikit-learn scipy pandas pillow opencv tqdm pyyaml -y
+
+# 安装其他依赖
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -m pip install anomalib==0.7.0 gradio omegaconf "numpy<2" "setuptools==68.0.0" packaging albumentations==1.3.1
 ```
 
-### 步骤 2: 模块 1 - 数据集处理
+### 步骤 2: 数据集处理
 
-将企业原始数据转换为 MVTec AD 标准格式，**训练集正常样本限制 ≤ 150 张**。
+**重要：** 任务书要求训练样本 ≤ 150 张，必须使用 `run_data_processing.py` 处理数据。
 
 ```bash
 python run_data_processing.py \
-    --input_dir ./data/raw/enterprise_data \
+    --input_dir ./data/raw \
     --output_dir ./data/processed/my_product \
     --max_train 150
 ```
 
-**支持的输入结构：**
-```
-# 结构 1: 已分割
-raw/
-├── train/good/          # 训练集正常样本
-└── test/
-    ├── good/           # 测试集正常样本
-    ├── scratch/        # 异常类型1
-    └── dent/           # 异常类型2
+### 步骤 3: 修改 YAML 配置
 
-# 结构 2: 未分割（自动按比例分割，训练集不超过150张）
-raw/
-├── good/               # 所有正常样本
-└── defect/             # 所有异常样本
+编辑 `configs/patchcore.yaml` 中的 `run` 配置块：
+
+```yaml
+run:
+  model: patchcore              # 算法：patchcore / autoencoder / draem
+  data_path: ./data             # 数据目录（指向region5的父目录）
+  category: region5             # 类别名称
+  device: cuda                 # 计算设备：cuda / cpu
+  output_dir: ./results         # 输出目录
 ```
 
-### 步骤 3: 模块 2 - 核心算法复现
-
-训练 3 种算法，**只用正常样本训练**（无监督设定）。
+### 步骤 4: 训练
 
 ```bash
-# 训练所有算法
-python run_training.py \
-    --model all \
-    --category my_product \
-    --data_path ./data/processed/my_product
+# 直接运行（从 patchcore.yaml 读取配置）
+python run_training.py
 
-# 或训练单个算法
-python run_training.py --model patchcore --category my_product --data_path ./data/processed/my_product
+# 或命令行覆盖配置
+python run_training.py --model patchcore --category region5 --data_path ./data --device cuda
+```
+
+### 步骤 5: 评估与 UI
+
+```bash
+# 指标评测
+python run_evaluation.py --model all --category region5 --results_dir ./results
+
+# 启动 UI
+python run_ui.py
 ```
 
 ### 步骤 4: 模块 3 - 指标评测
@@ -234,25 +289,36 @@ python run_ui.py
 
 ---
 
-## 📁 配置文件修改
+## ⚡ 直接运行（YAML 配置）
 
-编辑 `configs/` 目录下的 YAML 文件：
+**最简单的运行方式：** 修改 `configs/patchcore.yaml` 中的 `run` 配置块，然后直接运行：
 
-```yaml
-dataset:
-  path: ./data/processed/my_product    # ← 修改为你的数据路径
-  category: my_product                  # ← 修改为你的产品类别
+```bash
+python run_training.py
 ```
+
+**配置示例：**
+```yaml
+run:
+  model: patchcore              # 算法
+  data_path: ./data            # 数据目录（region5的父目录）
+  category: region5             # 类别名称
+  device: cuda                 # cuda / cpu
+  output_dir: ./results        # 输出目录
+```
+
+**切换算法：** 直接修改 `run.model` 为 `autoencoder` 或 `draem`，然后再运行即可。
 
 ---
 
 ## 📚 依赖项
 
-```bash
-pip install anomalib gradio opencv-python numpy pandas scikit-learn
-```
-
 详见 `requirements.txt`
+
+**核心依赖版本（重要）：**
+- `torch==2.2.2+cu118` (CUDA 11.8 for RTX 4060)
+- `numpy<2` (numpy 2.x 与 torch 不兼容)
+- `anomalib==0.7.0` (不是 1.x 或 2.x)
 
 ---
 

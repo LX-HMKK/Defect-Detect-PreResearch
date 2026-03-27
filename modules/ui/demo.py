@@ -34,7 +34,7 @@ import gradio as gr
 try:
     from anomalib.deploy import TorchInferencer
 except ImportError:
-    print("❌ 错误: 未安装 anomalib")
+    print("[FAIL] 错误: 未安装 anomalib")
     raise
 
 # 忽略警告
@@ -135,11 +135,11 @@ class AnomalyDetector:
         """
         # 如果模型已加载，直接返回
         if model_key == self.current_model and self.inferencer is not None:
-            return True, f"✅ 模型已加载: {MODEL_CONFIGS[model_key].name}"
+            return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name}"
         
         config = MODEL_CONFIGS.get(model_key)
         if config is None:
-            return False, f"❌ 未知模型: {model_key}"
+            return False, f"[FAIL] 未知模型: {model_key}"
         
         # 查找权重文件
         weight_path = Path(config.weight_path)
@@ -155,7 +155,7 @@ class AnomalyDetector:
         
         if not weight_path.exists():
             return False, (
-                f"❌ 未找到模型权重: {config.weight_path}\n\n"
+                f"[FAIL] 未找到模型权重: {config.weight_path}\n\n"
                 f"请先训练模型:\n"
                 f"```bash\n"
                 f"python modules/algorithm/trainer.py --model {model_key} --category <your_category> --data_path <data_path>\n"
@@ -170,10 +170,10 @@ class AnomalyDetector:
                 device='auto'
             )
             self.current_model = model_key
-            return True, f"✅ 成功加载模型: {config.name}"
+            return True, f"[OK] 成功加载模型: {config.name}"
         
         except Exception as e:
-            return False, f"❌ 模型加载失败: {str(e)}"
+            return False, f"[FAIL] 模型加载失败: {str(e)}"
     
     def predict(self, image: np.ndarray) -> Tuple[np.ndarray, np.ndarray, str]:
         """
@@ -186,7 +186,7 @@ class AnomalyDetector:
             Tuple: (原图, 热力图, 结果文本)
         """
         if self.inferencer is None:
-            return image, image, "❌ 模型未加载"
+            return image, image, "[FAIL] 模型未加载"
         
         try:
             # 确保图片格式正确
@@ -214,7 +214,7 @@ class AnomalyDetector:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return image, image, f"❌ 推理失败: {str(e)}"
+            return image, image, f"[FAIL] 推理失败: {str(e)}"
     
     def _generate_heatmap(
         self,
@@ -335,7 +335,7 @@ def create_interface() -> gr.Blocks:
             
             # -------- 右侧：结果展示 --------
             with gr.Column(scale=2):
-                gr.Markdown("### 📊 检测结果")
+                gr.Markdown("### [STAT] 检测结果")
                 
                 with gr.Row():
                     # 原图
@@ -391,7 +391,7 @@ def create_interface() -> gr.Blocks:
         def on_run_click(model_key, image):
             """推理按钮点击事件"""
             if image is None:
-                return None, None, "⚠️ 请先上传图片"
+                return None, None, "[WARN] 请先上传图片"
             
             # 确保模型已加载
             success, message = detector.load_model(model_key)
@@ -428,7 +428,7 @@ def main():
     print("="*70)
     
     # 预加载默认模型
-    print("\n🔄 正在预加载默认模型 (PatchCore)...")
+    print("\n[WAIT] 正在预加载默认模型 (PatchCore)...")
     success, message = detector.load_model('patchcore')
     print(f"   {message}")
     

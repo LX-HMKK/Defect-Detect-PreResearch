@@ -183,7 +183,7 @@ class MVTecFormatter:
         """
         if len(images) > self.max_train_samples:
             self.stats['truncated'] = len(images) - self.max_train_samples
-            print(f"⚠️  训练集样本过多 ({len(images)} 张)，将随机采样保留 {self.max_train_samples} 张")
+            print(f"[WARN] 训练集样本过多 ({len(images)} 张)，将随机采样保留 {self.max_train_samples} 张")
             return random.sample(images, self.max_train_samples)
         return images
     
@@ -237,7 +237,7 @@ class MVTecFormatter:
                     shutil.copy2(src_path, dst_path)
                     count += 1
             except Exception as e:
-                print(f"❌ 处理失败 {src_path}: {e}")
+                print(f"[FAIL] 处理失败 {src_path}: {e}")
         
         return count
     
@@ -259,7 +259,7 @@ class MVTecFormatter:
             mask_path = mask_output_dir / f"{img_path.stem}_mask.png"
             cv2.imwrite(str(mask_path), mask)
         
-        print(f"⚠️  已为 {test_defect_dir.name} 生成空白掩膜（请替换为真实标注）")
+        print(f"[WARN] 已为 {test_defect_dir.name} 生成空白掩膜（请替换为真实标注）")
     
     def convert(self, defect_types: Optional[List[str]] = None) -> Dict:
         """
@@ -272,11 +272,11 @@ class MVTecFormatter:
             Dict: 转换统计信息
         """
         print("="*70)
-        print("🔄 数据集处理模块 (Data Processing Module)")
+        print("[WAIT] 数据集处理模块 (Data Processing Module)")
         print("="*70)
-        print(f"\n📂 输入目录: {self.input_dir}")
-        print(f"📂 输出目录: {self.output_dir}")
-        print(f"📊 训练集上限: {self.max_train_samples} 张")
+        print(f"\n[DIR] 输入目录: {self.input_dir}")
+        print(f"[DIR] 输出目录: {self.output_dir}")
+        print(f"[STAT] 训练集上限: {self.max_train_samples} 张")
         
         # 1. 检测输入结构
         print("\n🔍 检测输入文件夹结构...")
@@ -302,7 +302,7 @@ class MVTecFormatter:
         print(f"   异常类型: {structure['defect_types']}")
         
         # 4. 创建输出目录结构
-        print("\n📂 创建 MVTec AD 目录结构...")
+        print("\n[DIR] 创建 MVTec AD 目录结构...")
         (self.output_dir / 'train' / 'good').mkdir(parents=True, exist_ok=True)
         (self.output_dir / 'test' / 'good').mkdir(parents=True, exist_ok=True)
         for defect in structure['defect_types']:
@@ -355,15 +355,15 @@ class MVTecFormatter:
         
         # 8. 输出统计信息
         print("\n" + "="*70)
-        print("✅ 数据格式转换完成!")
+        print("[OK] 数据格式转换完成!")
         print("="*70)
-        print(f"\n📊 最终数据集统计:")
+        print(f"\n[STAT] 最终数据集统计:")
         print(f"   训练集（正常）: {self.stats['train_normal']} 张")
         if self.stats['truncated'] > 0:
-            print(f"   ⚠️  被截断的样本: {self.stats['truncated']} 张")
+            print(f"   [WARN] 被截断的样本: {self.stats['truncated']} 张")
         print(f"   测试集（正常）: {self.stats['test_normal']} 张")
         print(f"   测试集（异常）: {self.stats['test_defect']} 张")
-        print(f"\n📂 输出目录: {self.output_dir}")
+        print(f"\n[DIR] 输出目录: {self.output_dir}")
         print("\n💡 提示:")
         print("   - 请检查 ground_truth/ 下的掩膜是否为真实标注")
         print("   - 训练时模型将只使用 train/good/ 下的样本")

@@ -51,6 +51,7 @@ data/my_dataset/
 data/dtd_images/
 !data/.gitkeep
 data/
+datasets/
 
 # Logs
 *.log

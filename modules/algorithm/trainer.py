@@ -163,7 +163,7 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         layers = ['layer2', 'layer3']
         coreset_sampling_ratio = 0.1
         num_neighbors = 9
-        pre_trained = False  # 默认禁用预训练下载，使用随机初始化
+        pre_trained = True   # 启用预训练权重，提升特征提取能力
         
         if config:
             backbone = config.get('backbone', backbone)
@@ -181,10 +181,26 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         )
     
     elif model_name == 'ganomaly':
-        return Ganomaly()
+        # 优化参数：使用更小更快的模型
+        return Ganomaly(
+            n_features=32,         # 减小特征维度，加快训练
+            latent_vec_size=64,    # 减小潜在空间
+            extra_layers=0,        # 不增加额外层
+            batch_size=16,         # 减小 batch size
+            wadv=1,
+            wcon=50,
+            wenc=1,
+            lr=0.002,              # 学习率
+            beta1=0.5,
+            beta2=0.999,
+        )
     
     elif model_name == 'draem':
-        return Draem()
+        # 优化参数：使用 beta 范围
+        return Draem(
+            beta=(0.1, 1.0),       # 异常混合因子范围
+            enable_sspcab=False,   # SSPCAB 需要额外训练时间
+        )
     
     else:
         raise ValueError(f"不支持的模型: {model_name}")

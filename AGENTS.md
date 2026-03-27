@@ -241,6 +241,60 @@ class AnomalyDetectionTrainer:
 - 延迟导入重型库（如 anomalib）
 - 设置随机种子
 
+## Git 提交规范（Angular 协议）
+
+### 格式
+```
+<类型>(<范围>): <主题>
+
+[可选正文]
+
+[可选脚注]
+```
+
+### 类型说明
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `feat` | 新功能 | `feat(ui): 添加算法切换功能` |
+| `fix` | 修复 bug | `fix(trainer): 修复显存溢出问题` |
+| `docs` | 文档更新 | `docs: 更新 README` |
+| `style` | 代码格式（不影响功能） | `style: 格式化代码` |
+| `refactor` | 重构（不是修复也不是新功能） | `refactor: 重构模型配置结构` |
+| `perf` | 性能优化 | `perf(patchcore): 启用预训练权重` |
+| `test` | 测试相关 | `test: 添加单元测试` |
+| `chore` | 构建/工具/依赖 | `chore: 更新依赖版本` |
+
+### 示例（中文）
+
+```bash
+# 新功能
+git commit -m "feat(ui): 添加算法切换下拉菜单
+
+支持 PatchCore/Ganomaly/DRAEM 三种算法切换"
+
+# 修复bug
+git commit -m "fix(trainer): 修复 DRAEM 显存溢出问题
+
+将 batch_size 从 32 降至 4"
+
+# 重构
+git commit -m "refactor(algorithm): 重构模型配置结构
+
+提取 get_model_from_config 函数"
+
+# 性能优化
+git commit -m "perf(patchcore): 启用预训练权重
+
+image_AUROC 从 85% 提升至 100%"
+```
+
+### 规则
+- 主题行不超过 72 字符
+- 使用命令式语气（add, fix, update, not added, fixed）
+- 主题首字母小写，不以句号结尾
+- 正文解释 **what** 和 **why**，不解释 **how**
+
 ## pyrightconfig.json
 
 ```json

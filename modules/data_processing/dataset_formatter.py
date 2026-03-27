@@ -187,49 +187,77 @@ class MVTecFormatter:
             return random.sample(images, self.max_train_samples)
         return images
     
-    def _copy_images(self, images: List[Path], dst_dir: Path, desc: str = "复制") -> int:
+    def _copy_images(self, images: List[Path], dst_dir: Path, desc: str = "复制", target_size: Tuple[int, int] = (256, 256)) -> int:
         """
-        复制图片到目标目录
+        复制图片到目标目录（并统一尺寸）
         
         Args:
             images: 源图片路径列表
             dst_dir: 目标目录
             desc: 进度条描述
+            target_size: 目标尺寸 (height, width)
         
         Returns:
             int: 成功复制的数量
         """
         dst_dir.mkdir(parents=True, exist_ok=True)
         count = 0
+        target_h, target_w = target_size
         
         for idx, src_path in enumerate(tqdm(images, desc=desc)):
             dst_name = f"{idx:03d}{src_path.suffix.lower()}"
             dst_path = dst_dir / dst_name
             try:
-                shutil.copy2(src_path, dst_path)
-                count += 1
+                img = cv2.imread(str(src_path))
+                if img is not None:
+                    # Resize to target size (高度优先，保持内容完整)
+                    # 使用 letterbox 方式：先按比例缩放，再padding到目标尺寸
+                    h, w = img.shape[:2]
+                    
+                    # 计算缩放比例（确保内容完整，不裁剪）
+                    scale = min(target_h / h, target_w / w)
+                    new_h, new_w = int(h * scale), int(w * scale)
+                    
+                    # 缩放
+                    resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    
+                    # 创建目标尺寸的画布（黑色背景）
+                    canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+                    
+                    # 计算居中偏移
+                    y_offset = (target_h - new_h) // 2
+                    x_offset = (target_w - new_w) // 2
+                    
+                    # 粘贴到画布中央
+                    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+                    
+                    cv2.imwrite(str(dst_path), canvas)
+                    count += 1
+                else:
+                    shutil.copy2(src_path, dst_path)
+                    count += 1
             except Exception as e:
-                print(f"❌ 复制失败 {src_path}: {e}")
+                print(f"❌ 处理失败 {src_path}: {e}")
         
         return count
     
-    def _generate_dummy_masks(self, test_defect_dir: Path, mask_output_dir: Path):
+    def _generate_dummy_masks(self, test_defect_dir: Path, mask_output_dir: Path, mask_size: Tuple[int, int] = (256, 256)):
         """
         生成空白掩膜作为占位符（如果没有提供真实掩膜）
         
         Args:
             test_defect_dir: 测试异常样本目录
             mask_output_dir: 掩膜输出目录
+            mask_size: 掩膜目标尺寸 (height, width)
         """
         mask_output_dir.mkdir(parents=True, exist_ok=True)
+        target_h, target_w = mask_size
         
         for img_path in self._find_images(test_defect_dir):
-            img = cv2.imread(str(img_path))
-            if img is not None:
-                h, w = img.shape[:2]
-                mask = np.zeros((h, w), dtype=np.uint8)
-                mask_path = mask_output_dir / f"{img_path.stem}_mask.png"
-                cv2.imwrite(str(mask_path), mask)
+            # 创建统一尺寸的空白掩膜
+            mask = np.zeros((target_h, target_w), dtype=np.uint8)
+            mask_path = mask_output_dir / f"{img_path.stem}_mask.png"
+            cv2.imwrite(str(mask_path), mask)
         
         print(f"⚠️  已为 {test_defect_dir.name} 生成空白掩膜（请替换为真实标注）")
     

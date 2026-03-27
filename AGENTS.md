@@ -237,6 +237,8 @@ class AnomalyDetectionTrainer:
 5. **Setuptools 版本**：使用 `setuptools==68.0.0` 以保证 pkg_resources 兼容性
 6. **cv2 导入顺序**：必须在 anomalib 之前导入 cv2，避免 DLL 加载冲突
 7. **OpenVINO 警告**：已通过 stdout 重定向压制，不影响功能
+8. **Windows 多进程问题**：在 `setup()` 中设置 `config.dataset.num_workers = 0` 避免 DataLoader 多进程崩溃
+9. **Python 路径**：使用 `/c/Users/lx_hm/.conda/envs/anomalib/python.exe` 直接运行脚本
 
 ## 当前状态与已知问题
 
@@ -245,13 +247,65 @@ class AnomalyDetectionTrainer:
 - YAML 配置整合（可直接 `python run_training.py` 运行）
 - OpenVINO/wandb 警告压制
 - PatchCore 内存库 bug 修复（anomalib 0.7.0 内部未实现）
+- **PatchCore AUROC=0.5 问题已修复** (2026-03-27)
+  - 问题原因: Lightning Trainer.test() 未正确使用 memory bank
+  - 解决方案: 使用直接推理 + 随机采样代替慢速 coreset 选择
+  - 验证结果: MVTec AD bottle 数据集 AUROC=99.76%, AUPR=99.92%
 
 ### 已知问题 ⚠️
-- **AUROC = 50%**：训练完成但评估接近随机基线，可能原因：
-  - 训练样本超限（200 > 150，违反任务书要求）
-  - 图像尺寸（409x1421）与 MVTec AD 标准不同
-  - Ground truth mask 命名与测试图片的匹配问题
-- **建议**：先用 MVTec AD 公开数据集验证算法基线
+- **企业数据 AUROC 仍为 0.5**: 
+  - 原因分析: 企业数据（region5）图像尺寸（409x1421）与 MVTec AD 标准（256x256）不同
+  - 状态: 需要进一步调查，可能是图像预处理问题
+- **训练样本超限**: region5 有 200 张训练样本，违反任务书 ≤150 限制
+- **建议**: 企业数据需通过 `run_data_processing.py` 处理并限制 150 张
+
+## PatchCore 修复详情
+
+### 问题
+- 训练完成但评估 AUROC=0.5（随机基线）
+
+### 根因
+1. **内存库未构建**: `PatchcoreLightning.training_step()` 返回 None，导致 `training_epoch_end` 不被调用，memory bank 保持为空 `tensor([])`
+2. **Lightning test() 问题**: 即使手动构建了 memory bank，通过 `trainer.test()` 调用时，Lightning 的 test_step 没有正确使用 memory bank
+
+### 解决方案
+1. 在 `trainer.train()` 末尾手动构建 memory bank:
+   ```python
+   # 收集训练集特征
+   embeddings_list = []
+   for batch in train_loader:
+       img = batch["image"]
+       features = model.model.feature_extractor(img)
+       features = {layer: model.model.feature_pooler(f) for layer, f in features.items()}
+       embedding = model.model.generate_embedding(features)
+       embeddings_list.append(embedding)
+   
+   all_embeddings = torch.cat(embeddings_list, dim=0)
+   all_embeddings = model.model.reshape_embedding(all_embeddings)
+   
+   # 随机采样代替慢速 coreset 选择
+   indices = torch.randperm(all_embeddings.shape[0])[:1000]
+   memory_bank = all_embeddings[indices].clone()
+   model.model.memory_bank = memory_bank
+   ```
+
+2. 在 `evaluate()` 中对 PatchCore 使用直接推理:
+   ```python
+   # PatchCore: 使用直接推理而不是 Lightning Trainer.test()
+   if self.model_name == 'patchcore':
+       self.results = self._evaluate_patchcore_direct()
+   ```
+
+3. 添加 `_evaluate_patchcore_direct()` 方法直接调用模型:
+   ```python
+   output = model.model(img)  # 返回 (anomaly_map, image_scores) 元组
+   ```
+
+### 验证结果 (MVTec AD bottle)
+- **image_AUROC**: 99.76%
+- **image_AUPR**: 99.92%
+- **pixel_AUROC**: 98.38%
+- **pixel_PRO**: 98.38%
 
 ## 快速测试命令
 

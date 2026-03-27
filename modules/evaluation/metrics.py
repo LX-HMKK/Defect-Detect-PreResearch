@@ -290,7 +290,7 @@ class MetricsEvaluator:
             title: 标题
         """
         print("="*70)
-        print(f"📊 {title}")
+        print(f"[STAT] {title}")
         print("="*70)
         
         print("\n【图像级指标】- 判断图片是否有缺陷")
@@ -320,7 +320,7 @@ def load_and_evaluate(results_dir: str, model_name: str, category: str):
     json_path = Path(results_dir) / 'comparison' / f'{model_name}_{category}_results.json'
     
     if not json_path.exists():
-        print(f"❌ 结果文件不存在: {json_path}")
+        print(f"[FAIL] 结果文件不存在: {json_path}")
         return
     
     with open(json_path, 'r', encoding='utf-8') as f:
@@ -355,7 +355,7 @@ def main():
     args = parser.parse_args()
     
     print("="*70)
-    print("📊 指标评测模块 (Evaluation Metrics Module)")
+    print("[STAT] 指标评测模块 (Evaluation Metrics Module)")
     print("="*70)
     print("\n4个硬性指标:")
     print("  【图像级】AUROC, AUPR")

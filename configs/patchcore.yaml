@@ -13,7 +13,7 @@
 run:
   model: patchcore                      # 模型名称
   data_path: ./data                     # 数据目录路径
-  category: region5                     # 产品类别名称
+  category: bottle                      # 产品类别名称
   device: cuda                          # 计算设备 (auto/cpu/cuda)
   output_dir: ./results                 # 输出目录
 
@@ -21,7 +21,7 @@ dataset:
   name: mvtec
   format: mvtec
   path: ./data
-  category: region5
+  category: bottle
   task: segmentation
   train_batch_size: 32
   eval_batch_size: 32
@@ -29,9 +29,7 @@ dataset:
   image_size:
     - 256
     - 256
-  center_crop:
-    - 224
-    - 224
+  center_crop: null
   normalization: imagenet
   transform_config:
     train: null
@@ -59,8 +57,8 @@ model:
   num_neighbors: 9
   normalization_method: min_max
   input_size:
-    - 224
-    - 224
+    - 256
+    - 256
 
 metrics:
   image:

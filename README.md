@@ -103,6 +103,68 @@ Defect-Detect-PreResearch/
 
 ---
 
+## 📁 数据目录结构
+
+### 目录概览
+
+```
+data/
+├── region1/                    # 企业数据 region1
+├── region2/                    # 企业数据 region2
+├── region3/                    # 企业数据 region3
+├── region5/                    # 企业数据 region5
+├── region1_scale/              # 缩放版本
+├── region2_scale/
+├── region3_scale256/
+├── region5_scale/
+└── processed/                  # 处理后的数据
+    └── my_product/            # 用户自定义产品
+```
+
+### regionX 数据格式（已转换为 MVTec AD 变体）
+
+```
+regionX/
+├── train/
+│   └── good/                   # 正常训练样本 (*-OK.png)
+├── test/
+│   ├── good/                  # 测试正常样本 (*-OK.png)
+│   ├── lb/                    # 缺陷类型1 - 漏斑 (*-NG.png)
+│   ├── ps/                    # 缺陷类型2 - 凹凸/凸起
+│   ├── py/                    # 缺陷类型3 - 移印
+│   └── tl/                    # 缺陷类型4 - 划伤/裂纹
+└── ground_truth/
+    ├── lb/                    # lb 对应 mask（*_mask.png）
+    ├── ps/
+    ├── py/
+    └── tl/
+```
+
+### 目录内容说明
+
+| 目录 | 内容 | 命名规则 | 说明 |
+|:---|:---|:---|:---|
+| `train/good/` | 正常训练样本 | `*-OK.png` | ⚠️ 当前有 200 张，超过任务书 ≤150 限制 |
+| `test/good/` | 测试正常样本 | `*-OK.png` | 用于评估正常样本的误报率 |
+| `test/lb/` | 漏斑缺陷测试 | `*-NG.png` | Liquid Breakage（漏液） |
+| `test/ps/` | 凹凸缺陷测试 | `*-NG.png` | Push/Surface（凸起/凹陷） |
+| `test/py/` | 移印缺陷测试 | `*-NG.png` | Print Yield（移印偏移） |
+| `test/tl/` | 划伤缺陷测试 | `*-NG.png` | Thin Line（细线/划痕） |
+| `ground_truth/xx/` | 对应 mask | `*_mask.png` | 与测试图同名，多 `_mask` 后缀 |
+
+### 命名规范
+
+- **正常图片**: `T{批次}-P{位置}-C{相机}-I{光源}-{设备编号}-{OK/NG}.png`
+- **Mask 图片**: 同名 + `_mask` 后缀，如 `T000016-P000016-C6-I2-HXMHE2002M70000J43+83YN-NG_mask.png`
+
+### 注意事项
+
+1. **训练样本限制**: 任务书要求 `train/good/` ≤ 150 张，当前超标需通过 `run_data_processing.py` 处理
+2. **Mask 匹配**: mask 文件名比测试图片多 `_mask` 后缀，评估时需注意匹配逻辑
+3. **图片后缀**: `-OK.png` = 正常，`-NG.png` = 缺陷
+
+---
+
 ## 🚀 快速开始
 
 ### 步骤 1: 环境配置

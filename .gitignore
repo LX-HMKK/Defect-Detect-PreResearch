@@ -43,8 +43,8 @@ wheels/
 Thumbs.db
 
 # Project specific
-results/
 !results/.gitkeep
+results/
 weights/
 !weights/.gitkeep
 data/my_dataset/

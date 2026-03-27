@@ -347,7 +347,7 @@ def main():
     parser.add_argument('--results_dir', '-r', type=str, default='./results',
                         help='结果目录')
     parser.add_argument('--model', '-m', type=str, required=True,
-                        choices=['autoencoder', 'patchcore', 'draem', 'all'],
+                        choices=['efficientad', 'ganomaly', 'patchcore', 'draem', 'all'],
                         help='模型名称')
     parser.add_argument('--category', '-c', type=str, required=True,
                         help='产品类别')
@@ -363,7 +363,7 @@ def main():
     print("="*70)
     
     if args.model == 'all':
-        for model in ['autoencoder', 'patchcore', 'draem']:
+        for model in ['efficientad', 'ganomaly', 'patchcore', 'draem']:
             load_and_evaluate(args.results_dir, model, args.category)
             print()
     else:

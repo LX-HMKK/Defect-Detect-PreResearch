@@ -1,5 +1,5 @@
 # ================================================================================
-# 算法 2: PatchCore (基于特征建模)
+# 算法 2: PatchCore (基于特征建模) - Anomalib 2.x 配置
 # ================================================================================
 # 原理: 使用预训练 CNN 提取局部特征，构建记忆库存储正常样本特征。
 #       测试时通过计算测试样本特征与记忆库的最近邻距离来判断异常。
@@ -7,71 +7,48 @@
 # 特点: 工业界目前效果最好的方法，无需训练，推理速度最快
 # ================================================================================
 
-# ================================================================================
-# 运行配置（直接运行 python run_training.py 时使用此配置）
-# ================================================================================
-run:
-  model: patchcore                      # 模型名称
-  data_path: ./data                     # 数据目录路径
-  category: bottle                      # 产品类别名称
-  device: cuda                          # 计算设备 (auto/cpu/cuda)
-  output_dir: ./results                 # 输出目录
+# 数据配置 (Anomalib 2.x 格式)
+data:
+  class_path: anomalib.data.MVTec
+  init_args:
+    root: ./data
+    category: bottle
+    image_size: [256, 256]
+    train_batch_size: 32
+    eval_batch_size: 32
+    num_workers: 0  # Windows 设为 0 避免多进程问题
 
-dataset:
-  name: mvtec
-  format: mvtec
-  path: ./data
-  category: bottle
-  task: segmentation
-  train_batch_size: 32
-  eval_batch_size: 32
-  num_workers: 8
-  image_size:
-    - 256
-    - 256
-  center_crop: null
-  normalization: imagenet
-  transform_config:
-    train: null
-    eval: null
-  test_split_mode: from_dir
-  test_split_ratio: 0.2
-  val_split_mode: same_as_test
-  val_split_ratio: 0.5
-  tiling:
-    apply: false
-    tile_size: null
-    stride: null
-    remove_border_count: 0
-    use_random_tiling: false
-    random_tile_count: 16
-
+# 模型配置 (Anomalib 2.x 格式)
 model:
-  name: patchcore
-  backbone: wide_resnet50_2
-  pre_trained: true
-  layers:
-    - layer2
-    - layer3
-  coreset_sampling_ratio: 0.1
-  num_neighbors: 9
-  normalization_method: min_max
-  input_size:
-    - 256
-    - 256
+  class_path: anomalib.models.Patchcore
+  init_args:
+    backbone: wide_resnet50_2
+    layers:
+      - layer2
+      - layer3
+    pre_trained: true
+    coreset_sampling_ratio: 0.1
+    num_neighbors: 9
 
+# 归一化配置
+normalization:
+  normalization_method: min_max
+
+# 指标配置
 metrics:
   image:
     - F1Score
     - AUROC
+    - AUPR
   pixel:
     - F1Score
     - AUROC
   threshold:
-    method: adaptive
-    manual_image: null
-    manual_pixel: null
+    class_path: anomalib.metrics.F1AdaptiveThreshold
+    init_args:
+      default_value: 0.5
 
+# 可视化配置
 visualization:
   show_images: false
   save_images: false
@@ -79,18 +56,18 @@ visualization:
   image_save_path: null
   mode: full
 
+# 项目配置
 project:
   seed: 0
   path: ./results
   unique_dir: false
 
+# 日志配置
 logging:
   logger: []
   log_graph: false
 
-optimization:
-  export_mode: null
-
+# 训练器配置 (Lightning 格式)
 trainer:
   enable_checkpointing: true
   default_root_dir: results/patchcore

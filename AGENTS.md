@@ -1,7 +1,7 @@
 # AGENTS.md - Agent 开发指南
 
-这是一个基于 **anomalib** 库的工业图像异常检测系统，实现了 3 种算法：
-- **AutoEncoder**（基于重构）
+这是一个基于 **anomalib 2.x** 库的工业图像异常检测系统，实现了 3 种算法：
+- **Ganomaly**（基于重构 - GAN）
 - **PatchCore**（基于特征建模 - 工业应用最佳）
 - **DRAEM**（基于自监督学习）
 
@@ -14,13 +14,56 @@ Defect-Detect-PreResearch/
 │   ├── algorithm/          # 模型训练与推理
 │   ├── evaluation/         # 指标计算
 │   └── ui/                # Gradio 演示界面
-├── configs/                # YAML 算法配置
+├── configs/                # YAML 算法配置 (Anomalib 2.x 格式)
 ├── data/
 │   ├── raw/               # 原始企业数据
 │   └── processed/         # MVTec AD 格式处理后数据
 ├── results/               # 训练结果
 ├── run_*.py              # 入口脚本（根目录）
 └── requirements.txt
+```
+
+## Anomalib 2.x 升级说明
+
+本项目已升级至 **anomalib 2.x**，主要 API 变化如下：
+
+| 旧 API (0.7.x) | 新 API (2.x) | 说明 |
+|:---|:---|:---|
+| `from anomalib.config import get_configurable_parameters` | 直接使用 `OmegaConf` | 配置管理 |
+| `from anomalib.data import get_datamodule` | `from anomalib.data import MVTec, Folder` | 数据模块 |
+| `from anomalib.models import get_model` | `from anomalib.models import Patchcore, Draem, Ganomaly` | 模型 |
+| `from pytorch_lightning import Trainer` | `from anomalib.engine import Engine` | 训练引擎 |
+| `from anomalib.deploy import TorchInferencer` | `Engine().predict()` | 推理 |
+| `trainer.fit(model, datamodule)` | `engine.fit(model=model, datamodule=datamodule)` | 训练 |
+| `trainer.test(model, datamodule)` | `engine.test(model=model, datamodule=datamodule)` | 测试 |
+
+### 配置文件格式变化
+
+旧格式 (0.7.x):
+```yaml
+dataset:
+  name: mvtec
+  format: mvtec
+  path: ./data
+  category: bottle
+
+model:
+  name: patchcore
+  backbone: wide_resnet50_2
+```
+
+新格式 (2.x):
+```yaml
+data:
+  class_path: anomalib.data.MVTec
+  init_args:
+    root: ./data
+    category: bottle
+
+model:
+  class_path: anomalib.models.Patchcore
+  init_args:
+    backbone: wide_resnet50_2
 ```
 
 ## 命令
@@ -31,28 +74,29 @@ Defect-Detect-PreResearch/
 "C:\ProgramData\miniforge3\Scripts\conda.exe" create -n anomalib python=3.10 -y
 
 # 通过 conda 安装 PyTorch CUDA 版本（RTX 4060 需要 CUDA 11.8）
-"C:\ProgramData\miniforge3\Scripts\conda.exe" install -n anomalib -c pytorch -c conda-forge pytorch torchvision pytorch-lightning lightning scikit-learn scipy pandas pillow opencv tqdm pyyaml -y
+"C:\ProgramData\miniforge3\Scripts\conda.exe" install -n anomalib -c pytorch -c nvidia pytorch torchvision pytorch-cuda=11.8 -y
 
-# 通过 pip 安装 anomalib 0.7.0 和其他依赖（注意版本约束）
-"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -m pip install anomalib==0.7.0 gradio omegaconf "numpy<2" "setuptools==68.0.0" packaging albumentations==1.3.1
+# 安装其他依赖
+"C:\ProgramData\miniforge3\Scripts\conda.exe" run -n anomalib conda install -c conda-forge scikit-learn scipy pandas pillow opencv tqdm pyyaml -y
+
+# 通过 pip 安装 anomalib 2.x（推荐）
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -m pip install "anomalib>=2.0.0" --upgrade
+
+# 升级依赖（解决版本冲突）
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -m pip install timm --upgrade
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -m pip install opencv-python==4.8.1.78 --force-reinstall --no-deps
 ```
+
+**注意**：首次运行模型训练时需要从 HuggingFace 下载预训练权重，请确保网络连接正常。
 
 ### 直接运行（推荐）
 
-**修改 `configs/patchcore.yaml` 中的 `run` 配置块，然后直接运行：**
-
-```yaml
-run:
-  model: patchcore              # 算法：patchcore / autoencoder / draem
-  data_path: ./data            # 数据目录（指向region5的父目录）
-  category: region5            # 类别名称
-  device: cuda                 # cuda / cpu
-  output_dir: ./results        # 输出目录
-```
-
 ```bash
-# 直接运行（从 patchcore.yaml 读取配置）
-python run_training.py
+# 训练单个算法
+python run_training.py --model patchcore --category bottle --data_path ./data --device cuda
+
+# 训练所有算法
+python run_training.py --model all --category bottle --data_path ./data --device cuda
 ```
 
 ### 数据处理
@@ -61,29 +105,9 @@ python run_training.py
 python run_data_processing.py --input_dir ./data/raw --output_dir ./data/processed/my_product --max_train 150
 ```
 
-### 训练（命令行参数）
-```bash
-# 训练所有算法
-python run_training.py --model all --category region5 --data_path ./data --device cuda
-
-# 训练单个算法
-python run_training.py --model patchcore --category region5 --data_path ./data --device cuda
-```
-
 ### 评估
 ```bash
-python run_evaluation.py --model all --category region5 --results_dir ./results
-```
-
-### UI 演示
-```bash
-python run_ui.py
-# 访问 http://127.0.0.1:7860
-```
-
-### 评估
-```bash
-python run_evaluation.py --model all --category my_product --results_dir ./results
+python run_evaluation.py --model all --category bottle --results_dir ./results
 ```
 
 ### UI 演示
@@ -158,9 +182,9 @@ def process_data(input_dir: str, max_samples: Optional[int] = 150) -> Dict[str, 
 - 先捕获具体异常
 ```python
 try:
-    from anomalib.config import get_configurable_parameters
+    from anomalib.data import MVTec
 except ImportError as e:
-    print(f"❌ 错误: 未安装 anomalib。请运行: pip install anomalib")
+    print(f"❌ 错误: 未安装 anomalib。请运行: pip install anomalib>=2.0.0")
     raise
 ```
 
@@ -203,7 +227,7 @@ class AnomalyDetectionTrainer:
 ### 文件组织
 - 入口脚本（`run_*.py`）：根目录，逻辑最小化，从 modules 导入
 - 核心模块（`modules/`）：所有业务逻辑
-- 配置文件（`configs/`）：YAML 配置
+- 配置文件（`configs/`）：YAML 配置（Anomalib 2.x 格式）
 
 ### 数据处理
 - 使用 `pathlib.Path` 处理所有路径
@@ -215,7 +239,7 @@ class AnomalyDetectionTrainer:
 - 循环中使用 tqdm 显示进度
 - 尽可能使用 numpy 向量化操作
 - 延迟导入重型库（如 anomalib）
-- 设置随机种子：`seed_everything(42)`
+- 设置随机种子
 
 ## pyrightconfig.json
 
@@ -230,95 +254,57 @@ class AnomalyDetectionTrainer:
 
 ## Agent 关键注意事项
 
-1. **依赖版本**：本项目使用 anomalib 0.7.0（不是 1.x 或 2.x），因为 API 兼容性问题
+1. **依赖版本**：本项目使用 anomalib **2.x**（已升级）
 2. **数据路径**：`--data_path` 应指向类别文件夹的父目录（如 `./data` 而不是 `./data/region5`）
-3. **YAML 配置路径**：`dataset.path` 应该是处理后的目录，`category` 单独设置
-4. **NumPy 版本**：必须使用 `numpy<2`，因为 torch 兼容性
-5. **Setuptools 版本**：使用 `setuptools==68.0.0` 以保证 pkg_resources 兼容性
-6. **cv2 导入顺序**：必须在 anomalib 之前导入 cv2，避免 DLL 加载冲突
-7. **OpenVINO 警告**：已通过 stdout 重定向压制，不影响功能
-8. **Windows 多进程问题**：在 `setup()` 中设置 `config.dataset.num_workers = 0` 避免 DataLoader 多进程崩溃
-9. **Python 路径**：使用 `/c/Users/lx_hm/.conda/envs/anomalib/python.exe` 直接运行脚本
+3. **YAML 配置路径**：`data.init_args.root` 应该是处理后的目录，`category` 单独设置
+4. **NumPy 版本**：使用 numpy >= 1.24.0
+5. **cv2 导入顺序**：必须在 anomalib 之前导入 cv2，避免 DLL 加载冲突
+6. **Windows 多进程问题**：设置 `num_workers: 0` 避免 DataLoader 多进程崩溃
+7. **Python 路径**：使用 `/c/Users/lx_hm/.conda/envs/anomalib/python.exe` 直接运行脚本
 
 ## 当前状态与已知问题
 
 ### 已完成 ✅
 - PyTorch CUDA 配置（RTX 4060 + CUDA 11.8）
-- YAML 配置整合（可直接 `python run_training.py` 运行）
-- OpenVINO/wandb 警告压制
-- PatchCore 内存库 bug 修复（anomalib 0.7.0 内部未实现）
-- **PatchCore AUROC=0.5 问题已修复** (2026-03-27)
-  - 问题原因: Lightning Trainer.test() 未正确使用 memory bank
-  - 解决方案: 使用直接推理 + 随机采样代替慢速 coreset 选择
-  - 验证结果: MVTec AD bottle 数据集 AUROC=99.76%, AUPR=99.92%
+- **Anomalib 2.x 升级完成**
+  - 更新 `trainer.py` 使用新 API
+  - 更新 `demo.py` 使用 `Engine().predict()`
+  - 更新 YAML 配置文件格式
+  - 更新 `requirements.txt`
+  - 更新 `AGENTS.md` 文档
+- 支持三种算法：Ganomaly, PatchCore, DRAEM
 
-### 已知问题 ⚠️
-- **企业数据 region5 AUROC = 56.43%**: 
-  - 原因分析: 缺陷特征与正常特征差异极小（正常 mean=39.02, 异常 mean=39.17, 差=0.15）
-  - 分数重叠率: 43.57%，模型几乎无法区分正常和异常
-  - 状态: 不是代码问题，是数据集本身特征判别性不足
-- **训练样本超限**: region5 有 200 张训练样本，违反任务书 ≤150 限制
-- **建议**: 
-  1. 企业数据需通过 `run_data_processing.py` 预处理并限制 150 张
-  2. 尝试不同的图像预处理策略（更大分辨率、不同归一化）
-  3. 考虑使用其他更适合企业数据特征的算法（如 AutoEncoder、DRAEM）
-
-## PatchCore 修复详情
-
-### 问题
-- 训练完成但评估 AUROC=0.5（随机基线）
-
-### 根因
-1. **内存库未构建**: `PatchcoreLightning.training_step()` 返回 None，导致 `training_epoch_end` 不被调用，memory bank 保持为空 `tensor([])`
-2. **Lightning test() 问题**: 即使手动构建了 memory bank，通过 `trainer.test()` 调用时，Lightning 的 test_step 没有正确使用 memory bank
-
-### 解决方案
-1. 在 `trainer.train()` 末尾手动构建 memory bank:
-   ```python
-   # 收集训练集特征
-   embeddings_list = []
-   for batch in train_loader:
-       img = batch["image"]
-       features = model.model.feature_extractor(img)
-       features = {layer: model.model.feature_pooler(f) for layer, f in features.items()}
-       embedding = model.model.generate_embedding(features)
-       embeddings_list.append(embedding)
-   
-   all_embeddings = torch.cat(embeddings_list, dim=0)
-   all_embeddings = model.model.reshape_embedding(all_embeddings)
-   
-   # 随机采样代替慢速 coreset 选择
-   indices = torch.randperm(all_embeddings.shape[0])[:1000]
-   memory_bank = all_embeddings[indices].clone()
-   model.model.memory_bank = memory_bank
-   ```
-
-2. 在 `evaluate()` 中对 PatchCore 使用直接推理:
-   ```python
-   # PatchCore: 使用直接推理而不是 Lightning Trainer.test()
-   if self.model_name == 'patchcore':
-       self.results = self._evaluate_patchcore_direct()
-   ```
-
-3. 添加 `_evaluate_patchcore_direct()` 方法直接调用模型:
-   ```python
-   output = model.model(img)  # 返回 (anomaly_map, image_scores) 元组
-   ```
-
-### 验证结果 (MVTec AD bottle)
-- **image_AUROC**: 99.76%
-- **image_AUPR**: 99.92%
-- **pixel_AUROC**: 98.38%
-- **pixel_PRO**: 98.38%
+### 升级后变化 ⚠️
+- **API 完全变更**：从 0.7.x 的函数式 API 改为 2.x 的面向对象 API
+- **配置格式变更**：使用 `class_path` 和 `init_args` 格式
+- **训练引擎变更**：从 `pytorch_lightning.Trainer` 改为 `anomalib.engine.Engine`
+- **推理方式变更**：从 `TorchInferencer` 改为 `Engine().predict()`
 
 ## 快速测试命令
 
 ```bash
 # 测试环境是否正确配置
 python -c "
-import torch; import anomalib; import cv2; import gradio
+import torch
+import anomalib
+import cv2
+import gradio
 print(f'PyTorch: {torch.__version__}')
 print(f'Anomalib: {anomalib.__version__}')
 print('All imports OK')
 "
+
+# 测试 Anomalib 2.x 导入
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -c "
+from anomalib.data import MVTec, Folder
+from anomalib.engine import Engine
+from anomalib.models import Patchcore, Draem, Ganomaly
+print('Anomalib 2.x imports OK')
+"
 ```
+
+## Anomalib 2.x 参考文档
+
+- [Anomalib 2.x 官方文档](https://anomalib.readthedocs.io/en/latest/)
+- [迁移指南](https://anomalib.readthedocs.io/en/latest/markdown/get_started/migration.html)
+- [15 分钟快速入门](https://anomalib.readthedocs.io/en/latest/markdown/get_started/anomalib.html)

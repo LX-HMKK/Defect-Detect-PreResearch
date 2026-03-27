@@ -1,10 +1,10 @@
 # ================================================================================
-# 算法 1: AutoEncoder (基于重构) - Anomalib 2.x 配置
+# 算法: Ganomaly (基于重构 - GAN) - Anomalib 2.x 配置
 # ================================================================================
-# 原理: 训练编码器-解码器网络，学习正常样本的压缩表示。
-#       异常样本无法被良好重构，通过重构误差检测异常。
+# 原理: 训练GAN学习正常样本分布，异常样本无法良好重构。
+#       通过重构误差检测异常。
 #
-# 特点: 经典基线方法，结构简单，易于理解和调试
+# 特点: 经典重构方法升级版，基于GAN实现
 # ================================================================================
 
 # 数据配置 (Anomalib 2.x 格式)
@@ -13,27 +13,29 @@ data:
   init_args:
     root: ./data/processed
     category: my_product
-    image_size: [256, 256]
-    center_crop: [224, 224]
     train_batch_size: 8
     eval_batch_size: 8
     num_workers: 0  # Windows 设为 0 避免多进程问题
 
 # 模型配置 (Anomalib 2.x 格式)
 model:
-  class_path: anomalib.models.Autoencoder
+  class_path: anomalib.models.Ganomaly
   init_args:
-    backbone: resnet18
-    pre_trained: true
+    batch_size: 8
+    n_features: 128
+    latent_vec_size: 100
+    extra_layers: 0
+    add_final_conv_layer: true
+    wadv: 1.0
+    wcon: 50.0
+    wenc: 1.0
+    lr: 0.001
+    beta1: 0.5
+    beta2: 0.999
 
 # 优化器配置
 optimization:
   export_mode: null
-  optimizer:
-    class_path: torch.optim.Adam
-    init_args:
-      lr: 0.001
-      weight_decay: 0.00001
 
 # 归一化配置
 normalization:
@@ -75,7 +77,7 @@ logging:
 # 训练器配置
 trainer:
   enable_checkpointing: true
-  default_root_dir: results/autoencoder
+  default_root_dir: results/ganomaly
   gradient_clip_val: 0
   gradient_clip_algorithm: norm
   num_nodes: 1

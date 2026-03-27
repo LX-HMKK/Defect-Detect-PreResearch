@@ -1,6 +1,6 @@
 """
 ================================================================================
-模块 4: UI 界面演示模块 (UI Demo Module)
+模块 4: UI 界面演示模块 (UI Demo Module) - Anomalib 2.x
 ================================================================================
 
 功能: 使用 Gradio 构建交互式 Web 界面，用于展示算法推理结果
@@ -23,19 +23,23 @@
 import os
 import warnings
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from dataclasses import dataclass
 
 import numpy as np
 import cv2
 import gradio as gr
+import torch
 
-# anomalib 推理器
-try:
-    from anomalib.deploy import TorchInferencer
-except ImportError:
-    print("[FAIL] 错误: 未安装 anomalib")
-    raise
+# anomalib 2.x 导入
+from anomalib.engine import Engine
+from anomalib.data import PredictDataset
+from anomalib.models import (
+    Patchcore,
+    Draem,
+    EfficientAd,
+    Ganomaly,
+)
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -51,26 +55,41 @@ class ModelConfig:
     name: str
     direction: str          # 算法方向
     description: str        # 详细描述
-    config_path: str        # 配置文件路径
     weight_path: str        # 权重文件路径
+    model_class: type       # 模型类
 
 
-# 3 种算法的配置
+# 4 种算法的配置
 MODEL_CONFIGS = {
-    'autoencoder': ModelConfig(
-        name='AutoEncoder',
-        direction='基于重构',
+    'efficientad': ModelConfig(
+        name='EfficientAd',
+        direction='基于轻量级特征对齐',
         description='''
-**算法原理**: 训练编码器-解码器网络，学习正常样本的压缩表示。
-异常样本无法被良好重构，通过重构误差检测异常。
+**算法原理**: 使用预训练教师网络和学生网络，通过特征对齐误差检测异常。
+结合了知识蒸馏和特征对齐的思想。
 
 **特点**:
-- 经典基线方法，结构简单直观
-- 适合理解异常检测的基本原理
-- 推理速度中等
+- 速度快，精度高，适合工业部署
+- 模型轻量级，推理效率高
+- 训练稳定，收敛快
 ''',
-        config_path='./configs/autoencoder.yaml',
-        weight_path='./results/autoencoder/checkpoints/model.ckpt'
+        weight_path='./results/efficientad/weights/model.ckpt',
+        model_class=EfficientAd,
+    ),
+    'ganomaly': ModelConfig(
+        name='Ganomaly',
+        direction='基于重构 (GAN)',
+        description='''
+**算法原理**: 训练GAN学习正常样本分布，异常样本无法良好重构。
+通过重构误差检测异常。
+
+**特点**:
+- 经典重构方法升级版
+- 基于GAN实现
+- 适合理解重构思想
+''',
+        weight_path='./results/ganomaly/weights/model.ckpt',
+        model_class=Ganomaly,
     ),
     'patchcore': ModelConfig(
         name='PatchCore',
@@ -84,8 +103,8 @@ MODEL_CONFIGS = {
 - 工业界目前效果最好的方法
 - 推理速度最快，适合实时检测
 ''',
-        config_path='./configs/patchcore.yaml',
-        weight_path='./results/patchcore/checkpoints/model.ckpt'
+        weight_path='./results/patchcore/weights/model.ckpt',
+        model_class=Patchcore,
     ),
     'draem': ModelConfig(
         name='DRAEM',
@@ -99,8 +118,8 @@ MODEL_CONFIGS = {
 - 对小缺陷检测效果较好
 - 推理速度较慢，但定位精度高
 ''',
-        config_path='./configs/draem.yaml',
-        weight_path='./results/draem/checkpoints/model.ckpt'
+        weight_path='./results/draem/weights/model.ckpt',
+        model_class=Draem,
     )
 }
 
@@ -121,7 +140,8 @@ class AnomalyDetector:
     
     def __init__(self):
         self.current_model: Optional[str] = None
-        self.inferencer: Optional[TorchInferencer] = None
+        self.model = None
+        self.engine = None
     
     def load_model(self, model_key: str) -> Tuple[bool, str]:
         """
@@ -134,7 +154,7 @@ class AnomalyDetector:
             Tuple[bool, str]: (是否成功, 状态信息)
         """
         # 如果模型已加载，直接返回
-        if model_key == self.current_model and self.inferencer is not None:
+        if model_key == self.current_model and self.model is not None:
             return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name}"
         
         config = MODEL_CONFIGS.get(model_key)
@@ -163,13 +183,22 @@ class AnomalyDetector:
             )
         
         try:
-            # 加载模型
-            self.inferencer = TorchInferencer(
-                config=config.config_path,
-                model_source=str(weight_path),
-                device='auto'
-            )
+            # 创建模型实例
+            self.model = config.model_class()
+            
+            # 创建 Engine
+            self.engine = Engine()
+            
+            # 加载权重
+            checkpoint = torch.load(weight_path, map_location='cpu')
+            if 'state_dict' in checkpoint:
+                self.model.load_state_dict(checkpoint['state_dict'])
+            else:
+                self.model.load_state_dict(checkpoint)
+            
+            self.model.eval()
             self.current_model = model_key
+            
             return True, f"[OK] 成功加载模型: {config.name}"
         
         except Exception as e:
@@ -185,7 +214,7 @@ class AnomalyDetector:
         Returns:
             Tuple: (原图, 热力图, 结果文本)
         """
-        if self.inferencer is None:
+        if self.model is None or self.engine is None:
             return image, image, "[FAIL] 模型未加载"
         
         try:
@@ -195,21 +224,50 @@ class AnomalyDetector:
             elif image.shape[2] == 4:
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
             
-            # 推理
-            predictions = self.inferencer.predict(image=image)
+            # 保存临时文件用于 PredictDataset
+            temp_dir = Path('./temp_predict')
+            temp_dir.mkdir(exist_ok=True)
+            temp_path = temp_dir / 'temp_image.png'
+            cv2.imwrite(str(temp_path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             
-            # 提取结果
-            anomaly_map = predictions.anomaly_map
-            pred_score = predictions.pred_score
-            pred_label = predictions.pred_label
+            # 创建预测数据集
+            dataset = PredictDataset(
+                path=temp_dir,
+                image_size=(256, 256),
+            )
             
-            # 生成热力图
-            heatmap = self._generate_heatmap(image, anomaly_map)
+            # 执行推理
+            predictions = self.engine.predict(
+                model=self.model,
+                dataset=dataset,
+            )
             
-            # 生成结果文本
-            result_text = self._format_result(pred_score, pred_label)
+            # 清理临时文件
+            temp_path.unlink(missing_ok=True)
             
-            return image, heatmap, result_text
+            # 获取预测结果
+            if predictions is not None:
+                # 转换为列表（如果是生成器）
+                if not isinstance(predictions, list):
+                    predictions = list(predictions)
+                
+                if len(predictions) > 0:
+                    prediction = predictions[0]
+                    
+                    # 提取结果
+                    anomaly_map = prediction.anomaly_map
+                    pred_score = float(prediction.pred_score)
+                    pred_label = int(prediction.pred_label)
+                    
+                    # 生成热力图
+                    heatmap = self._generate_heatmap(image, anomaly_map)
+                    
+                    # 生成结果文本
+                    result_text = self._format_result(pred_score, pred_label)
+                    
+                    return image, heatmap, result_text
+            
+            return image, image, "[FAIL] 推理失败: 未获取到预测结果"
         
         except Exception as e:
             import traceback
@@ -219,9 +277,17 @@ class AnomalyDetector:
     def _generate_heatmap(
         self,
         original: np.ndarray,
-        anomaly_map: np.ndarray
+        anomaly_map: torch.Tensor
     ) -> np.ndarray:
         """生成异常热力图"""
+        # 将 tensor 转换为 numpy
+        if isinstance(anomaly_map, torch.Tensor):
+            anomaly_map = anomaly_map.cpu().numpy()
+        
+        # 如果是多通道，取第一个通道
+        if len(anomaly_map.shape) > 2:
+            anomaly_map = anomaly_map[0]
+        
         # 归一化
         anomaly_norm = (anomaly_map - anomaly_map.min()) / (anomaly_map.max() - anomaly_map.min() + 1e-8)
         anomaly_uint8 = (anomaly_norm * 255).astype(np.uint8)
@@ -286,11 +352,12 @@ def create_interface() -> gr.Blocks:
         gr.Markdown("""
         # 🔍 工业图像异常检测演示系统
         
-        基于 **anomalib** 的三种主流算法实现
+        基于 **anomalib 2.x** 的四种主流算法实现
         
         | 算法 | 方向 | 特点 |
         |:---|:---:|:---|
-        | **AutoEncoder** | 重构 | 经典基线，易于理解 |
+        | **EfficientAd** | 轻量级特征对齐 | 速度快，适合部署 |
+        | **Ganomaly** | 基于重构 (GAN) | 经典重构方法 |
         | **PatchCore** | 特征建模 | 工业界最佳，无需训练 |
         | **DRAEM** | 自监督 | 无需异常样本，定位精准 |
         """)
@@ -421,14 +488,14 @@ def create_interface() -> gr.Blocks:
 def main():
     """主函数"""
     print("="*70)
-    print("🖥️  UI 界面演示模块 (UI Demo Module)")
+    print("[UI] UI Demo Module (Anomalib 2.x)")
     print("="*70)
-    print("\n正在启动 Gradio 服务...")
-    print("访问地址: http://127.0.0.1:7860")
+    print("\nStarting Gradio service...")
+    print("Access: http://127.0.0.1:7860")
     print("="*70)
     
     # 预加载默认模型
-    print("\n[WAIT] 正在预加载默认模型 (PatchCore)...")
+    print("\n[WAIT] Preloading default model (PatchCore)...")
     success, message = detector.load_model('patchcore')
     print(f"   {message}")
     

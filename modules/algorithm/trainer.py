@@ -1,12 +1,12 @@
 """
 ================================================================================
-模块 2: 核心算法复现模块 (Algorithm Implementation Module)
+模块 2: 核心算法复现模块 (Algorithm Implementation Module) - Anomalib 2.x
 ================================================================================
 
-功能: 调用 anomalib 训练和测试 3 种异常检测算法
+功能: 调用 anomalib 2.x 训练和测试 3 种异常检测算法
 
-复现的算法（从4个方向选3个）:
-    1. AutoEncoder (基于重构) - 经典基线
+复现的算法（3个）:
+    1. Ganomaly (基于重构/GAN)
     2. PatchCore (基于特征建模) - 工业界效果最好
     3. DRAEM (基于自监督学习) - 无需真实异常样本训练
 
@@ -42,50 +42,32 @@ import cv2  # Import cv2 first to avoid DLL loading issues with anomalib
 import pandas as pd
 from tqdm import tqdm
 
-# 压制 anomalib 的 OpenVINO 等无用警告信息
-class _StdoutSuppressor:
-    """临时压制 stdout 输出"""
-    def __enter__(self):
-        self._old_stdout = sys.stdout
-        self._old_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-        return self
-    def __exit__(self, *args):
-        sys.stdout = self._old_stdout
-        sys.stderr = self._old_stderr
-
-# anomalib 导入（压制其内部 print 的 OpenVINO/wandb 警告）
-try:
-    with _StdoutSuppressor():
-        from anomalib.config import get_configurable_parameters
-        from anomalib.data import get_datamodule
-        from anomalib.models import get_model
-        from anomalib.utils.callbacks import LoadModelCallback, get_callbacks
-        from pytorch_lightning import Trainer, seed_everything
-        from omegaconf import OmegaConf, DictConfig, ListConfig
-except ImportError as e:
-    print(f"[FAIL] 错误: 未安装 anomalib。请运行: pip install anomalib")
-    raise
+# anomalib 2.x 导入
+from anomalib.data import MVTec, Folder
+from anomalib.engine import Engine
+from anomalib.models import (
+    Patchcore,
+    Draem,
+    Ganomaly,
+)
 
 # 忽略警告
 warnings.filterwarnings('ignore')
 
 
 # ================================================================================
-# 支持的模型配置（3个最易复现的算法）
+# 支持的模型配置（3个算法）
 # ================================================================================
 
-SUPPORTED_MODELS = ['autoencoder', 'patchcore', 'draem']
+SUPPORTED_MODELS = ['ganomaly', 'patchcore', 'draem']
 
 MODEL_INFO = {
-    'autoencoder': {
-        '方向': '基于重构',
-        '原理': '训练编码器-解码器网络，通过重构误差检测异常',
-        '特点': '经典基线，结构简单，易于理解',
-        '复现难度': '** (easier)',
-        '训练时间': '~15分钟 (100 epochs)',
-        'config_file': 'configs/autoencoder.yaml'
+    'ganomaly': {
+        '方向': '基于重构 (GAN)',
+        '原理': '训练GAN学习正常样本分布，异常样本无法良好重构，通过重构误差检测',
+        '特点': '经典重构方法升级版，基于GAN实现',
+        '复现难度': '** (medium)',
+        '训练时间': '~20分钟 (100 epochs)',
     },
     'patchcore': {
         '方向': '基于特征建模',
@@ -93,25 +75,127 @@ MODEL_INFO = {
         '特点': '工业界效果最好，无需训练，推理最快',
         '复现难度': '* (easiest)',
         '训练时间': '~1分钟 (仅构建记忆库)',
-        'config_file': 'configs/patchcore.yaml'
     },
     'draem': {
         '方向': '基于自监督学习',
         '原理': '生成合成异常样本，训练判别网络区分正常/异常区域',
         '特点': '无需真实异常样本即可训练，对小缺陷敏感',
-        '复现难度': '*** (medium)',
+        '复现难度': '*** (hard)',
         '训练时间': '~30分钟 (200 epochs)',
-        'config_file': 'configs/draem.yaml'
     }
 }
 
 
+def get_datamodule_from_config(
+    data_path: str,
+    category: str,
+    model_name: str,
+    config: Optional[Dict[str, Any]] = None
+) -> Union[MVTec, Folder]:
+    """
+    根据配置创建数据模块
+    
+    Args:
+        data_path: 数据目录路径
+        category: 类别名称
+        model_name: 模型名称
+        config: 额外配置参数
+    
+    Returns:
+        MVTec 或 Folder 数据模块
+    """
+    data_path = Path(data_path)
+    
+    # 默认配置
+    train_batch_size = 32
+    eval_batch_size = 32
+    num_workers = 0  # Windows 多进程问题
+    
+    if config:
+        train_batch_size = config.get('train_batch_size', train_batch_size)
+        eval_batch_size = config.get('eval_batch_size', eval_batch_size)
+        num_workers = config.get('num_workers', num_workers)
+    
+    # 检测数据集格式
+    category_path = data_path / category
+    
+    # DRAEM 显存占用大，需要更小的 batch_size
+    if model_name == 'draem':
+        train_batch_size = 4
+        eval_batch_size = 4
+    
+    # 如果是 MVTec AD 格式（有 train, test, ground_truth 目录）
+    if (category_path / 'train').exists() and (category_path / 'test').exists():
+        return MVTec(
+            root=str(data_path),
+            category=category,
+            train_batch_size=train_batch_size,
+            eval_batch_size=eval_batch_size,
+            num_workers=num_workers,
+        )
+    else:
+        # 使用 Folder 格式
+        return Folder(
+            root=str(category_path),
+            normal_dir='train/good',
+            abnormal_dir='test',
+            normal_test_dir='test/good',
+            train_batch_size=train_batch_size,
+            eval_batch_size=eval_batch_size,
+            num_workers=num_workers,
+            task='segmentation',
+        )
+
+
+def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None):
+    """
+    根据配置创建模型
+    
+    Args:
+        model_name: 模型名称
+        config: 模型配置参数
+    
+    Returns:
+        模型实例
+    """
+    if model_name == 'patchcore':
+        backbone = 'wide_resnet50_2'
+        layers = ['layer2', 'layer3']
+        coreset_sampling_ratio = 0.1
+        num_neighbors = 9
+        pre_trained = False  # 默认禁用预训练下载，使用随机初始化
+        
+        if config:
+            backbone = config.get('backbone', backbone)
+            layers = config.get('layers', layers)
+            coreset_sampling_ratio = config.get('coreset_sampling_ratio', coreset_sampling_ratio)
+            num_neighbors = config.get('num_neighbors', num_neighbors)
+            pre_trained = config.get('pre_trained', pre_trained)
+        
+        return Patchcore(
+            backbone=backbone,
+            layers=layers,
+            coreset_sampling_ratio=coreset_sampling_ratio,
+            num_neighbors=num_neighbors,
+            pre_trained=pre_trained,
+        )
+    
+    elif model_name == 'ganomaly':
+        return Ganomaly()
+    
+    elif model_name == 'draem':
+        return Draem()
+    
+    else:
+        raise ValueError(f"不支持的模型: {model_name}")
+
+
 class AnomalyDetectionTrainer:
     """
-    异常检测算法训练器
+    异常检测算法训练器 (Anomalib 2.x)
     
-    封装 anomalib 的训练和评估流程，支持3种算法：
-    - AutoEncoder: 重构方法
+    封装 anomalib 2.x 的训练和评估流程，支持3种算法：
+    - Ganomaly: GAN重构方法
     - PatchCore: 特征建模方法
     - DRAEM: 自监督学习方法
     """
@@ -130,11 +214,11 @@ class AnomalyDetectionTrainer:
         初始化训练器
         
         Args:
-            model_name: 模型名称 (autoencoder/patchcore/draem)
+            model_name: 模型名称 (efficientad/patchcore/draem)
             data_path: 数据集路径（MVTec AD 格式）
             category: 产品类别名称
             output_dir: 结果输出目录
-            config_path: 配置文件路径（可选，默认使用 configs/{model}.yaml）
+            config_path: 配置文件路径（可选，保留参数兼容性）
             device: 计算设备 (auto/cpu/cuda)
             seed: 随机种子
         """
@@ -148,46 +232,13 @@ class AnomalyDetectionTrainer:
         self.device = device
         self.seed = seed
         
-        # 加载配置文件
-        if config_path is None:
-            config_path = Path(__file__).parent.parent.parent / MODEL_INFO[model_name]['config_file']
-        self.config_path = Path(config_path)
-        
-        if not self.config_path.exists():
-            raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
-        
-        # 加载并修改配置
-        self.config = self._load_config()
-        
-        # 训练器
-        self.trainer: Optional[Trainer] = None
-        self.model = None
+        # 数据模块和模型
         self.datamodule = None
+        self.model = None
+        self.engine = None
         
         # 结果
         self.results: Optional[Dict[str, Any]] = None
-    
-    def _load_config(self) -> Any:
-        """加载并修改配置文件"""
-        config = OmegaConf.load(self.config_path)
-        
-        # 修改数据集配置
-        config.dataset.path = str(self.data_path)
-        config.dataset.category = self.category
-        
-        # 修改输出目录
-        config.project.path = str(self.output_dir)
-        config.project.default_root_dir = str(self.output_dir / self.model_name)
-        
-        # 设置设备
-        config.trainer.accelerator = self.device
-        config.trainer.devices = 1
-        
-        # 设置随机种子
-        config.project.seed = self.seed
-        seed_everything(self.seed)
-        
-        return config
     
     def _print_model_info(self):
         """打印模型信息"""
@@ -206,21 +257,26 @@ class AnomalyDetectionTrainer:
         """设置数据模块和模型"""
         print("\n[STAT] 加载数据集...")
         
-        # 设置 num_workers=0 避免 Windows 多进程问题
-        self.config.dataset.num_workers = 0
-        
-        self.datamodule = get_datamodule(self.config)
+        # 创建数据模块
+        self.datamodule = get_datamodule_from_config(
+            str(self.data_path),
+            self.category,
+            self.model_name
+        )
         self.datamodule.setup()
         
         print(f"   训练集样本数: {len(self.datamodule.train_data)}")
         print(f"   测试集样本数: {len(self.datamodule.test_data)}")
         
         print(f"\n[BUILD] 创建 {self.model_name} 模型...")
-        self.model = get_model(self.config)
+        self.model = get_model_from_config(self.model_name)
     
-    def train(self) -> Dict[str, Any]:
+    def train(self, max_epochs: Optional[int] = None) -> Dict[str, Any]:
         """
         训练模型
+        
+        Args:
+            max_epochs: 最大训练轮次（可选，默认为模型推荐值）
         
         Returns:
             Dict: 训练结果
@@ -228,70 +284,36 @@ class AnomalyDetectionTrainer:
         self._print_model_info()
         self.setup()
         
-        # 创建回调函数
-        callbacks = get_callbacks(self.config)
+        # 设置默认 epoch
+        if max_epochs is None:
+            if self.model_name == 'patchcore':
+                max_epochs = 1
+            elif self.model_name == 'ganomaly':
+                max_epochs = 100
+            elif self.model_name == 'draem':
+                max_epochs = 200
         
-        # 创建训练器
-        self.trainer = Trainer(
-            max_epochs=self.config.trainer.max_epochs,
-            accelerator=self.config.trainer.accelerator,
-            devices=self.config.trainer.devices,
-            callbacks=callbacks,
-            gradient_clip_val=self.config.trainer.get('gradient_clip_val', 0),
-            accumulate_grad_batches=self.config.trainer.get('accumulate_grad_batches', 1),
-            check_val_every_n_epoch=self.config.trainer.get('check_val_every_n_epoch', 1),
-            default_root_dir=self.config.project.default_root_dir,
-            num_sanity_val_steps=self.config.trainer.get('num_sanity_val_steps', 0),
-        )
-        
-        # 训练
+        # 创建 Engine (禁用 rich 进度条避免 Windows GBK 编码问题)
         print("\n[WAIT] 开始训练...")
         if self.model_name == 'patchcore':
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
         
-        self.trainer.fit(model=self.model, datamodule=self.datamodule)  # type: ignore
+        self.engine = Engine(
+            max_epochs=max_epochs,
+            accelerator=self.device,
+            devices=1,
+            default_root_dir=str(self.output_dir / self.model_name),
+            enable_progress_bar=False,  # 禁用 rich 进度条
+        )
         
-        # BUG FIX: PatchCore 的 training_epoch_end 未实现，内存库未构建
-        # 原因: training_step 返回 None，training_epoch_end 不会被调用
-        # 解决: 手动遍历训练集收集特征，构建内存库
-        if self.model_name == 'patchcore':
-            import torch
-            from tqdm import tqdm
-            
-            print("   [BUILD] 手动收集训练集特征...")
-            self.model.model.feature_extractor.eval()
-            embeddings_list = []
-            
-            train_loader = self.datamodule.train_dataloader()
-            with torch.no_grad():
-                for batch in tqdm(train_loader, desc="   [BUILD] 收集特征"):
-                    img = batch["image"]
-                    features = self.model.model.feature_extractor(img)
-                    features = {layer: self.model.model.feature_pooler(f) for layer, f in features.items()}
-                    embedding = self.model.model.generate_embedding(features)
-                    embeddings_list.append(embedding)
-            
-            # 拼接所有特征
-            all_embeddings = torch.cat(embeddings_list, dim=0)  # [N, C, H, W]
-            all_embeddings = self.model.model.reshape_embedding(all_embeddings)  # [N*H*W, C]
-            
-            # 内存库构建 - 使用随机采样代替慢速 coreset 选择
-            print(f"   [BUILD] 特征总数: {all_embeddings.shape[0]}")
-            
-            # 目标内存库大小: 使用 0.1 ratio 但最大不超过 1000 个样本
-            coreset_ratio = self.config.model.get('coreset_sampling_ratio', 0.1)
-            target_size = min(int(all_embeddings.shape[0] * coreset_ratio), 1000)
-            
-            # 随机采样构建内存库 (避免慢速 coreset 选择)
-            indices = torch.randperm(all_embeddings.shape[0])[:target_size]
-            memory_bank = all_embeddings[indices].clone()
-            
-            # 直接设置内存库
-            self.model.model.memory_bank = memory_bank
-            print(f"   [OK] 内存库已构建 (随机采样): {self.model.model.memory_bank.shape}")
+        # 训练
+        self.engine.fit(
+            datamodule=self.datamodule,
+            model=self.model,
+        )
         
         print("[OK] 训练完成")
-        return {'status': 'success', 'epochs': self.config.trainer.max_epochs}
+        return {'status': 'success', 'epochs': max_epochs}
     
     def evaluate(self, checkpoint_path: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -311,45 +333,36 @@ class AnomalyDetectionTrainer:
         print("[TEST] 模型评估 - 输出4个硬性指标")
         print("="*70)
         
-        # 如果没有训练过，先加载模型
-        if self.trainer is None:
+        # 如果没有训练过，先设置
+        if self.engine is None:
             self.setup()
-            
-            if checkpoint_path is None:
-                # 自动查找最新的 checkpoint
-                checkpoint_dir = Path(self.config.project.default_root_dir) / 'checkpoints'
-                if checkpoint_dir.exists():
-                    checkpoints = list(checkpoint_dir.glob('*.ckpt'))
-                    if checkpoints:
-                        checkpoint_path = str(sorted(checkpoints)[-1])
-            
-            if checkpoint_path:
-                print(f"\n[PATH] 加载权重: {checkpoint_path}")
-                callbacks = [LoadModelCallback(weights_path=checkpoint_path)]
-            else:
-                callbacks = []
-            
-            self.trainer = Trainer(
-                accelerator=self.config.trainer.accelerator,
-                devices=self.config.trainer.devices,
-                callbacks=callbacks,
-                default_root_dir=self.config.project.default_root_dir,
+            self.engine = Engine(
+                accelerator=self.device,
+                devices=1,
+                default_root_dir=str(self.output_dir / self.model_name),
+                enable_progress_bar=False,
             )
         
-        # PatchCore: 使用直接推理而不是 Lightning Trainer.test()
-        # 因为 Lightning 的 test_step 可能没有正确使用 memory bank
-        if self.model_name == 'patchcore':
-            print("\n[WAIT] 开始测试 (PatchCore 直接推理)...")
-            self.results = self._evaluate_patchcore_direct()
+        # 测试
+        print("\n[WAIT] 开始测试...")
+        test_results = self.engine.test(
+            datamodule=self.datamodule,
+            model=self.model,
+            ckpt_path=checkpoint_path,
+        )
+        
+        if test_results and len(test_results) > 0:
+            results = test_results[0]
         else:
-            # 其他模型使用 Lightning Trainer
-            print("\n[WAIT] 开始测试...")
-            test_results = self.trainer.test(model=self.model, datamodule=self.datamodule)  # type: ignore
-            
-            if test_results and len(test_results) > 0:
-                self.results = test_results[0]
-            else:
-                self.results = {}
+            results = {}
+        
+        # 提取4个硬性指标
+        self.results = {
+            'image_AUROC': results.get('image_AUROC', 0.0),
+            'image_AUPR': results.get('image_AUPR', 0.0),
+            'pixel_AUROC': results.get('pixel_AUROC', 0.0),
+            'pixel_PRO': results.get('pixel_PRO', 0.0),
+        }
         
         # 打印4个硬性指标
         print("\n" + "-"*70)
@@ -379,107 +392,6 @@ class AnomalyDetectionTrainer:
         
         return self.results
     
-    def _evaluate_patchcore_direct(self) -> Dict[str, Any]:
-        """
-        PatchCore 直接推理（绕过 Lightning Trainer）
-        
-        因为 Lightning 的 test_step 可能没有正确使用 memory bank，
-        我们直接调用模型的 forward 方法进行推理。
-        
-        Returns:
-            Dict: 包含4个硬性指标的结果
-        """
-        from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
-        import numpy as np
-        
-        self.model.eval()
-        self.model.model.feature_extractor.eval()
-        
-        all_labels = []
-        all_image_scores = []
-        all_anomaly_maps = []
-        all_gt_masks = []
-        
-        test_loader = self.datamodule.test_dataloader()
-        
-        with torch.no_grad():
-            for batch in tqdm(test_loader, desc="   [TEST] 推理"):
-                img = batch["image"].to(self.model.device if hasattr(self.model, 'device') else 'cuda')
-                label = batch["label"].numpy()
-                
-                # 直接调用模型的 forward
-                output = self.model.model(img)
-                
-                # output 是 (anomaly_map, image_scores) 元组
-                if isinstance(output, tuple):
-                    anomaly_map, image_scores = output
-                    image_scores = image_scores.cpu().numpy()
-                    anomaly_map = anomaly_map.cpu().numpy()
-                else:
-                    # 如果是字典或其他格式，尝试提取
-                    if isinstance(output, dict):
-                        image_scores = output.get('pred_scores', output.get('image_score', None))
-                        anomaly_map = output.get('anomaly_map', output.get('pred_masks', None))
-                        if image_scores is not None and hasattr(image_scores, 'cpu'):
-                            image_scores = image_scores.cpu().numpy()
-                        if anomaly_map is not None and hasattr(anomaly_map, 'cpu'):
-                            anomaly_map = anomaly_map.cpu().numpy()
-                    else:
-                        image_scores = np.array([0.5])
-                        anomaly_map = np.zeros((img.shape[0], 1, img.shape[2], img.shape[3]))
-                
-                all_labels.extend(label.tolist())
-                all_image_scores.extend(image_scores.tolist() if hasattr(image_scores, '__iter__') else [image_scores])
-                all_anomaly_maps.append(anomaly_map)
-                
-                # 收集 ground truth masks
-                if 'mask' in batch:
-                    mask = batch['mask']
-                    if isinstance(mask, torch.Tensor):
-                        mask = mask.cpu().numpy()
-                    all_gt_masks.append(mask)
-        
-        # 转换为 numpy 数组
-        all_labels = np.array(all_labels)
-        all_image_scores = np.array(all_image_scores)
-        
-        # 合并所有 anomaly maps 和 masks
-        if all_anomaly_maps:
-            all_anomaly_maps = np.concatenate(all_anomaly_maps, axis=0)
-        if all_gt_masks:
-            all_gt_masks = np.concatenate(all_gt_masks, axis=0)
-        
-        # 计算图像级指标
-        image_auroc = roc_auc_score(all_labels, all_image_scores)
-        precision, recall, _ = precision_recall_curve(all_labels, all_image_scores)
-        image_aupr = auc(recall, precision)
-        
-        # 计算像素级指标
-        pixel_auroc = 0.0
-        pixel_pro = 0.0
-        
-        if len(all_anomaly_maps) > 0 and len(all_gt_masks) > 0:
-            # 确保形状匹配
-            if all_anomaly_maps.shape[0] == all_gt_masks.shape[0]:
-                # 展平计算 Pixel AUROC
-                anomaly_flat = all_anomaly_maps.reshape(-1)
-                mask_flat = all_gt_masks.reshape(-1)
-                
-                if len(np.unique(mask_flat)) > 1:
-                    pixel_auroc = roc_auc_score(mask_flat, anomaly_flat)
-                
-                # 计算 PRO (简化版)
-                pixel_pro = pixel_auroc  # 使用简化估计
-        
-        results = {
-            'image_AUROC': float(image_auroc),
-            'image_AUPR': float(image_aupr),
-            'pixel_AUROC': float(pixel_auroc),
-            'pixel_PRO': float(pixel_pro)
-        }
-        
-        return results
-    
     def _save_results(self):
         """保存评估结果"""
         result_dir = self.output_dir / 'comparison'
@@ -490,12 +402,7 @@ class AnomalyDetectionTrainer:
             'model': self.model_name,
             'category': self.category,
             'timestamp': datetime.now().isoformat(),
-            'metrics': {
-                'image_AUROC': self.results.get('image_AUROC', 0),
-                'image_AUPR': self.results.get('image_AUPR', 0),
-                'pixel_AUROC': self.results.get('pixel_AUROC', 0),
-                'pixel_PRO': self.results.get('pixel_PRO', 0)
-            }
+            'metrics': self.results
         }
         
         # 保存为 JSON
@@ -505,14 +412,17 @@ class AnomalyDetectionTrainer:
         
         print(f"\n[FILE] 结果已保存: {json_path}")
     
-    def train_and_evaluate(self) -> Dict:
+    def train_and_evaluate(self, max_epochs: Optional[int] = None) -> Dict:
         """
         完整流程：训练 + 评估
+        
+        Args:
+            max_epochs: 最大训练轮次
         
         Returns:
             Dict: 评估结果（4个硬性指标）
         """
-        self.train()
+        self.train(max_epochs=max_epochs)
         return self.evaluate()
 
 
@@ -585,7 +495,7 @@ def compare_models(results_dir: str, category: str):
         # 对比表格
         f.write("## 4个硬性指标对比\n\n")
         f.write("| 算法 | 方向 | AUROC | AUPR | Pixel AUROC | PRO |\n")
-        f.write("|:---:|:---:|:---:|:---:|:---:|:---:|\n")
+        f.write("|:---:|:---:|:---:|:---:|:---:|:---:|")
         for r in all_results:
             f.write(f"| {r['Model']} | {r['方向']} | {r['AUROC(%)']:.2f}% | {r['AUPR(%)']:.2f}% | {r['Pixel AUROC(%)']:.2f}% | {r['PRO(%)']:.2f}% |\n")
         
@@ -600,86 +510,59 @@ def compare_models(results_dir: str, category: str):
     print(f"[FILE] 报告已保存: {md_path}")
 
 
-def _load_run_config_from_yaml(model_name: str) -> Dict[str, Any]:
-    """从 YAML 配置文件加载 run 配置"""
-    config_path = Path(__file__).parent.parent.parent / MODEL_INFO[model_name]['config_file']
-    if not config_path.exists():
-        return {}
-    config = OmegaConf.load(config_path)
-    if hasattr(config, 'run'):
-        return OmegaConf.to_container(config.run, resolve=True)
-    return {}
-
-
 def main():
-    """命令行入口 - 支持无参数运行（从 YAML 读取配置）"""
+    """命令行入口"""
     parser = argparse.ArgumentParser(
-        description='核心算法复现模块 - 训练和评估3种异常检测算法'
+        description='核心算法复现模块 - 训练和评估3种异常检测算法 (Anomalib 2.x)'
     )
-    # 参数变为可选，有值时命令行优先
-    parser.add_argument('--model', '-m', type=str, default=None,
+    parser.add_argument('--model', '-m', type=str, default='patchcore',
                         choices=SUPPORTED_MODELS + ['all'],
-                        help='模型名称 (autoencoder/patchcore/draem/all)')
-    parser.add_argument('--data_path', '-d', type=str, default=None,
+                        help='模型名称 (ganomaly/patchcore/draem/all)')
+    parser.add_argument('--data_path', '-d', type=str, default='./data',
                         help='数据集路径（MVTec AD 格式）')
-    parser.add_argument('--category', '-c', type=str, default=None,
+    parser.add_argument('--category', '-c', type=str, default='bottle',
                         help='产品类别名称')
-    parser.add_argument('--output_dir', '-o', type=str, default=None,
+    parser.add_argument('--output_dir', '-o', type=str, default='./results',
                         help='结果输出目录')
     parser.add_argument('--eval_only', action='store_true',
                         help='仅评估模式（不训练）')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='评估时使用的权重路径')
-    parser.add_argument('--device', type=str, default=None,
+    parser.add_argument('--device', type=str, default='auto',
                         help='计算设备 (auto/cpu/cuda)')
-    parser.add_argument('--seed', type=int, default=None,
+    parser.add_argument('--seed', type=int, default=42,
                         help='随机种子')
+    parser.add_argument('--epochs', type=int, default=None,
+                        help='最大训练轮次')
     
     args = parser.parse_args()
     
-    # 如果命令行没有指定参数，从 YAML 配置读取
-    # 默认使用 patchcore 模型的配置
-    default_model = args.model if args.model else 'patchcore'
-    yaml_config = _load_run_config_from_yaml(default_model)
-    
-    # 合并配置：命令行参数优先
-    model = args.model or yaml_config.get('model', default_model)
-    data_path = args.data_path or yaml_config.get('data_path', './data/processed')
-    category = args.category or yaml_config.get('category', 'my_product')
-    output_dir = args.output_dir or yaml_config.get('output_dir', './results')
-    device = args.device or yaml_config.get('device', 'cuda')
-    seed = args.seed if args.seed is not None else yaml_config.get('seed', 42)
-    
     print("="*70)
-    print("[Algorithm] Core Algorithm Module")
+    print("[Algorithm] Core Algorithm Module (Anomalib 2.x)")
     print("="*70)
-    print(f"\n[PATH] 数据集路径: {data_path}")
-    print(f"[CATEGORY] 产品类别: {category}")
-    print(f"[CONFIG]  计算设备: {device}")
-    if args.model:
-        print(f"   (命令行参数)")
-    else:
-        print(f"   (从 {model}.yaml 读取)")
+    print(f"\n[PATH] 数据集路径: {args.data_path}")
+    print(f"[CATEGORY] 产品类别: {args.category}")
+    print(f"[CONFIG]  计算设备: {args.device}")
     
     # 确定要运行的模型
-    models_to_run = SUPPORTED_MODELS if model == 'all' else [model]
+    models_to_run = SUPPORTED_MODELS if args.model == 'all' else [args.model]
     
     # 训练和评估
     for model_name in models_to_run:
         try:
             trainer = AnomalyDetectionTrainer(
                 model_name=model_name,
-                data_path=data_path,
-                category=category,
-                output_dir=output_dir,
-                device=device,
-                seed=seed
+                data_path=args.data_path,
+                category=args.category,
+                output_dir=args.output_dir,
+                device=args.device,
+                seed=args.seed
             )
             
             if args.eval_only:
                 trainer.evaluate(args.checkpoint)
             else:
-                trainer.train_and_evaluate()
+                trainer.train_and_evaluate(max_epochs=args.epochs)
                 
         except Exception as e:
             print(f"\n[FAIL] 模型 {model_name} 运行失败: {e}")
@@ -689,7 +572,7 @@ def main():
     
     # 生成对比报告
     if len(models_to_run) > 1:
-        compare_models(output_dir, category)
+        compare_models(args.output_dir, args.category)
     
     print("\n" + "="*70)
     print("[OK] 所有任务已完成!")

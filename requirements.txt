@@ -5,10 +5,9 @@
 # ----- 核心深度学习框架 -----
 torch>=2.0.0
 torchvision>=0.15.0
-pytorch-lightning>=2.0.0
 
 # ----- 异常检测核心库 -----
-anomalib>=1.0.0
+anomalib>=2.0.0
 
 # ----- UI 框架 -----
 gradio>=4.0.0

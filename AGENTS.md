@@ -300,6 +300,7 @@ image_AUROC 从 85% 提升至 100%"
 - 使用命令式语气（add, fix, update, not added, fixed）
 - 主题首字母小写，不以句号结尾
 - 正文解释 **what** 和 **why**，不解释 **how**
+- **禁止添加 Co-authored-by**：GitHub 会将其识别为共同贡献者，导致 contributors 列表混乱
 
 ## pyrightconfig.json
 

@@ -54,6 +54,24 @@ from anomalib.models import (
 # 忽略警告
 warnings.filterwarnings('ignore')
 
+# ================================================================================
+# 预训练模型缓存配置
+# ================================================================================
+
+import os
+from pathlib import Path
+
+# 预训练权重缓存目录
+PRETRAINED_CACHE_DIR = Path(__file__).parent.parent.parent / "pre_trained"
+PRETRAINED_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# 设置 Torch Hub 缓存目录
+torch.hub.set_dir(str(PRETRAINED_CACHE_DIR / "torch_hub"))
+
+# 设置 HuggingFace 缓存目录
+os.environ["HF_HOME"] = str(PRETRAINED_CACHE_DIR / "huggingface")
+os.environ["HF_HUB_CACHE"] = str(PRETRAINED_CACHE_DIR / "huggingface" / "hub")
+
 
 # ================================================================================
 # 支持的模型配置（3个算法）

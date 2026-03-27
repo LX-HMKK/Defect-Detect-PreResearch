@@ -57,6 +57,7 @@ class ModelConfig:
     description: str        # 详细描述
     weight_path: str        # 权重文件路径
     model_class: type       # 模型类
+    model_kwargs: dict = None  # 模型初始化参数
 
 
 # 4 种算法的配置
@@ -75,6 +76,7 @@ MODEL_CONFIGS = {
 ''',
         weight_path='./results/efficientad/weights/model.ckpt',
         model_class=EfficientAd,
+        model_kwargs={},
     ),
     'ganomaly': ModelConfig(
         name='Ganomaly',
@@ -90,6 +92,12 @@ MODEL_CONFIGS = {
 ''',
         weight_path='./results/ganomaly/weights/model.ckpt',
         model_class=Ganomaly,
+        model_kwargs={
+            'n_features': 32,
+            'latent_vec_size': 64,
+            'extra_layers': 0,
+            'batch_size': 16,
+        },
     ),
     'patchcore': ModelConfig(
         name='PatchCore',
@@ -105,6 +113,7 @@ MODEL_CONFIGS = {
 ''',
         weight_path='./results/patchcore/weights/model.ckpt',
         model_class=Patchcore,
+        model_kwargs={},
     ),
     'draem': ModelConfig(
         name='DRAEM',
@@ -120,6 +129,7 @@ MODEL_CONFIGS = {
 ''',
         weight_path='./results/draem/weights/model.ckpt',
         model_class=Draem,
+        model_kwargs={},
     )
 }
 
@@ -164,13 +174,20 @@ class AnomalyDetector:
         # 查找权重文件
         weight_path = Path(config.weight_path)
         if not weight_path.exists():
-            # 尝试查找其他可能的权重文件
-            checkpoint_dir = weight_path.parent
-            if checkpoint_dir.exists():
-                for pattern in ['*.ckpt', 'last.ckpt', 'epoch=*.ckpt']:
-                    candidates = list(checkpoint_dir.glob(pattern))
+            # 尝试查找其他可能的权重文件（递归搜索 anomalib 2.x 的嵌套结构）
+            search_base = Path('./results')
+            model_dir = search_base / model_key
+            
+            if model_dir.exists():
+                # 优先查找 lightning/model.ckpt（anomalib 2.x 标准路径）
+                for pattern in [
+                    f'{model_key}/**/lightning/model.ckpt',
+                    f'{model_key}/**/*.ckpt',
+                ]:
+                    candidates = list(search_base.glob(pattern))
                     if candidates:
-                        weight_path = candidates[0]
+                        # 取最新修改的文件
+                        weight_path = max(candidates, key=lambda p: p.stat().st_mtime)
                         break
         
         if not weight_path.exists():
@@ -183,8 +200,9 @@ class AnomalyDetector:
             )
         
         try:
-            # 创建模型实例
-            self.model = config.model_class()
+            # 创建模型实例（使用配置的自定义参数）
+            model_kwargs = getattr(config, 'model_kwargs', {}) or {}
+            self.model = config.model_class(**model_kwargs)
             
             # 创建 Engine
             self.engine = Engine()
@@ -192,9 +210,9 @@ class AnomalyDetector:
             # 加载权重
             checkpoint = torch.load(weight_path, map_location='cpu')
             if 'state_dict' in checkpoint:
-                self.model.load_state_dict(checkpoint['state_dict'])
+                self.model.load_state_dict(checkpoint['state_dict'], strict=False)
             else:
-                self.model.load_state_dict(checkpoint)
+                self.model.load_state_dict(checkpoint, strict=False)
             
             self.model.eval()
             self.current_model = model_key

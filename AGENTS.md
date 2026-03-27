@@ -9,6 +9,10 @@
 
 ```
 Defect-Detect-PreResearch/
+├── asset/                  # 项目配置与环境脚本
+│   ├── pyrightconfig.json # Pyright 类型检查配置
+│   ├── requirements.txt   # Python 依赖清单
+│   └── setup_miniforge.bat # Miniforge 环境配置脚本
 ├── modules/
 │   ├── data_processing/    # MVTec AD 数据格式转换
 │   ├── algorithm/          # 模型训练与推理
@@ -20,7 +24,6 @@ Defect-Detect-PreResearch/
 │   └── processed/         # MVTec AD 格式处理后数据
 ├── results/               # 训练结果
 ├── run_*.py              # 入口脚本（根目录）
-└── requirements.txt
 ```
 
 ## Anomalib 2.x 升级说明
@@ -69,6 +72,9 @@ model:
 ## 命令
 
 ### 环境配置（Miniforge）
+
+**自动化脚本**：可使用 `asset/setup_miniforge.bat` 自动完成以下步骤。
+
 ```bash
 # 创建虚拟环境
 "C:\ProgramData\miniforge3\Scripts\conda.exe" create -n anomalib python=3.10 -y
@@ -138,7 +144,7 @@ python -c "from modules.algorithm.trainer import AnomalyDetectionTrainer; print(
 ## 代码风格指南
 
 ### 通用规则
-- **语言**：Python + 类型注解（pyrightconfig.json: Python 3.8+，基础类型检查）
+- **语言**：Python + 类型注解（asset/pyrightconfig.json: Python 3.8+，基础类型检查）
 - **行长度**：目标 ≤120 字符，硬限制 150
 - **编码**：UTF-8，CSV 导出使用 `utf-8-sig`
 
@@ -297,6 +303,8 @@ image_AUROC 从 85% 提升至 100%"
 
 ## pyrightconfig.json
 
+配置文件位于 `asset/pyrightconfig.json`，内容如下：
+
 ```json
 {
   "pythonVersion": "3.8",
@@ -324,15 +332,20 @@ image_AUROC 从 85% 提升至 100%"
   - 更新 `trainer.py` 使用新 API
   - 更新 `demo.py` 使用 `Engine().predict()`
   - 更新 YAML 配置文件格式
-  - 更新 `requirements.txt`
+  - 更新 `asset/requirements.txt`
   - 更新 `AGENTS.md` 文档
 - 支持三种算法：Ganomaly, PatchCore, DRAEM
+- **UI 权重加载修复**
+  - 增强权重搜索逻辑，递归搜索 anomalib 2.x 嵌套目录结构
+  - 为 Ganomaly 添加模型参数配置以匹配训练参数
+  - 使用 `strict=False` 加载权重避免参数不匹配
 
 ### 升级后变化 ⚠️
 - **API 完全变更**：从 0.7.x 的函数式 API 改为 2.x 的面向对象 API
 - **配置格式变更**：使用 `class_path` 和 `init_args` 格式
 - **训练引擎变更**：从 `pytorch_lightning.Trainer` 改为 `anomalib.engine.Engine`
 - **推理方式变更**：从 `TorchInferencer` 改为 `Engine().predict()`
+- **权重路径变更**：anomalib 2.x 保存路径为 `results/<model>/<ModelName>/MVTec/<category>/vN/weights/lightning/model.ckpt`
 
 ## 快速测试命令
 

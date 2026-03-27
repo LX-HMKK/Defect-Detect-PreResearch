@@ -33,6 +33,10 @@
 
 ```
 Defect-Detect-PreResearch/
+├── asset/                  # 项目配置与环境脚本
+│   ├── pyrightconfig.json # Pyright 类型检查配置
+│   ├── requirements.txt   # Python 依赖清单
+│   └── setup_miniforge.bat # Miniforge 环境配置脚本
 ├── modules/
 │   ├── data_processing/    # 数据集处理模块
 │   ├── algorithm/          # 算法训练与推理
@@ -43,7 +47,6 @@ Defect-Detect-PreResearch/
 ├── results/                # 训练结果
 ├── docs/                   # 任务书和需求文档
 ├── run_*.py               # 入口脚本
-├── requirements.txt
 ├── README.md
 └── AGENTS.md              # Agent 开发指南
 ```
@@ -53,6 +56,8 @@ Defect-Detect-PreResearch/
 ## 快速开始
 
 ### 环境配置
+
+**自动化脚本**：可使用 `asset/setup_miniforge.bat` 自动完成环境配置。
 
 ```bash
 # 使用 miniforge 创建虚拟环境
@@ -106,9 +111,11 @@ python run_ui.py
 
 | 算法 | 方向 | image_AUROC | pixel_AUROC | 状态 |
 |:---:|:---:|:---:|:---:|:---:|
-| Ganomaly | GAN重构 | 47.46% | 0% | ⚠️ 效果较差 |
-| PatchCore | 特征建模 | 85.71% | 89.63% | ✅ 推荐 |
-| DRAEM | 自监督学习 | 94.05% | 71.39% | ✅ 很好 |
+| Ganomaly | GAN重构 | 49.21% | 0% | ⚠️ 效果较差 |
+| PatchCore | 特征建模 | 100.00% | 98.56% | ✅ 最佳 |
+| DRAEM | 自监督学习 | 99.21% | 93.92% | ✅ 优秀 |
+
+> 测试数据集：MVTec AD bottle（209张训练样本，83张测试样本）
 
 ---
 
@@ -130,6 +137,8 @@ python run_ui.py
 - numpy >= 1.24.0
 - opencv-python == 4.8.1.78
 - timm
+
+完整依赖列表请参考 `asset/requirements.txt`。
 
 ---
 

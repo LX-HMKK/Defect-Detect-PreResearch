@@ -63,10 +63,10 @@ project:
 
 # 训练器配置
 trainer:
-  max_epochs: 200                      # 需要训练 200 个 epoch
+  max_epochs: 100                      # 需要训练 100 个 epoch
   accelerator: auto
   devices: 1
-  check_val_every_n_epoch: 10          # 每 10 个 epoch 验证一次
+  check_val_every_n_epoch: 20          # 每 20 个 epoch 验证一次
   enable_progress_bar: true
   default_root_dir: results/draem
   gradient_clip_val: 0

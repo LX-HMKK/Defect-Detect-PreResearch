@@ -37,7 +37,7 @@ from anomalib.data import PredictDataset
 from anomalib.models import (
     Patchcore,
     Draem,
-    Ganomaly,
+    Fre,
 )
 
 # 忽略警告
@@ -59,27 +59,26 @@ class ModelConfig:
     model_kwargs: dict = None  # 模型初始化参数
 
 
-# 3 种算法的配置（移除未训练的 EfficientAd）
+# 3 种算法的配置
 MODEL_CONFIGS = {
-    'ganomaly': ModelConfig(
-        name='Ganomaly',
-        direction='基于重构 (GAN)',
+    'fre': ModelConfig(
+        name='FRE',
+        direction='基于特征重构',
         description='''
-**算法原理**: 训练GAN学习正常样本分布，异常样本无法良好重构。
-通过重构误差检测异常。
+**算法原理**: 预训练CNN(ResNet50)提取特征，线性自编码器重构特征，
+重构误差作为异常分数（误差大=异常）。
 
 **特点**:
-- 经典重构方法升级版
-- 基于GAN实现
-- 适合理解重构思想
+- 重构法改进版，效果远超Ganomaly
+- 支持像素级定位
+- 训练快速，效果优秀
 ''',
-        weight_path='./results/ganomaly/Ganomaly/MVTec/bottle/v4/weights/lightning/model.ckpt',
-        model_class=Ganomaly,
+        weight_path='./results/fre/Fre/MVTec/bottle/v0/weights/lightning/model.ckpt',
+        model_class=Fre,
         model_kwargs={
-            'n_features': 32,
-            'latent_vec_size': 64,
-            'extra_layers': 0,
-            'batch_size': 16,
+            'backbone': 'resnet50',
+            'layer': 'layer3',
+            'pre_trained': True,
         },
     ),
     'patchcore': ModelConfig(
@@ -384,18 +383,18 @@ def create_interface() -> gr.Blocks:
                             使用预训练CNN提取特征，构建记忆库存储正常样本。无需训练，推理速度最快。
                         </p>
                     </div>
+                    <div style="flex: 1; min-width: 280px; background: rgba(72, 187, 120, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #48bb78;">
+                        <h4 style="margin: 0 0 10px 0; color: #48bb78;">🔬 FRE</h4>
+                        <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
+                            <b>特征重构法</b> | 推荐<br>
+                            预训练ResNet提取特征，线性AE重构特征。重构误差=异常分数，效果优秀。
+                        </p>
+                    </div>
                     <div style="flex: 1; min-width: 280px; background: rgba(118, 75, 162, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #764ba2;">
-                        <h4 style="margin: 0 0 10px 0; color: #764ba2;">🔬 DRAEM</h4>
+                        <h4 style="margin: 0 0 10px 0; color: #764ba2;">📊 DRAEM</h4>
                         <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
                             <b>自监督学习</b> | 定位精准<br>
                             合成异常样本训练判别网络。无需真实异常样本，小缺陷检测效果好。
-                        </p>
-                    </div>
-                    <div style="flex: 1; min-width: 280px; background: rgba(255, 107, 107, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #ff6b6b;">
-                        <h4 style="margin: 0 0 10px 0; color: #ff6b6b;">🎨 Ganomaly</h4>
-                        <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
-                            <b>基于重构(GAN)</b> | 经典方法<br>
-                            通过GAN学习正常分布，异常样本重构误差大。概念直观，效果一般。
                         </p>
                     </div>
                 </div>
@@ -412,8 +411,8 @@ def create_interface() -> gr.Blocks:
                 model_dropdown = gr.Dropdown(
                     choices=[
                         ('⭐ PatchCore (推荐)', 'patchcore'),
-                        ('🔬 DRAEM (自监督)', 'draem'),
-                        ('🎨 Ganomaly (GAN)', 'ganomaly')
+                        ('🔬 FRE (重构法)', 'fre'),
+                        ('📊 DRAEM (自监督)', 'draem'),
                     ],
                     value='patchcore',
                     label="选择算法",

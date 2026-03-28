@@ -1,0 +1,99 @@
+# ================================================================================
+# 算法: FRE (Feature Reconstruction Error) - Anomalib 2.x 配置
+# ================================================================================
+# 原理: 预训练CNN(ResNet50)提取特征，线性自编码器重构特征，
+#       重构误差作为异常分数（误差大=异常）
+#
+# 特点: 重构法改进版，效果远超Ganomaly，支持像素级定位
+#       MVTec AD 平均 AUROC: 94.7%
+# ================================================================================
+
+# 数据配置 (Anomalib 2.x 格式)
+data:
+  class_path: anomalib.data.MVTec
+  init_args:
+    root: ./data
+    category: bottle
+    image_size: [256, 256]
+    train_batch_size: 32
+    eval_batch_size: 32
+    num_workers: 0  # Windows 设为 0 避免多进程问题
+
+# 模型配置 (Anomalib 2.x 格式)
+model:
+  class_path: anomalib.models.Fre
+  init_args:
+    backbone: resnet50           # 预训练 backbone
+    layer: layer3                # 特征提取层
+    pre_trained: true           # 启用预训练权重
+    pooling_kernel_size: 2       # 池化核大小
+    input_dim: 65536            # 输入特征维度
+    latent_dim: 220             # 潜在空间维度
+
+# 归一化配置
+normalization:
+  normalization_method: min_max
+
+# 指标配置
+metrics:
+  image:
+    - F1Score
+    - AUROC
+    - AUPR
+  pixel:
+    - F1Score
+    - AUROC
+    - AUPR
+  threshold:
+    class_path: anomalib.metrics.F1AdaptiveThreshold
+    init_args:
+      default_value: 0.5
+
+# 可视化配置
+visualization:
+  show_images: false
+  save_images: false
+  log_images: false
+  image_save_path: null
+  mode: full
+
+# 项目配置
+project:
+  seed: 42
+  path: ./results
+  unique_dir: false
+
+# 日志配置
+logging:
+  logger: []
+  log_graph: false
+
+# 训练器配置 (Lightning 格式)
+trainer:
+  enable_checkpointing: true
+  default_root_dir: results/fre
+  gradient_clip_val: 0
+  gradient_clip_algorithm: norm
+  num_nodes: 1
+  devices: 1
+  enable_progress_bar: true
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 5
+  fast_dev_run: false
+  accumulate_grad_batches: 1
+  max_epochs: 50
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  limit_test_batches: 1.0
+  limit_predict_batches: 1.0
+  val_check_interval: 5
+  log_every_n_steps: 50
+  accelerator: auto
+  strategy: null
+  sync_batchnorm: false
+  num_sanity_val_steps: 0

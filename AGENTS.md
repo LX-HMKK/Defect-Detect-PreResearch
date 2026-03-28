@@ -12,7 +12,7 @@
 Defect-Detect-PreResearch/
 ├── modules/
 │   ├── data_processing/    # 1. 数据转换：将原始图片转为 MVTec AD 格式
-│   ├── algorithm/           # 2. 模型训练：PatchCore / DRAEM / Ganomaly
+│   ├── algorithm/           # 2. 模型训练：PatchCore / FRE / DRAEM / Ganomaly
 │   ├── evaluation/          # 3. 指标计算：AUROC / AUPR / PRO
 │   └── ui/                 # 4. 交互演示：Gradio Web 界面
 ├── configs/                 # YAML 配置文件
@@ -27,10 +27,11 @@ Defect-Detect-PreResearch/
 | 算法 | 原理 | 核心优势 | MVTec AD 效果 | 推荐度 |
 |:---|:---|:---|:---:|:---:|
 | PatchCore | 特征记忆库 + 最近邻搜索 | 简单、高效、工业最优 | 100% AUROC | ⭐⭐⭐ |
+| FRE | 特征重构误差 | 重构法改进版，支持像素定位 | 95% AUROC | ⭐⭐⭐ |
 | DRAEM | 合成异常 + 判别网络 | 像素级定位好 | 99% AUROC | ⭐⭐ |
-| Ganomaly | GAN 重构 | 概念直观 | 49% AUROC | ⭐ |
+| Ganomaly | GAN 重构 | 概念直观 | 49% AUROC | ⚠️ 不推荐 |
 
-**结论：首选 PatchCore。**
+**结论：首选 PatchCore 或 FRE（重构法改进版）。**
 
 ## 命令速查
 
@@ -38,8 +39,9 @@ Defect-Detect-PreResearch/
 # 1. 数据处理（必须）
 python run_data_processing.py -i ./data/raw -o ./data/processed/my_product --max_train 150
 
-# 2. 训练（推荐 PatchCore）
+# 2. 训练（推荐 PatchCore 或 FRE）
 python run_training.py -m patchcore -c bottle -d ./data
+python run_training.py -m fre -c bottle -d ./data          # FRE 重构法
 
 # 3. 评估
 python run_evaluation.py -m all -c bottle

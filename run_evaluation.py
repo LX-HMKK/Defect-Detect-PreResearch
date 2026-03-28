@@ -45,13 +45,13 @@ def parse_args():
 示例:
   python run_evaluation.py -m patchcore -c bottle
   python run_evaluation.py -m all -c bottle
-  python run_evaluation.py -m ganomaly -c my_product -r ./results
+  python run_evaluation.py -m fre -c my_product -r ./results
         """
     )
     parser.add_argument('--results_dir', '-r', type=str, default='./results',
                         help='结果目录')
     parser.add_argument('--model', '-m', type=str, default='all',
-                        choices=['efficientad', 'ganomaly', 'patchcore', 'draem', 'all'],
+                        choices=['efficientad', 'fre', 'patchcore', 'draem', 'all'],
                         help='模型名称')
     parser.add_argument('--category', '-c', type=str, default='bottle',
                         help='产品类别')
@@ -66,7 +66,7 @@ def main():
     args = parse_args()
     
     # 确定要评估的模型
-    models_to_eval = ['efficientad', 'ganomaly', 'patchcore', 'draem'] if args.model == 'all' else [args.model]
+    models_to_eval = ['efficientad', 'fre', 'patchcore', 'draem'] if args.model == 'all' else [args.model]
     
     # 打印配置信息
     print()

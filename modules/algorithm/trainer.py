@@ -49,6 +49,7 @@ from anomalib.models import (
     Patchcore,
     Draem,
     Ganomaly,
+    Fre,
 )
 
 # 忽略警告
@@ -77,15 +78,23 @@ os.environ["HF_HUB_CACHE"] = str(PRETRAINED_CACHE_DIR / "huggingface" / "hub")
 # 支持的模型配置（3个算法）
 # ================================================================================
 
-SUPPORTED_MODELS = ['ganomaly', 'patchcore', 'draem']
+SUPPORTED_MODELS = ['fre', 'ganomaly', 'patchcore', 'draem']
 
 MODEL_INFO = {
+    'fre': {
+        '方向': '基于特征重构',
+        '原理': '预训练CNN提取特征，线性自编码器重构特征，重构误差作为异常分数',
+        '特点': '重构法改进版，效果远超Ganomaly，支持像素级定位',
+        '复现难度': '* (简单)',
+        '训练时间': '~5分钟',
+    },
     'ganomaly': {
         '方向': '基于重构 (GAN)',
         '原理': '训练GAN学习正常样本分布，异常样本无法良好重构，通过重构误差检测',
         '特点': '经典重构方法升级版，基于GAN实现',
         '复现难度': '** (medium)',
         '训练时间': '~20分钟 (100 epochs)',
+        '推荐度': '⚠️ 不推荐（效果差）',
     },
     'patchcore': {
         '方向': '基于特征建模',
@@ -185,6 +194,19 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
     Returns:
         模型实例
     """
+    # 创建 evaluator，启用 AUPR 和 PRO 指标（PatchCore 和 Draem 支持像素级指标）
+    from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
+    evaluator = Evaluator(
+        test_metrics=[
+            AUROC(fields=["pred_score", "gt_label"]),
+            AUPR(fields=["pred_score", "gt_label"]),
+            F1Score(fields=["pred_label", "gt_label"]),
+            AUROC(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
+            PRO(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
+            F1Score(fields=["pred_mask", "gt_mask"], prefix="pixel_"),
+        ]
+    )
+    
     if model_name == 'patchcore':
         backbone = 'wide_resnet50_2'
         layers = ['layer2', 'layer3']
@@ -205,11 +227,12 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
             coreset_sampling_ratio=coreset_sampling_ratio,
             num_neighbors=num_neighbors,
             pre_trained=pre_trained,
+            evaluator=evaluator,
         )
     
     elif model_name == 'ganomaly':
-        # Ganomaly 参数：从 config 读取，支持 YAML 调参
-        # 官方默认: lr=0.0002, n_features=64, latent_vec_size=100, batch_size=32
+        # Ganomaly 有自己的默认 evaluator（只支持图像级指标）
+        # 不传 evaluator，使用 Ganomaly.configure_evaluator() 的默认配置
         batch_size = config.get('batch_size', 32) if config else 32
         n_features = config.get('n_features', 64) if config else 64
         latent_vec_size = config.get('latent_vec_size', 100) if config else 100
@@ -234,6 +257,26 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
             lr=lr,
             beta1=beta1,
             beta2=beta2,
+            # 不传 evaluator，让 Ganomaly 使用自己的默认配置
+        )
+    
+    elif model_name == 'fre':
+        # FRE (Feature Reconstruction Error) - 重构法改进版
+        backbone = config.get('backbone', 'resnet50') if config else 'resnet50'
+        layer = config.get('layer', 'layer3') if config else 'layer3'
+        pre_trained = config.get('pre_trained', True) if config else True
+        pooling_kernel_size = config.get('pooling_kernel_size', 2) if config else 2
+        input_dim = config.get('input_dim', 65536) if config else 65536
+        latent_dim = config.get('latent_dim', 220) if config else 220
+        
+        return Fre(
+            backbone=backbone,
+            layer=layer,
+            pre_trained=pre_trained,
+            pooling_kernel_size=pooling_kernel_size,
+            input_dim=input_dim,
+            latent_dim=latent_dim,
+            evaluator=evaluator,
         )
     
     elif model_name == 'draem':
@@ -241,6 +284,7 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         return Draem(
             beta=(0.1, 1.0),       # 异常混合因子范围
             enable_sspcab=False,   # SSPCAB 需要额外训练时间
+            evaluator=evaluator,
         )
     
     else:
@@ -368,6 +412,8 @@ class AnomalyDetectionTrainer:
             if max_epochs is None:
                 if self.model_name == 'patchcore':
                     max_epochs = 1
+                elif self.model_name == 'fre':
+                    max_epochs = 50  # FRE 收敛较快，50 epochs 足够
                 elif self.model_name == 'ganomaly':
                     max_epochs = 100
                 elif self.model_name == 'draem':
@@ -436,10 +482,12 @@ class AnomalyDetectionTrainer:
         else:
             results = {}
         
-        # 提取4个硬性指标
+        # 提取4个硬性指标（兼容不同模型返回的字段名）
+        # FRE 返回: AUROC, AUPR, pixel_AUROC, pixel_PRO
+        # PatchCore/DRAEM 返回: image_AUROC, image_AUPR, pixel_AUROC, pixel_PRO
         self.results = {
-            'image_AUROC': results.get('image_AUROC', 0.0),
-            'image_AUPR': results.get('image_AUPR', 0.0),
+            'image_AUROC': results.get('image_AUROC', results.get('AUROC', 0.0)),
+            'image_AUPR': results.get('image_AUPR', results.get('AUPR', 0.0)),
             'pixel_AUROC': results.get('pixel_AUROC', 0.0),
             'pixel_PRO': results.get('pixel_PRO', 0.0),
         }

@@ -11,27 +11,28 @@
 data:
   class_path: anomalib.data.MVTec
   init_args:
-    root: ./data/processed
-    category: my_product
-    train_batch_size: 8
-    eval_batch_size: 8
-    num_workers: 0  # Windows 设为 0 避免多进程问题
+    root: ./data
+    category: bottle
+    train_batch_size: 16         # 与 model.batch_size 一致
+    eval_batch_size: 16
+    num_workers: 0             # Windows 设为 0 避免多进程问题
 
 # 模型配置 (Anomalib 2.x 格式)
+# 优化后的参数（基于论文推荐 + 实验验证）
 model:
   class_path: anomalib.models.Ganomaly
   init_args:
-    batch_size: 8
-    n_features: 128
-    latent_vec_size: 100
-    extra_layers: 0
-    add_final_conv_layer: true
-    wadv: 1.0
-    wcon: 50.0
-    wenc: 1.0
-    lr: 0.001
-    beta1: 0.5
-    beta2: 0.999
+    batch_size: 16              # 与原始实验一致，GAN需要较小batch
+    n_features: 32              # 减小特征维度加快训练(47.9M参数 vs 188M)
+    latent_vec_size: 64        # 减小潜在空间
+    extra_layers: 0             # 不增加额外层
+    add_final_conv_layer: true  # 是否添加最终卷积层
+    wadv: 1.0                  # Adversarial loss 权重（论文推荐）
+    wcon: 50.0                 # Contextual loss 权重（论文推荐，高权重强制关注重构）
+    wenc: 1.0                  # Encoding loss 权重（论文推荐）
+    lr: 0.0002                 # 学习率（论文推荐，不要用0.002）
+    beta1: 0.5                 # Adam beta1
+    beta2: 0.999               # Adam beta2
 
 # 优化器配置
 optimization:
@@ -85,10 +86,10 @@ trainer:
   enable_progress_bar: true
   overfit_batches: 0.0
   track_grad_norm: -1
-  check_val_every_n_epoch: 999
+  check_val_every_n_epoch: 5     # 每5轮验证一次（观察收敛）
   fast_dev_run: false
   accumulate_grad_batches: 1
-  max_epochs: 100
+  max_epochs: 100                # 论文推荐训练轮次
   min_epochs: null
   max_steps: -1
   min_steps: null
@@ -97,7 +98,7 @@ trainer:
   limit_val_batches: 0
   limit_test_batches: 1.0
   limit_predict_batches: 1.0
-  val_check_interval: 999
+  val_check_interval: 5         # 与 check_val_every_n_epoch 保持一致
   log_every_n_steps: 50
   accelerator: auto
   strategy: null

@@ -117,7 +117,7 @@ def get_datamodule_from_config(
         data_path: 数据目录路径
         category: 类别名称
         model_name: 模型名称
-        config: 额外配置参数
+        config: 额外配置参数（可以是完整 YAML config 或 data.init_args 部分）
     
     Returns:
         MVTec 或 Folder 数据模块
@@ -129,10 +129,19 @@ def get_datamodule_from_config(
     eval_batch_size = 32
     num_workers = 0  # Windows 多进程问题
     
+    # 从配置中提取 data.init_args（Anomalib 2.x 格式）
     if config:
-        train_batch_size = config.get('train_batch_size', train_batch_size)
-        eval_batch_size = config.get('eval_batch_size', eval_batch_size)
-        num_workers = config.get('num_workers', num_workers)
+        if 'data' in config and 'init_args' in config['data']:
+            # 完整 config，包含 data.init_args
+            data_config = config['data']['init_args']
+            train_batch_size = data_config.get('train_batch_size', train_batch_size)
+            eval_batch_size = data_config.get('eval_batch_size', eval_batch_size)
+            num_workers = data_config.get('num_workers', num_workers)
+        else:
+            # 直接是 data.init_args 或其他格式
+            train_batch_size = config.get('train_batch_size', train_batch_size)
+            eval_batch_size = config.get('eval_batch_size', eval_batch_size)
+            num_workers = config.get('num_workers', num_workers)
     
     # 检测数据集格式
     category_path = data_path / category
@@ -199,18 +208,32 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         )
     
     elif model_name == 'ganomaly':
-        # 优化参数：使用更小更快的模型
+        # Ganomaly 参数：从 config 读取，支持 YAML 调参
+        # 官方默认: lr=0.0002, n_features=64, latent_vec_size=100, batch_size=32
+        batch_size = config.get('batch_size', 32) if config else 32
+        n_features = config.get('n_features', 64) if config else 64
+        latent_vec_size = config.get('latent_vec_size', 100) if config else 100
+        extra_layers = config.get('extra_layers', 0) if config else 0
+        add_final_conv_layer = config.get('add_final_conv_layer', True) if config else True
+        wadv = config.get('wadv', 1.0) if config else 1.0
+        wcon = config.get('wcon', 50.0) if config else 50.0
+        wenc = config.get('wenc', 1.0) if config else 1.0
+        lr = config.get('lr', 0.0002) if config else 0.0002
+        beta1 = config.get('beta1', 0.5) if config else 0.5
+        beta2 = config.get('beta2', 0.999) if config else 0.999
+
         return Ganomaly(
-            n_features=32,         # 减小特征维度，加快训练
-            latent_vec_size=64,    # 减小潜在空间
-            extra_layers=0,        # 不增加额外层
-            batch_size=16,         # 减小 batch size
-            wadv=1,
-            wcon=50,
-            wenc=1,
-            lr=0.002,              # 学习率
-            beta1=0.5,
-            beta2=0.999,
+            batch_size=batch_size,
+            n_features=n_features,
+            latent_vec_size=latent_vec_size,
+            extra_layers=extra_layers,
+            add_final_conv_layer=add_final_conv_layer,
+            wadv=wadv,
+            wcon=wcon,
+            wenc=wenc,
+            lr=lr,
+            beta1=beta1,
+            beta2=beta2,
         )
     
     elif model_name == 'draem':
@@ -266,6 +289,17 @@ class AnomalyDetectionTrainer:
         self.device = device
         self.seed = seed
         
+        # 加载 YAML 配置（如果提供）
+        self.config = None
+        if config_path:
+            config_path = Path(config_path)
+            if config_path.exists():
+                from anomalib.deploy.config import load_config
+                self.config = load_config(str(config_path))
+                print(f"[CONFIG] 已加载配置文件: {config_path}")
+            else:
+                print(f"[WARN] 配置文件不存在: {config_path}")
+        
         # 数据模块和模型
         self.datamodule = None
         self.model = None
@@ -291,11 +325,17 @@ class AnomalyDetectionTrainer:
         """设置数据模块和模型"""
         print("\n[STAT] 加载数据集...")
         
+        # 从配置中提取模型参数（位于 model.init_args）
+        model_config = None
+        if self.config and 'model' in self.config and 'init_args' in self.config['model']:
+            model_config = self.config['model']['init_args']
+        
         # 创建数据模块
         self.datamodule = get_datamodule_from_config(
             str(self.data_path),
             self.category,
-            self.model_name
+            self.model_name,
+            self.config
         )
         self.datamodule.setup()
         
@@ -303,7 +343,7 @@ class AnomalyDetectionTrainer:
         print(f"   测试集样本数: {len(self.datamodule.test_data)}")
         
         print(f"\n[BUILD] 创建 {self.model_name} 模型...")
-        self.model = get_model_from_config(self.model_name)
+        self.model = get_model_from_config(self.model_name, model_config)
     
     def train(self, max_epochs: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -318,14 +358,20 @@ class AnomalyDetectionTrainer:
         self._print_model_info()
         self.setup()
         
-        # 设置默认 epoch
+        # 设置默认 epoch（优先使用 YAML 配置中的值）
         if max_epochs is None:
-            if self.model_name == 'patchcore':
-                max_epochs = 1
-            elif self.model_name == 'ganomaly':
-                max_epochs = 100
-            elif self.model_name == 'draem':
-                max_epochs = 200
+            # 尝试从 YAML 配置读取
+            if self.config and 'trainer' in self.config:
+                max_epochs = self.config['trainer'].get('max_epochs')
+            
+            # 如果配置中也没有，使用默认值
+            if max_epochs is None:
+                if self.model_name == 'patchcore':
+                    max_epochs = 1
+                elif self.model_name == 'ganomaly':
+                    max_epochs = 100
+                elif self.model_name == 'draem':
+                    max_epochs = 200
         
         # 创建 Engine (禁用 rich 进度条避免 Windows GBK 编码问题)
         print("\n[WAIT] 开始训练...")

@@ -1,0 +1,151 @@
+# ================================================================================
+# 应用主配置文件 - 统一管理所有硬编码参数
+# ================================================================================
+# 用途: 集中管理训练、评估、UI 的所有可配置参数
+# 优先级: 此文件 > 代码默认值
+# ================================================================================
+
+# ================================================================================
+# 1. 模型架构配置
+# ================================================================================
+models:
+  # PatchCore 配置
+  patchcore:
+    backbone: wide_resnet50_2      # 特征提取网络
+    layers:                        # 使用的特征层
+      - layer2
+      - layer3
+    pre_trained: true             # 使用预训练权重
+    coreset_sampling_ratio: 0.1   # 核心集采样比例
+    num_neighbors: 9              # 最近邻数量
+    
+  # FRE 配置
+  fre:
+    backbone: resnet50            # 预训练 backbone
+    layer: layer3                 # 特征提取层
+    pre_trained: true            # 启用预训练权重
+    pooling_kernel_size: 2       # 池化核大小
+    input_dim: 65536            # 输入特征维度
+    latent_dim: 220             # 潜在空间维度
+    
+  # DRAEM 配置
+  draem:
+    # DRAEM 主要使用默认参数
+    beta: [0.1, 1.0]             # 异常混合因子范围
+    enable_sspcab: false         # 是否启用 SSPCAB
+
+# ================================================================================
+# 2. 数据配置
+# ================================================================================
+data:
+  image_size: [256, 256]         # 输入图像尺寸 [H, W]
+  train_batch_size: 32          # 训练 batch size
+  eval_batch_size: 32           # 评估 batch size
+  num_workers: 0                # 数据加载线程数 (Windows 设为 0)
+  
+  # 特定模型的数据配置
+  draem_batch_size: 4           # DRAEM 显存占用大，需要更小的 batch
+
+# ================================================================================
+# 3. 阈值配置
+# ================================================================================
+threshold:
+  # 默认阈值（当没有训练结果时使用）
+  default: 0.5
+  
+  # 训练结果文件路径模板
+  # 变量: {model}, {dataset}
+  result_file_template: "./results/comparison/{model}_{dataset}_results.json"
+  
+  # 从训练结果读取的字段
+  threshold_key: "optimal_threshold"
+  
+  # 特定数据集的经验阈值（作为后备）
+  dataset_defaults:
+    bottle: 0.5
+    carpet: 0.53
+    region1: 0.5
+
+# ================================================================================
+# 4. 训练配置
+# ================================================================================
+training:
+  # 各模型的默认训练 epoch
+  epochs:
+    patchcore: 1      # PatchCore 无需训练，仅构建记忆库
+    fre: 50          # FRE 收敛较快
+    draem: 200       # DRAEM 需要较多 epoch
+    
+  # 优化器配置
+  optimizer:
+    lr: 0.0001
+    weight_decay: 0.00001
+    
+  # 其他训练参数
+  seed: 42
+  accelerator: auto  # auto/cpu/cuda
+  devices: 1
+  enable_progress_bar: false  # 禁用 rich 进度条避免 Windows 编码问题
+
+# ================================================================================
+# 5. 评估配置
+# ================================================================================
+evaluation:
+  # 指标计算配置
+  metrics:
+    - AUROC
+    - AUPR
+    - F1Score
+    
+  # 阈值搜索配置 (用于 Youden's J 计算)
+  threshold_search:
+    min: 0.0
+    max: 1.0
+    steps: 100      # 搜索步数
+    
+  # 结果输出配置
+  output_dir: "./results"
+  comparison_dir: "./results/comparison"
+
+# ================================================================================
+# 6. UI 配置
+# ================================================================================
+ui:
+  # Gradio 服务配置
+  server:
+    host: "127.0.0.1"
+    port: 7860
+    share: false
+    inbrowser: true
+    
+  # 热力图配置
+  heatmap:
+    alpha: 0.5                    # 叠加透明度
+    colormap: "COLORMAP_JET"     # OpenCV 颜色映射
+    
+  # 模型权重搜索路径
+  weight_search_paths:
+    - "./results/{model}/**/{dataset}/**/lightning/model.ckpt"
+    - "./results/{model}/**/{dataset}/**/*.ckpt"
+
+# ================================================================================
+# 7. 路径配置
+# ================================================================================
+paths:
+  data_root: "./data"
+  results_root: "./results"
+  temp_dir: "./temp_predict"
+  pre_trained_dir: "./pre_trained"
+  
+  # 预训练权重缓存
+  cache:
+    torch_hub: "./pre_trained/torch_hub"
+    huggingface: "./pre_trained/huggingface"
+
+# ================================================================================
+# 8. 日志配置
+# ================================================================================
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_dir: "./logs"

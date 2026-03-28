@@ -12,7 +12,7 @@
 Defect-Detect-PreResearch/
 ├── modules/
 │   ├── data_processing/    # 1. 数据转换：将原始图片转为 MVTec AD 格式
-│   ├── algorithm/           # 2. 模型训练：PatchCore / FRE / DRAEM / Ganomaly
+│   ├── algorithm/           # 2. 模型训练：PatchCore / FRE / DRAEM
 │   ├── evaluation/          # 3. 指标计算：AUROC / AUPR / PRO
 │   └── ui/                 # 4. 交互演示：Gradio Web 界面
 ├── configs/                 # YAML 配置文件
@@ -29,7 +29,6 @@ Defect-Detect-PreResearch/
 | PatchCore | 特征记忆库 + 最近邻搜索 | 简单、高效、工业最优 | 100% AUROC | ⭐⭐⭐ |
 | FRE | 特征重构误差 | 重构法改进版，支持像素定位 | 95% AUROC | ⭐⭐⭐ |
 | DRAEM | 合成异常 + 判别网络 | 像素级定位好 | 99% AUROC | ⭐⭐ |
-| Ganomaly | GAN 重构 | 概念直观 | 49% AUROC | ⚠️ 不推荐 |
 
 **结论：首选 PatchCore 或 FRE（重构法改进版）。**
 
@@ -91,7 +90,6 @@ except ImportError as e:
 1. **数据路径**：`--data_path` 指向类别父目录（如 `./data` 不是 `./data/bottle`）
 2. **cv2 导入**：必须在 anomalib 之前导入
 3. **Windows 多进程**：`num_workers: 0`
-4. **Ganomaly 参数**：`lr=0.0002`（不是 0.002）
 
 ## Git 提交规范（Angular 协议）
 
@@ -158,7 +156,7 @@ python run_training.py -m patchcore -c bottle
 "C:\Users\lx_hm\.conda\envs\anomalib\python.exe" -c "
 from anomalib.data import MVTec
 from anomalib.engine import Engine
-from anomalib.models import Patchcore, Draem, Ganomaly
+from anomalib.models import Patchcore, Draem, Fre
 print('OK')
 "
 ```

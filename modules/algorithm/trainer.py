@@ -48,9 +48,11 @@ from anomalib.engine import Engine
 from anomalib.models import (
     Patchcore,
     Draem,
-    Ganomaly,
     Fre,
 )
+
+# 配置管理
+from modules.config import get_model_config, get_data_config, get
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -78,23 +80,15 @@ os.environ["HF_HUB_CACHE"] = str(PRETRAINED_CACHE_DIR / "huggingface" / "hub")
 # 支持的模型配置（3个算法）
 # ================================================================================
 
-SUPPORTED_MODELS = ['fre', 'ganomaly', 'patchcore', 'draem']
+SUPPORTED_MODELS = ['fre', 'patchcore', 'draem']
 
 MODEL_INFO = {
     'fre': {
         '方向': '基于特征重构',
         '原理': '预训练CNN提取特征，线性自编码器重构特征，重构误差作为异常分数',
-        '特点': '重构法改进版，效果远超Ganomaly，支持像素级定位',
+        '特点': '重构法改进版，支持像素级定位',
         '复现难度': '* (简单)',
         '训练时间': '~5分钟',
-    },
-    'ganomaly': {
-        '方向': '基于重构 (GAN)',
-        '原理': '训练GAN学习正常样本分布，异常样本无法良好重构，通过重构误差检测',
-        '特点': '经典重构方法升级版，基于GAN实现',
-        '复现难度': '** (medium)',
-        '训练时间': '~20分钟 (100 epochs)',
-        '推荐度': '⚠️ 不推荐（效果差）',
     },
     'patchcore': {
         '方向': '基于特征建模',
@@ -133,12 +127,13 @@ def get_datamodule_from_config(
     """
     data_path = Path(data_path)
     
-    # 默认配置
-    train_batch_size = 32
-    eval_batch_size = 32
-    num_workers = 0  # Windows 多进程问题
+    # 从配置管理系统获取默认配置
+    default_config = get_data_config(model_name)
+    train_batch_size = default_config['train_batch_size']
+    eval_batch_size = default_config['eval_batch_size']
+    num_workers = default_config['num_workers']
     
-    # 从配置中提取 data.init_args（Anomalib 2.x 格式）
+    # 从传入的 config 覆盖（Anomalib 2.x 格式）
     if config:
         if 'data' in config and 'init_args' in config['data']:
             # 完整 config，包含 data.init_args
@@ -154,11 +149,6 @@ def get_datamodule_from_config(
     
     # 检测数据集格式
     category_path = data_path / category
-    
-    # DRAEM 显存占用大，需要更小的 batch_size
-    if model_name == 'draem':
-        train_batch_size = 4
-        eval_batch_size = 4
     
     # 如果是 MVTec AD 格式（有 train, test, ground_truth 目录）
     if (category_path / 'train').exists() and (category_path / 'test').exists():
@@ -207,12 +197,16 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         ]
     )
     
+    # 从配置管理系统获取模型默认配置
+    model_defaults = get_model_config(model_name)
+    
     if model_name == 'patchcore':
-        backbone = 'wide_resnet50_2'
-        layers = ['layer2', 'layer3']
-        coreset_sampling_ratio = 0.1
-        num_neighbors = 9
-        pre_trained = True   # 启用预训练权重，提升特征提取能力
+        # 从配置读取默认值，允许传入 config 覆盖
+        backbone = model_defaults.get('backbone', 'wide_resnet50_2')
+        layers = model_defaults.get('layers', ['layer2', 'layer3'])
+        coreset_sampling_ratio = model_defaults.get('coreset_sampling_ratio', 0.1)
+        num_neighbors = model_defaults.get('num_neighbors', 9)
+        pre_trained = model_defaults.get('pre_trained', True)
         
         if config:
             backbone = config.get('backbone', backbone)
@@ -230,44 +224,23 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
             evaluator=evaluator,
         )
     
-    elif model_name == 'ganomaly':
-        # Ganomaly 有自己的默认 evaluator（只支持图像级指标）
-        # 不传 evaluator，使用 Ganomaly.configure_evaluator() 的默认配置
-        batch_size = config.get('batch_size', 32) if config else 32
-        n_features = config.get('n_features', 64) if config else 64
-        latent_vec_size = config.get('latent_vec_size', 100) if config else 100
-        extra_layers = config.get('extra_layers', 0) if config else 0
-        add_final_conv_layer = config.get('add_final_conv_layer', True) if config else True
-        wadv = config.get('wadv', 1.0) if config else 1.0
-        wcon = config.get('wcon', 50.0) if config else 50.0
-        wenc = config.get('wenc', 1.0) if config else 1.0
-        lr = config.get('lr', 0.0002) if config else 0.0002
-        beta1 = config.get('beta1', 0.5) if config else 0.5
-        beta2 = config.get('beta2', 0.999) if config else 0.999
-
-        return Ganomaly(
-            batch_size=batch_size,
-            n_features=n_features,
-            latent_vec_size=latent_vec_size,
-            extra_layers=extra_layers,
-            add_final_conv_layer=add_final_conv_layer,
-            wadv=wadv,
-            wcon=wcon,
-            wenc=wenc,
-            lr=lr,
-            beta1=beta1,
-            beta2=beta2,
-            # 不传 evaluator，让 Ganomaly 使用自己的默认配置
-        )
-    
     elif model_name == 'fre':
         # FRE (Feature Reconstruction Error) - 重构法改进版
-        backbone = config.get('backbone', 'resnet50') if config else 'resnet50'
-        layer = config.get('layer', 'layer3') if config else 'layer3'
-        pre_trained = config.get('pre_trained', True) if config else True
-        pooling_kernel_size = config.get('pooling_kernel_size', 2) if config else 2
-        input_dim = config.get('input_dim', 65536) if config else 65536
-        latent_dim = config.get('latent_dim', 220) if config else 220
+        backbone = model_defaults.get('backbone', 'resnet50')
+        layer = model_defaults.get('layer', 'layer3')
+        pre_trained = model_defaults.get('pre_trained', True)
+        pooling_kernel_size = model_defaults.get('pooling_kernel_size', 2)
+        input_dim = model_defaults.get('input_dim', 65536)
+        latent_dim = model_defaults.get('latent_dim', 220)
+        
+        # 允许传入 config 覆盖
+        if config:
+            backbone = config.get('backbone', backbone)
+            layer = config.get('layer', layer)
+            pre_trained = config.get('pre_trained', pre_trained)
+            pooling_kernel_size = config.get('pooling_kernel_size', pooling_kernel_size)
+            input_dim = config.get('input_dim', input_dim)
+            latent_dim = config.get('latent_dim', latent_dim)
         
         return Fre(
             backbone=backbone,
@@ -280,10 +253,18 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         )
     
     elif model_name == 'draem':
-        # 优化参数：使用 beta 范围
+        # 从配置读取 beta 范围和 SSPCAB 设置
+        beta = model_defaults.get('beta', [0.1, 1.0])
+        enable_sspcab = model_defaults.get('enable_sspcab', False)
+        
+        # 允许传入 config 覆盖
+        if config:
+            beta = config.get('beta', beta)
+            enable_sspcab = config.get('enable_sspcab', enable_sspcab)
+        
         return Draem(
-            beta=(0.1, 1.0),       # 异常混合因子范围
-            enable_sspcab=False,   # SSPCAB 需要额外训练时间
+            beta=tuple(beta) if isinstance(beta, list) else beta,
+            enable_sspcab=enable_sspcab,
             evaluator=evaluator,
         )
     
@@ -296,8 +277,8 @@ class AnomalyDetectionTrainer:
     异常检测算法训练器 (Anomalib 2.x)
     
     封装 anomalib 2.x 的训练和评估流程，支持3种算法：
-    - Ganomaly: GAN重构方法
     - PatchCore: 特征建模方法
+    - FRE: 特征重构方法
     - DRAEM: 自监督学习方法
     """
     
@@ -402,20 +383,22 @@ class AnomalyDetectionTrainer:
         self._print_model_info()
         self.setup()
         
-        # 设置默认 epoch（优先使用 YAML 配置中的值）
+        # 设置默认 epoch（优先级：传入参数 > YAML 配置 > config.yaml > 代码默认值）
         if max_epochs is None:
             # 尝试从 YAML 配置读取
             if self.config and 'trainer' in self.config:
                 max_epochs = self.config['trainer'].get('max_epochs')
             
-            # 如果配置中也没有，使用默认值
+            # 从主配置文件 config.yaml 读取
+            if max_epochs is None:
+                max_epochs = get(f'training.epochs.{self.model_name}', None)
+            
+            # 如果都没有，使用硬编码默认值
             if max_epochs is None:
                 if self.model_name == 'patchcore':
                     max_epochs = 1
                 elif self.model_name == 'fre':
-                    max_epochs = 50  # FRE 收敛较快，50 epochs 足够
-                elif self.model_name == 'ganomaly':
-                    max_epochs = 100
+                    max_epochs = 50
                 elif self.model_name == 'draem':
                     max_epochs = 200
         
@@ -515,10 +498,99 @@ class AnomalyDetectionTrainer:
         
         print("-"*70)
         
+        # 计算最优阈值 (Youden's J)
+        print("\n[WAIT] 计算最优阈值...")
+        optimal_threshold = self._compute_optimal_threshold()
+        self.results['optimal_threshold'] = optimal_threshold
+        print(f"   [OK] 最优阈值: {optimal_threshold:.3f} (Youden's J)")
+        
         # 保存结果
         self._save_results()
         
         return self.results
+    
+    def _compute_optimal_threshold(self) -> float:
+        """
+        使用 Youden's J 统计量计算最优阈值
+        
+        Youden's J = Sensitivity + Specificity - 1
+        = TP/(TP+FN) + TN/(TN+FP) - 1
+        
+        在 0-1 范围内搜索使 J 最大的阈值
+        """
+        # 获取默认阈值（从配置文件）
+        default_threshold = get('threshold.default', 0.5)
+        
+        if self.engine is None or self.datamodule is None:
+            return default_threshold
+        
+        try:
+            # 获取阈值搜索配置
+            search_config = get('evaluation.threshold_search', {})
+            search_steps = search_config.get('steps', 100)
+            search_min = search_config.get('min', 0.0)
+            search_max = search_config.get('max', 1.0)
+            
+            # 获取预测结果
+            predictions = self.engine.predict(
+                datamodule=self.datamodule,
+                model=self.model,
+            )
+            
+            # 收集得分和标签
+            good_scores = []
+            bad_scores = []
+            
+            for pred in predictions:
+                score = float(pred.pred_score)
+                # 检查是否为 GOOD 样本 (gt_label = False/0 表示正常)
+                is_good = not bool(pred.gt_label)
+                
+                if is_good:
+                    good_scores.append(score)
+                else:
+                    bad_scores.append(score)
+            
+            if not good_scores or not bad_scores:
+                return default_threshold
+            
+            # 搜索最优阈值
+            best_threshold = default_threshold
+            best_j = -1
+            
+            # 在得分范围内搜索
+            all_scores = good_scores + bad_scores
+            min_score = max(search_min, min(all_scores))
+            max_score = min(search_max, max(all_scores))
+            
+            # 在范围内均匀采样 search_steps 个点
+            step_size = (max_score - min_score) / search_steps
+            for i in range(search_steps + 1):
+                threshold = min_score + i * step_size
+                
+                # True Positive: BAD 正确分类为异常
+                tp = sum(1 for s in bad_scores if s > threshold)
+                # True Negative: GOOD 正确分类为正常
+                tn = sum(1 for s in good_scores if s <= threshold)
+                # False Positive: GOOD 错误分类为异常
+                fp = sum(1 for s in good_scores if s > threshold)
+                # False Negative: BAD 错误分类为正常
+                fn = sum(1 for s in bad_scores if s <= threshold)
+                
+                # 计算 Youden's J
+                sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+                specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+                j = sensitivity + specificity - 1
+                
+                if j > best_j:
+                    best_j = j
+                    best_threshold = threshold
+            
+            return round(best_threshold, 3)
+            
+        except Exception as e:
+            print(f"   [WARN] 阈值计算失败: {e}，使用默认值 {default_threshold}")
+            return default_threshold
     
     def _save_results(self):
         """保存评估结果"""

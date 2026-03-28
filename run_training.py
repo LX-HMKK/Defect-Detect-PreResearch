@@ -3,7 +3,7 @@
 """
 入口脚本 2: 模型训练
 用法: 
-    python run_training.py                    # 训练 Ganomaly
+    python run_training.py                    # 训练 PatchCore
     python run_training.py --model all        # 训练所有模型
     python run_training.py -m patchcore       # 指定模型
 """
@@ -28,14 +28,13 @@ def print_banner():
     print()
     print("=" * 70)
     print("🚀 异常检测模型训练模块")
-    print("📚 基于 anomalib 2.x | 支持 4 种算法")
+    print("📚 基于 anomalib 2.x | 支持 3 种算法")
     print("=" * 70)
     print()
     print("📋 支持的模型:")
     print("   🔹 FRE         - 基于特征重构 (推荐)")
     print("   🔹 PatchCore   - 基于特征建模 (工业最优)")
     print("   🔹 DRAEM       - 基于自监督学习")
-    print("   🔹 Ganomaly    - 基于重构 (GAN) ⚠️ 效果差")
     print()
     print("=" * 70)
 
@@ -54,8 +53,8 @@ def parse_args():
     )
     
     parser.add_argument('--model', '-m', type=str, default='patchcore',
-                        choices=['fre', 'ganomaly', 'patchcore', 'draem', 'all'],
-                        help='模型名称 (fre/patchcore/draem/ganomaly/all)')
+                        choices=['fre', 'patchcore', 'draem', 'all'],
+                        help='模型名称 (fre/patchcore/draem/all)')
     parser.add_argument('--data_path', '-d', type=str, default='./data',
                         help='数据集路径（MVTec AD 格式）')
     parser.add_argument('--category', '-c', type=str, default='bottle',
@@ -84,7 +83,7 @@ def main():
     args = parse_args()
     
     # 确定要运行的模型
-    models_to_run = ['fre', 'patchcore', 'draem', 'ganomaly'] if args.model == 'all' else [args.model]
+    models_to_run = ['fre', 'patchcore', 'draem'] if args.model == 'all' else [args.model]
     
     # 打印配置信息
     print()

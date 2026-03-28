@@ -17,8 +17,8 @@
 | 算法 | 原理 | image_AUROC | pixel_AUROC | 推荐 |
 |:---|:---|:---:|:---:|:---:|
 | **PatchCore** | 特征记忆库 + 最近邻搜索 | 100% | 98.6% | ✅ 首选 |
+| **FRE** | 特征重构误差 | 95% | - | ✅ 备选 |
 | **DRAEM** | 合成异常 + 判别网络 | 99.2% | 93.9% | ✅ 备选 |
-| **Ganomaly** | GAN 重构 | 49.2% | 0% | ⚠️ 不推荐 |
 
 > 测试数据集：MVTec AD bottle（209 训练样本，83 测试样本）
 
@@ -38,6 +38,9 @@ python run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_tra
 # 推荐：PatchCore（最快，效果最好）
 python run_training.py -m patchcore -c bottle -d ./data
 
+# 或训练 FRE 重构法
+python run_training.py -m fre -c bottle -d ./data
+
 # 或训练所有算法
 python run_training.py -m all -c bottle -d ./data
 ```
@@ -54,6 +57,21 @@ python run_evaluation.py -m all -c bottle
 python run_ui.py
 # 访问 http://127.0.0.1:7860
 ```
+
+---
+
+## 界面特性
+
+### 工业级暗色模式 UI
+
+- **深色主题**：#121212 背景，专业沉稳
+- **Morandi 色系**：钢蓝主按钮、暗红异常告警、深绿正常状态
+- **算法选择**：顶部 Tabs 标签页，下划线高亮
+- **数据可视化**：
+  - 36-48px 大号异常得分
+  - 带轨道的现代化进度条 + shimmer 动画
+  - 0-1 热力图色阶图例
+- **容器质感**：内描边、微妙分割线
 
 ---
 
@@ -76,7 +94,9 @@ Defect-Detect-PreResearch/
 │   ├── data_processing/    # 数据集处理
 │   ├── algorithm/          # 模型训练
 │   ├── evaluation/         # 指标计算
-│   └── ui/                # Web 界面
+│   └── ui/                # Web 界面 (Gradio)
+│       ├── demo.py        # 界面逻辑
+│       └── styles.css     # 工业暗色主题样式
 ├── configs/                # YAML 配置
 ├── data/                  # 数据集
 ├── results/                # 训练结果
@@ -107,3 +127,22 @@ pip install opencv-python==4.8.1.78 timm
 - pytorch >= 2.0 (CUDA 11.8)
 - opencv-python == 4.8.1.78
 - timm
+
+---
+
+## Git 提交规范
+
+```
+<类型>(<范围>): <主题>
+
+[可选正文]
+```
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| feat | 新功能 | `feat(ui): 添加算法切换功能` |
+| fix | 修复 bug | `fix(trainer): 修复显存溢出问题` |
+| docs | 文档更新 | `docs: 更新 README` |
+| style | 代码格式 | `style: 格式化代码` |
+| refactor | 重构 | `refactor: 重构模型配置结构` |
+| perf | 性能优化 | `perf(patchcore): 启用预训练权重` |

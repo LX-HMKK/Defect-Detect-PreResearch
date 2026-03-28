@@ -74,9 +74,6 @@ def main():
     print("-" * 70)
     print()
     
-    # 启动 UI
-    from modules.ui.demo import main as ui_main
-    
     print("🚀 正在启动 Web 服务...")
     print()
     print(f"🌐 请在浏览器访问: http://{args.host}:{args.port}")
@@ -85,23 +82,32 @@ def main():
     print("=" * 70)
     print()
     
-    # 这里需要传递参数给 UI 模块
-    # 由于 demo.py 的 main() 可能需要参数，我们先加载它
-    import gradio as gr
-    from modules.ui.demo import (
-        create_ui,
-        load_model,
-        predict_anomaly,
-        MODEL_CONFIGS,
-    )
+    try:
+        # 这里需要传递参数给 UI 模块
+        # demo.py 定义了 create_interface() 函数
+        from modules.ui.demo import create_interface, detector
+        
+        # 不预加载模型，让用户上传图片时才加载
+        # 避免卡在模型加载步骤
+        
+        # 创建并启动 UI
+        ui = create_interface()
+        ui.launch(
+            server_name=args.host,
+            server_port=args.port,
+            share=args.share,
+            show_error=True,
+            inbrowser=True,  # 自动打开浏览器
+        )
+    except KeyboardInterrupt:
+        print("\n[INFO] 用户中断，程序退出")
+    except Exception as e:
+        print(f"\n[ERROR] UI 启动失败: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # 创建并启动 UI
-    ui = create_ui()
-    ui.launch(
-        server_name=args.host,
-        server_port=args.port,
-        share=args.share,
-    )
+    # 保持进程运行
+    input("\n按回车键退出...")
 
 
 if __name__ == '__main__':

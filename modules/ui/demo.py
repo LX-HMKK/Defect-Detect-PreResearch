@@ -37,7 +37,6 @@ from anomalib.data import PredictDataset
 from anomalib.models import (
     Patchcore,
     Draem,
-    EfficientAd,
     Ganomaly,
 )
 
@@ -60,24 +59,8 @@ class ModelConfig:
     model_kwargs: dict = None  # 模型初始化参数
 
 
-# 4 种算法的配置
+# 3 种算法的配置（移除未训练的 EfficientAd）
 MODEL_CONFIGS = {
-    'efficientad': ModelConfig(
-        name='EfficientAd',
-        direction='基于轻量级特征对齐',
-        description='''
-**算法原理**: 使用预训练教师网络和学生网络，通过特征对齐误差检测异常。
-结合了知识蒸馏和特征对齐的思想。
-
-**特点**:
-- 速度快，精度高，适合工业部署
-- 模型轻量级，推理效率高
-- 训练稳定，收敛快
-''',
-        weight_path='./results/efficientad/weights/model.ckpt',
-        model_class=EfficientAd,
-        model_kwargs={},
-    ),
     'ganomaly': ModelConfig(
         name='Ganomaly',
         direction='基于重构 (GAN)',
@@ -90,7 +73,7 @@ MODEL_CONFIGS = {
 - 基于GAN实现
 - 适合理解重构思想
 ''',
-        weight_path='./results/ganomaly/weights/model.ckpt',
+        weight_path='./results/ganomaly/Ganomaly/MVTec/bottle/v4/weights/lightning/model.ckpt',
         model_class=Ganomaly,
         model_kwargs={
             'n_features': 32,
@@ -111,7 +94,7 @@ MODEL_CONFIGS = {
 - 工业界目前效果最好的方法
 - 推理速度最快，适合实时检测
 ''',
-        weight_path='./results/patchcore/weights/model.ckpt',
+        weight_path='./results/patchcore/Patchcore/MVTec/bottle/v0/weights/lightning/model.ckpt',
         model_class=Patchcore,
         model_kwargs={},
     ),
@@ -127,7 +110,7 @@ MODEL_CONFIGS = {
 - 对小缺陷检测效果较好
 - 推理速度较慢，但定位精度高
 ''',
-        weight_path='./results/draem/weights/model.ckpt',
+        weight_path='./results/draem/Draem/MVTec/bottle/v1/weights/lightning/model.ckpt',
         model_class=Draem,
         model_kwargs={},
     )
@@ -242,15 +225,15 @@ class AnomalyDetector:
             elif image.shape[2] == 4:
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
             
-            # 保存临时文件用于 PredictDataset
+            # 保存临时文件用于 PredictDataset（传入文件路径而不是目录）
             temp_dir = Path('./temp_predict')
             temp_dir.mkdir(exist_ok=True)
             temp_path = temp_dir / 'temp_image.png'
             cv2.imwrite(str(temp_path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             
-            # 创建预测数据集
+            # 创建预测数据集 - 传入文件路径
             dataset = PredictDataset(
-                path=temp_dir,
+                path=temp_path,  # 传入文件路径而不是目录
                 image_size=(256, 256),
             )
             
@@ -326,24 +309,32 @@ class AnomalyDetector:
     def _format_result(self, score: float, label: int) -> str:
         """格式化结果文本"""
         model_config = MODEL_CONFIGS[self.current_model]
-        status = "🔴 异常 (Anomaly)" if label == 1 else "🟢 正常 (Normal)"
-        confidence = score if label == 1 else 1 - score
+        is_anomaly = label == 1
+        status = "🔴 **异常 (Anomaly)**" if is_anomaly else "🟢 **正常 (Normal)**"
+        confidence = score if is_anomaly else 1 - score
+        
+        # 根据结果调整颜色
+        result_color = "#ff6b6b" if is_anomaly else "#51cf66"
         
         return f"""
-### 检测结果
+### 📋 检测详情
 
 | 项目 | 值 |
 |:---|:---|
 | **算法** | {model_config.name} |
 | **方向** | {model_config.direction} |
 | **判定结果** | {status} |
-| **异常得分** | {score:.4f} |
-| **置信度** | {confidence:.2%} |
+| **异常得分** | `{score:.4f}` |
+| **置信度** | `{confidence:.2%}` |
 
 ---
-**说明**: 
-- 异常得分 > {ANOMALY_THRESHOLD} 判定为异常
-- 热力图中**红色区域**表示高异常概率
+
+**💡 结果解读**
+
+- 当前阈值: **{ANOMALY_THRESHOLD}** (得分 > 阈值判定为异常)
+- 检测状态: **{"⚠️ 发现异常" if is_anomaly else "✅ 产品正常"}**
+- 热力图中 **<span style="color:red">红色区域</span>** 表示高异常概率
+- 建议对异常区域进行人工复检
 """
 
 
@@ -358,41 +349,75 @@ detector = AnomalyDetector()
 def create_interface() -> gr.Blocks:
     """创建 Gradio 界面"""
     
-    css = """
-    .model-info { font-size: 13px; line-height: 1.6; }
-    .result-text { font-size: 14px; }
-    .image-display { max-height: 400px; }
-    """
+    # 读取外部 CSS 文件
+    css_path = Path(__file__).parent / "styles.css"
+    try:
+        css = css_path.read_text(encoding='utf-8')
+    except FileNotFoundError:
+        # 如果 CSS 文件不存在，使用默认样式
+        css = """
+        .gradio-container { max-width: 1400px; margin: 0 auto; }
+        .title { text-align: center; }
+        .center { text-align: center; }
+        """
     
     with gr.Blocks(css=css, title="工业异常检测演示") as demo:
         
         # ==================== 标题区域 ====================
         gr.Markdown("""
-        # 🔍 工业图像异常检测演示系统
+        <div class="title">🔍 工业图像异常检测演示系统</div>
         
-        基于 **anomalib 2.x** 的四种主流算法实现
-        
-        | 算法 | 方向 | 特点 |
-        |:---|:---:|:---|
-        | **EfficientAd** | 轻量级特征对齐 | 速度快，适合部署 |
-        | **Ganomaly** | 基于重构 (GAN) | 经典重构方法 |
-        | **PatchCore** | 特征建模 | 工业界最佳，无需训练 |
-        | **DRAEM** | 自监督 | 无需异常样本，定位精准 |
+        <div style="text-align: center; color: #a0a0a0; margin-bottom: 20px;">
+            ✨ 基于 anomalib 2.x 的三种主流算法实现 | ⚡ 实时推理 | 🎯 精准定位
+        </div>
         """)
+        
+        # ==================== 算法选择指南 ====================
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("""
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <div style="flex: 1; min-width: 280px; background: rgba(102, 126, 234, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #667eea;">
+                        <h4 style="margin: 0 0 10px 0; color: #667eea;">⭐ PatchCore</h4>
+                        <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
+                            <b>特征建模法</b> | 工业界最佳<br>
+                            使用预训练CNN提取特征，构建记忆库存储正常样本。无需训练，推理速度最快。
+                        </p>
+                    </div>
+                    <div style="flex: 1; min-width: 280px; background: rgba(118, 75, 162, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #764ba2;">
+                        <h4 style="margin: 0 0 10px 0; color: #764ba2;">🔬 DRAEM</h4>
+                        <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
+                            <b>自监督学习</b> | 定位精准<br>
+                            合成异常样本训练判别网络。无需真实异常样本，小缺陷检测效果好。
+                        </p>
+                    </div>
+                    <div style="flex: 1; min-width: 280px; background: rgba(255, 107, 107, 0.1); border-radius: 12px; padding: 15px; border-left: 4px solid #ff6b6b;">
+                        <h4 style="margin: 0 0 10px 0; color: #ff6b6b;">🎨 Ganomaly</h4>
+                        <p style="margin: 0; font-size: 12px; color: #ccc; line-height: 1.5;">
+                            <b>基于重构(GAN)</b> | 经典方法<br>
+                            通过GAN学习正常分布，异常样本重构误差大。概念直观，效果一般。
+                        </p>
+                    </div>
+                </div>
+                """)
         
         # ==================== 主体区域 ====================
         with gr.Row():
             
             # -------- 左侧：控制面板 --------
-            with gr.Column(scale=1):
-                gr.Markdown("### ⚙️ 控制面板")
+            with gr.Column(scale=1, min_width=300):
+                gr.Markdown("### ⚙️ 控制面板", elem_classes=["panel-header"])
                 
                 # 算法选择下拉菜单
                 model_dropdown = gr.Dropdown(
-                    choices=list(MODEL_CONFIGS.keys()),
+                    choices=[
+                        ('⭐ PatchCore (推荐)', 'patchcore'),
+                        ('🔬 DRAEM (自监督)', 'draem'),
+                        ('🎨 Ganomaly (GAN)', 'ganomaly')
+                    ],
                     value='patchcore',
                     label="选择算法",
-                    info="切换不同的异常检测算法"
+                    info="点击下拉菜单选择检测算法"
                 )
                 
                 # 算法说明
@@ -401,11 +426,12 @@ def create_interface() -> gr.Blocks:
                     elem_classes=["model-info"]
                 )
                 
-                # 图片上传
+                # 图片上传 - 放在左侧
                 image_input = gr.Image(
                     type="numpy",
-                    label="📤 上传测试图片",
-                    image_mode="RGB"
+                    label="上传测试图片",
+                    image_mode="RGB",
+                    height=300
                 )
                 
                 # 开始推理按钮
@@ -413,28 +439,30 @@ def create_interface() -> gr.Blocks:
                 
                 # 加载状态
                 load_status = gr.Textbox(
-                    label="模型状态",
-                    value="请选择算法并上传图片",
+                    label="状态",
+                    value="请上传图片后点击推理",
                     interactive=False
                 )
             
             # -------- 右侧：结果展示 --------
-            with gr.Column(scale=2):
-                gr.Markdown("### [STAT] 检测结果")
+            with gr.Column(scale=2, min_width=500):
+                gr.Markdown("### 📊 检测结果", elem_classes=["panel-header"])
                 
                 with gr.Row():
                     # 原图
                     original_output = gr.Image(
                         type="numpy",
                         label="原图",
-                        elem_classes=["image-display"]
+                        elem_classes=["image-display"],
+                        height=300
                     )
                     
                     # 缺陷热力图
                     heatmap_output = gr.Image(
                         type="numpy",
                         label="缺陷热力图",
-                        elem_classes=["image-display"]
+                        elem_classes=["image-display"],
+                        height=300
                     )
                 
                 # 结果文本
@@ -446,23 +474,42 @@ def create_interface() -> gr.Blocks:
         # ==================== 底部说明 ====================
         gr.Markdown("""
         ---
+        <div style="background: rgba(102, 126, 234, 0.1); border-radius: 15px; padding: 20px; margin-top: 20px;">
+        
         ### 📖 使用说明
         
-        **操作步骤**:
+        <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+        
+        <div style="flex: 1; min-width: 250px;">
+        
+        **🎯 操作步骤**
         1. **选择算法**: 从下拉菜单选择要使用的算法
         2. **上传图片**: 点击上传区域选择测试图片（支持 PNG, JPG, BMP）
         3. **开始推理**: 点击"🚀 开始推理"按钮执行检测
         4. **查看结果**: 右侧显示原图和缺陷热力图，下方显示详细结果
         
-        **热力图解读**:
+        </div>
+        
+        <div style="flex: 1; min-width: 250px;">
+        
+        **🌈 热力图解读**
         - 🔵 **蓝色/绿色**: 正常区域
         - 🟡 **黄色**: 疑似异常
         - 🔴 **红色**: 高概率异常区域
         
-        **注意事项**:
+        </div>
+        
+        <div style="flex: 1; min-width: 250px;">
+        
+        **⚠️ 注意事项**
         - 首次切换算法时会自动加载模型权重
         - 如果提示权重不存在，请先运行训练脚本
         - 推荐使用 GPU 进行推理以获得更快速度
+        
+        </div>
+        
+        </div>
+        </div>
         """)
         
         # ==================== 事件绑定 ====================
@@ -512,10 +559,8 @@ def main():
     print("Access: http://127.0.0.1:7860")
     print("="*70)
     
-    # 预加载默认模型
-    print("\n[WAIT] Preloading default model (PatchCore)...")
-    success, message = detector.load_model('patchcore')
-    print(f"   {message}")
+    # 不预加载模型，按需加载以加快启动速度
+    print("\n[OK] 模型将在首次使用时加载")
     
     # 创建并启动界面
     demo = create_interface()
@@ -523,7 +568,8 @@ def main():
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        show_error=True
+        show_error=True,
+        inbrowser=True,  # 自动打开浏览器
     )
 
 

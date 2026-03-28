@@ -1,0 +1,150 @@
+/* Gradio 4.x 全屏铺满布局 */
+
+/* 全局背景 */
+html, body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%) !important;
+    min-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 主容器 - 全屏铺满 */
+.gradio-container {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(10px);
+    padding: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+}
+
+/* 内部内容区 */
+.main {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* 列自适应 */
+[class*="column"] {
+    flex: 1 !important;
+}
+
+/* 图片自适应 */
+.gradio-image img {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+}
+
+/* 标题样式 */
+.title {
+    text-align: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700 !important;
+    font-size: 2.2em !important;
+    margin-bottom: 10px !important;
+}
+
+.center {
+    text-align: center;
+    color: #e0e0e0;
+}
+
+/* 算法信息卡片 */
+.model-info {
+    font-size: 13px;
+    line-height: 1.6;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    border-left: 4px solid #667eea;
+    color: #e0e0e0;
+}
+
+/* 结果文本 */
+.result-text {
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 图片展示区 */
+.image-display {
+    max-height: 400px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* 按钮美化 */
+button.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    border-radius: 25px !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease !important;
+}
+
+button.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+/* 下拉菜单美化 */
+.gradio-dropdown {
+    border-radius: 10px !important;
+}
+
+/* 上传区域美化 */
+.gradio-image {
+    border-radius: 12px;
+    border: 2px dashed rgba(102, 126, 234, 0.5) !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* 面板标题 */
+h3 {
+    color: #667eea !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+    padding-bottom: 8px;
+}
+
+/* 表格样式 */
+table {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 auto !important;
+}
+
+th {
+    background: rgba(102, 126, 234, 0.3) !important;
+    color: white !important;
+}
+
+td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 标签页样式 */
+.tab-item {
+    color: #e0e0e0 !important;
+}
+
+/* 文本框样式 */
+input, textarea {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    color: #e0e0e0 !important;
+}

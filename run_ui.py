@@ -52,6 +52,8 @@ def parse_args():
                         help='Web 服务端口（默认 7860）')
     parser.add_argument('--share', '-s', action='store_true',
                         help='创建公开分享链接')
+    parser.add_argument('--category', '-c', type=str, default='region1',
+                        help='数据集 (region1/bottle)')
     parser.add_argument('--host', type=str, default='127.0.0.1',
                         help='服务地址（默认 127.0.0.1）')
     
@@ -71,6 +73,7 @@ def main():
     print(f"   🌐 服务地址:   {args.host}")
     print(f"   🔌 服务端口:   {args.port}")
     print(f"   🔗 分享链接:   {'是' if args.share else '否'}")
+    print(f"   📦 数据集:     {args.category}")
     print("-" * 70)
     print()
     
@@ -85,13 +88,13 @@ def main():
     try:
         # 这里需要传递参数给 UI 模块
         # demo.py 定义了 create_interface() 函数
-        from modules.ui.demo import create_interface, detector
+        from modules.ui.demo import create_interface, detector, MODEL_CONFIGS
         
         # 不预加载模型，让用户上传图片时才加载
         # 避免卡在模型加载步骤
         
         # 创建并启动 UI
-        ui = create_interface()
+        ui = create_interface(default_dataset=args.category)
         ui.launch(
             server_name=args.host,
             server_port=args.port,

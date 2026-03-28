@@ -40,13 +40,17 @@ from anomalib.models import (
     Fre,
 )
 
+# 配置管理
+from modules.config import get_threshold, get_model_config, get_data_config
+
 # 忽略警告
 warnings.filterwarnings('ignore')
 
 
 # ================================================================================
-# 配置常量
+# 配置常量（从配置文件读取）
 # ================================================================================
+# 移除硬编码的阈值配置，改为从 config.yaml 和训练结果动态读取
 
 @dataclass
 class ModelConfig:
@@ -69,7 +73,7 @@ MODEL_CONFIGS = {
 重构误差作为异常分数（误差大=异常）。
 
 **特点**:
-- 重构法改进版，效果远超Ganomaly
+- 重构法改进版，效果优秀
 - 支持像素级定位
 - 训练快速，效果优秀
 ''',
@@ -115,8 +119,20 @@ MODEL_CONFIGS = {
     )
 }
 
-# 异常判定阈值
-ANOMALY_THRESHOLD = 0.5
+
+
+def get_available_datasets():
+    """自动检测可用的数据集"""
+    results_dir = Path("./results")
+    datasets = set()
+    for model_key in ["fre", "patchcore", "draem"]:
+        for subdir in ["Fre", "Patchcore", "Draem"]:
+            model_path = results_dir / model_key / subdir / "MVTec"
+            if model_path.exists():
+                for cat_dir in model_path.iterdir():
+                    if cat_dir.is_dir() and cat_dir.name not in ["__pycache__"]:
+                        datasets.add(cat_dir.name)
+    return sorted(list(datasets))
 
 
 # ================================================================================
@@ -132,45 +148,59 @@ class AnomalyDetector:
     
     def __init__(self):
         self.current_model: Optional[str] = None
+        self.current_dataset: Optional[str] = None
         self.model = None
         self.engine = None
     
-    def load_model(self, model_key: str) -> Tuple[bool, str]:
+    def load_model(self, model_key: str, dataset: str = None) -> Tuple[bool, str]:
         """
         加载指定模型
         
         Args:
-            model_key: 模型标识 (autoencoder/patchcore/draem)
+            model_key: 模型标识 (fre/patchcore/draem)
+            dataset: 数据集名称 (region1/bottle)
         
         Returns:
             Tuple[bool, str]: (是否成功, 状态信息)
         """
-        # 如果模型已加载，直接返回
-        if model_key == self.current_model and self.model is not None:
-            return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name}"
+        if dataset is None:
+            dataset = "region1"
+        
+        # 如果模型和数据都已加载，直接返回
+        if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
+            return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name} ({dataset})"
         
         config = MODEL_CONFIGS.get(model_key)
         if config is None:
             return False, f"[FAIL] 未知模型: {model_key}"
         
-        # 查找权重文件
+        # 查找权重文件 - 优先查找对应数据集的权重
         weight_path = Path(config.weight_path)
-        if not weight_path.exists():
-            # 尝试查找其他可能的权重文件（递归搜索 anomalib 2.x 的嵌套结构）
+        
+        # 如果默认路径不存在或数据集不匹配，搜索对应数据集的权重
+        if not weight_path.exists() or dataset not in str(weight_path):
             search_base = Path('./results')
-            model_dir = search_base / model_key
             
-            if model_dir.exists():
-                # 优先查找 lightning/model.ckpt（anomalib 2.x 标准路径）
-                for pattern in [
-                    f'{model_key}/**/lightning/model.ckpt',
-                    f'{model_key}/**/*.ckpt',
-                ]:
-                    candidates = list(search_base.glob(pattern))
-                    if candidates:
-                        # 取最新修改的文件
-                        weight_path = max(candidates, key=lambda p: p.stat().st_mtime)
+            # 首先尝试查找对应数据集的权重
+            for subdir in ['Fre', 'Patchcore', 'Draem']:
+                model_subdir = search_base / model_key / subdir / 'MVTec' / dataset
+                if model_subdir.exists():
+                    ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
+                    if ckpt_files:
+                        weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
                         break
+            
+            # 如果没找到，搜索所有可用权重
+            if not weight_path.exists():
+                if search_base.exists():
+                    for pattern in [
+                        f'{model_key}/**/lightning/model.ckpt',
+                        f'{model_key}/**/*.ckpt',
+                    ]:
+                        candidates = list(search_base.glob(pattern))
+                        if candidates:
+                            weight_path = max(candidates, key=lambda p: p.stat().st_mtime)
+                            break
         
         if not weight_path.exists():
             return False, (
@@ -198,8 +228,9 @@ class AnomalyDetector:
             
             self.model.eval()
             self.current_model = model_key
+            self.current_dataset = dataset
             
-            return True, f"[OK] 成功加载模型: {config.name}"
+            return True, f"[OK] 成功加载 {config.name} ({dataset})"
         
         except Exception as e:
             return False, f"[FAIL] 模型加载失败: {str(e)}"
@@ -308,7 +339,13 @@ class AnomalyDetector:
     def _format_result(self, score: float, label: int) -> str:
         """格式化结果文本 - 工业仪表盘风格"""
         model_config = MODEL_CONFIGS[self.current_model]
-        is_anomaly = label == 1
+        
+        # 从配置系统读取最优阈值（优先从训练结果，其次配置文件默认值）
+        dataset = self.current_dataset or "bottle"
+        threshold = get_threshold(self.current_model, dataset)
+        
+        # 根据阈值判断是否为异常
+        is_anomaly = score > threshold
         confidence = score if is_anomaly else 1 - score
         
         # 莫兰迪色系
@@ -340,9 +377,9 @@ class AnomalyDetector:
                 <div class="progress-bar-mini">
                     <div class="progress-fill {'anomaly' if is_anomaly else 'normal'}" style="width: {score*100}%;"></div>
                 </div>
-                <div class="threshold-line">
-                    <div class="threshold-marker" style="left: {ANOMALY_THRESHOLD*100}%;"></div>
-                    <div class="threshold-label" style="left: {ANOMALY_THRESHOLD*100}%;">{ANOMALY_THRESHOLD}</div>
+                    <div class="threshold-line">
+                    <div class="threshold-marker" style="left: {threshold*100}%;"></div>
+                    <div class="threshold-label" style="left: {threshold*100}%;">{threshold}</div>
                 </div>
             </div>
         </div>
@@ -362,8 +399,8 @@ class AnomalyDetector:
     <!-- 结果解读 -->
     <div style="background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: 16px; border-left: 2px solid {status_color};">
         <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">结果解读</div>
-        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
-            <div>得分 <b style="color: {status_color};">{score:.4f}</b> {'>' if is_anomaly else '<'} 阈值 <b>{ANOMALY_THRESHOLD}</b>，判定为 <b style="color: {status_color};">{'异常' if is_anomaly else '正常'}</b></div>
+            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+            <div>得分 <b style="color: {status_color};">{score:.4f}</b> {'>' if is_anomaly else '<'} 阈值 <b>{threshold}</b>，判定为 <b style="color: {status_color};">{'异常' if is_anomaly else '正常'}</b></div>
             <div style="margin-top: 8px; color: var(--text-muted);">热力图中偏红区域表示异常概率较高</div>
         </div>
     </div>
@@ -379,8 +416,13 @@ detector = AnomalyDetector()
 # Gradio 界面构建
 # ================================================================================
 
-def create_interface() -> gr.Blocks:
+def create_interface(default_dataset: str = None) -> gr.Blocks:
     """创建 Gradio 界面"""
+    
+    # 获取默认数据集
+    if default_dataset is None:
+        available = get_available_datasets()
+        default_dataset = available[0] if available else "region1"
     
     # 读取外部 CSS 文件
     css_path = Path(__file__).parent / "styles.css"
@@ -401,6 +443,14 @@ def create_interface() -> gr.Blocks:
         <div class="title">工业图像异常检测系统</div>
         <div class="subtitle">基于 anomalib 2.x 的无监督异常检测 | 实时推理 | 精准定位</div>
         """)
+        
+        # 数据集选择
+        gr.Markdown("### 选择数据集")
+        dataset_dropdown = gr.Dropdown(
+            choices=get_available_datasets(),
+            value=default_dataset,
+            label="数据集"
+        )
         
         # ==================== 算法选择 Tabs ====================
         with gr.Tabs() as tabs:
@@ -434,12 +484,11 @@ def create_interface() -> gr.Blocks:
             
             # -------- 左侧：控制面板 --------
             with gr.Column(scale=1, min_width=300):
-                # 使用隐藏的Dropdown保持功能
-                model_dropdown = gr.Dropdown(
-                    choices=[('PatchCore', 'patchcore'), ('FRE', 'fre'), ('DRAEM', 'draem')],
+                # 算法选择下拉菜单
+                algo_dropdown = gr.Dropdown(
+                    choices=[('FRE', 'fre'), ('PatchCore', 'patchcore'), ('DRAEM', 'draem')],
                     value='patchcore',
-                    label="",
-                    visible=False
+                    label="算法选择"
                 )
                 
                 # 操作区域：图片左侧，按钮和状态右侧垂直排列
@@ -575,34 +624,27 @@ def create_interface() -> gr.Blocks:
                     <div style="color: #666; font-size: 12px; margin-top: 8px;">{message}</div>
                 </div>'''
         
-        def on_model_change(model_key):
-            """算法切换事件 - 使用生成器实现渐进式更新"""
-            import time
+        def on_model_change(model_key, dataset):
+            """算法切换事件"""
             config = MODEL_CONFIGS[model_key]
             
-            # 更新顶部算法介绍卡片
             algo_descriptions = {
                 'patchcore': '<h4 class="recommended">PatchCore — 特征建模法</h4><p>使用预训练CNN提取局部特征，构建记忆库存储正常样本特征。测试时通过计算测试样本特征与记忆库的最近邻距离来判断异常。无需训练，推理速度最快，工业界最佳方案。</p>',
                 'fre': '<h4>FRE — 特征重构法</h4><p>使用预训练ResNet提取特征，通过线性自编码器重构特征。重构误差即异常分数。效果优秀，适合需要解释性的场景。</p>',
                 'draem': '<h4>DRAEM — 自监督学习</h4><p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>'
             }
             
-            # 第一步：立即返回加载中状态
             yield algo_descriptions.get(model_key, ''), format_status(f"正在加载 {config.name}...", is_loading=True)
-            
-            # 第二步：执行实际加载
-            success, message = detector.load_model(model_key)
-            
-            # 第三步：返回最终结果
+            success, message = detector.load_model(model_key, dataset)
             yield algo_descriptions.get(model_key, ''), format_status(message)
         
-        def on_run_click(model_key, image):
+        def on_run_click(model_key, dataset, image):
             """推理按钮点击事件"""
             if image is None:
                 return None, None, "<div class='result-card' style='text-align: center; color: #666;'><div style='padding: 40px;'>请先上传图片</div></div>", format_status("请先上传测试图片")
             
             # 确保模型已加载
-            success, message = detector.load_model(model_key)
+            success, message = detector.load_model(model_key, dataset)
             if not success:
                 return image, image, f"<div class='result-card' style='color: var(--status-anomaly-text); padding: 20px;'>{message}</div>", format_status(message)
             
@@ -622,23 +664,14 @@ def create_interface() -> gr.Blocks:
             algo_map = {"PatchCore": "patchcore", "FRE": "fre", "DRAEM": "draem"}
             return algo_map.get(tab_name, "patchcore")
         
-        tab_patchcore.select(
-            fn=lambda: "patchcore",
-            outputs=current_algo
-        )
-        tab_fre.select(
-            fn=lambda: "fre",
-            outputs=current_algo
-        )
-        tab_draem.select(
-            fn=lambda: "draem",
-            outputs=current_algo
-        )
+        # tab_patchcore.select removed
+        # tab_fre.select removed
+        # tab_draem.select removed
         
         # 绑定推理按钮事件 - 使用current_algo
         run_button.click(
             fn=on_run_click,
-            inputs=[current_algo, image_input],
+            inputs=[algo_dropdown, dataset_dropdown, image_input],
             outputs=[original_output, heatmap_output, result_output, load_status]
         )
         
@@ -646,6 +679,13 @@ def create_interface() -> gr.Blocks:
             fn=on_image_upload,
             inputs=image_input,
             outputs=load_status
+        )
+        
+        # 绑定算法选择事件
+        algo_dropdown.change(
+            fn=on_model_change,
+            inputs=[algo_dropdown, dataset_dropdown],
+            outputs=[load_status]  # 更新状态
         )
     
     return demo

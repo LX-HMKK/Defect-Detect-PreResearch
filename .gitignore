@@ -62,3 +62,6 @@ tensorboard_logs/
 tmp/
 temp/
 *.tmp
+pre_trained/
+temp_predict/
+nul

@@ -148,3 +148,77 @@ input, textarea {
     border-radius: 8px !important;
     color: #e0e0e0 !important;
 }
+
+/* 状态脉冲动画 */
+@keyframes statusPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* 进度条美化 */
+.progress-bar {
+    background: rgba(102, 126, 234, 0.2) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+.progress-bar .progress {
+    background: linear-gradient(90deg, #667eea, #764ba2) !important;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5) !important;
+    animation: progressShine 1.5s infinite !important;
+}
+
+@keyframes progressShine {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+    100% { filter: brightness(1); }
+}
+
+/* 按钮和状态区域布局优化 */
+button.primary {
+    transition: all 0.3s ease !important;
+}
+
+button.primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+button.primary:active {
+    transform: translateY(0) !important;
+}
+
+/* 成功状态动画 */
+@keyframes successPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.success-animation {
+    animation: successPop 0.4s ease-out !important;
+}
+
+/* 旋转动画 - 用于加载 */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 弹跳动画 - 用于成功 */
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* 按钮样式 - 更高更宽 */
+button.primary.inference-btn {
+    width: 100% !important;
+    min-height: 140px !important;
+    font-size: 20px !important;
+    letter-spacing: 3px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}

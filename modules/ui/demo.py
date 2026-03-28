@@ -309,31 +309,54 @@ class AnomalyDetector:
         """格式化结果文本"""
         model_config = MODEL_CONFIGS[self.current_model]
         is_anomaly = label == 1
-        status = "🔴 **异常 (Anomaly)**" if is_anomaly else "🟢 **正常 (Normal)**"
         confidence = score if is_anomaly else 1 - score
         
         # 根据结果调整颜色
-        result_color = "#ff6b6b" if is_anomaly else "#51cf66"
+        status_color = "#ff6b6b" if is_anomaly else "#51cf66"
+        status_icon = "⚠️" if is_anomaly else "✅"
+        status_text = "异常 (Anomaly)" if is_anomaly else "正常 (Normal)"
+        status_desc = "发现异常" if is_anomaly else "产品正常"
         
         return f"""
-### 📋 检测详情
+<div style="background: rgba(102, 126, 234, 0.05); border-radius: 16px; padding: 20px; border: 1px solid rgba(255, 255, 255, 0.1);">
 
-| 项目 | 值 |
-|:---|:---|
-| **算法** | {model_config.name} |
-| **方向** | {model_config.direction} |
-| **判定结果** | {status} |
-| **异常得分** | `{score:.4f}` |
-| **置信度** | `{confidence:.2%}` |
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+    <div>
+        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">检测算法</div>
+        <div style="font-size: 20px; font-weight: 600; color: #667eea;">{model_config.name}</div>
+        <div style="font-size: 12px; color: #aaa;">{model_config.direction}</div>
+    </div>
+    <div style="background: {status_color}22; border: 2px solid {status_color}; border-radius: 12px; padding: 12px 24px; text-align: center;">
+        <div style="font-size: 24px; margin-bottom: 4px;">{status_icon}</div>
+        <div style="font-size: 16px; font-weight: 600; color: {status_color};">{status_text}</div>
+    </div>
+</div>
 
----
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 15px; text-align: center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">异常得分</div>
+        <div style="font-size: 28px; font-weight: 700; color: {'#ff6b6b' if is_anomaly else '#51cf66'};">{score:.4f}</div>
+    </div>
+    <div style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 15px; text-align: center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">置信度</div>
+        <div style="font-size: 28px; font-weight: 700; color: #667eea;">{confidence:.1%}</div>
+    </div>
+    <div style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 15px; text-align: center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">判定阈值</div>
+        <div style="font-size: 28px; font-weight: 700; color: #888;">{ANOMALY_THRESHOLD}</div>
+    </div>
+</div>
 
-**💡 结果解读**
+<div style="background: rgba(255, 255, 255, 0.03); border-radius: 10px; padding: 15px; border-left: 3px solid {status_color};">
+    <div style="font-size: 12px; color: #888; margin-bottom: 10px;">💡 结果解读</div>
+    <div style="font-size: 13px; color: #ccc; line-height: 1.8;">
+        <div>• 检测状态: <span style="color: {status_color}; font-weight: 600;">{status_desc}</span></div>
+        <div>• 当前得分 <b>{score:.4f}</b> {'高于' if is_anomaly else '低于'}阈值 <b>{ANOMALY_THRESHOLD}</b>，判定为{'异常' if is_anomaly else '正常'}</div>
+        <div>• 热力图中 <span style="color: #ff6b6b; font-weight: 600;">红色区域</span> 表示高异常概率，建议对异常区域进行人工复检</div>
+    </div>
+</div>
 
-- 当前阈值: **{ANOMALY_THRESHOLD}** (得分 > 阈值判定为异常)
-- 检测状态: **{"⚠️ 发现异常" if is_anomaly else "✅ 产品正常"}**
-- 热力图中 **<span style="color:red">红色区域</span>** 表示高异常概率
-- 建议对异常区域进行人工复检
+</div>
 """
 
 
@@ -425,23 +448,36 @@ def create_interface() -> gr.Blocks:
                     elem_classes=["model-info"]
                 )
                 
-                # 图片上传 - 放在左侧
-                image_input = gr.Image(
-                    type="numpy",
-                    label="上传测试图片",
-                    image_mode="RGB",
-                    height=300
-                )
-                
-                # 开始推理按钮
-                run_button = gr.Button("🚀 开始推理", variant="primary", size="lg")
-                
-                # 加载状态
-                load_status = gr.Textbox(
-                    label="状态",
-                    value="请上传图片后点击推理",
-                    interactive=False
-                )
+                # 操作区域：图片左侧，按钮和状态右侧垂直排列
+                with gr.Row():
+                    # 左侧：图片上传
+                    with gr.Column(scale=1):
+                        image_input = gr.Image(
+                            type="numpy",
+                            label="上传测试图片",
+                            image_mode="RGB",
+                            height=280
+                        )
+                    
+                    # 右侧：按钮和状态垂直堆砌（与图片等高）
+                    with gr.Column(scale=1):
+                        # 开始推理按钮 - 占据大部分高度
+                        run_button = gr.Button(
+                            "🚀 开始推理", 
+                            variant="primary", 
+                            size="lg", 
+                            elem_classes=["inference-btn"],
+                            scale=3
+                        )
+                        
+                        # 模型加载状态 - 带动态效果
+                        load_status = gr.HTML(
+                            value='''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 16px;">
+                                <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+                                <div style="color: #888; font-size: 13px; text-align: center;">等待上传图片</div>
+                            </div>''',
+                            scale=2
+                        )
             
             # -------- 右侧：结果展示 --------
             with gr.Column(scale=2, min_width=500):
@@ -513,25 +549,78 @@ def create_interface() -> gr.Blocks:
         
         # ==================== 事件绑定 ====================
         
+        def format_status(message, is_loading=False):
+            """格式化状态消息为HTML"""
+            if is_loading:
+                # 加载中状态 - 带动画
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(102, 126, 234, 0.1); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.3); padding: 16px; animation: statusPulse 0.5s ease;">
+                    <div style="width: 32px; height: 32px; border: 3px solid rgba(102, 126, 234, 0.3); border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;"></div>
+                    <div style="color: #667eea; font-size: 13px; text-align: center; font-weight: 500;">{message}</div>
+                </div>'''
+            elif "[OK]" in message or "成功" in message or "完成" in message:
+                # 成功状态
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(81, 207, 102, 0.1); border-radius: 12px; border: 1px solid rgba(81, 207, 102, 0.4); padding: 16px; animation: successPop 0.4s ease-out;">
+                    <div style="font-size: 32px; margin-bottom: 8px; animation: bounce 0.5s ease;">✅</div>
+                    <div style="color: #51cf66; font-size: 13px; text-align: center; font-weight: 500;">{message.replace("[OK]", "").strip()}</div>
+                </div>'''
+            elif "[FAIL]" in message or "失败" in message or "错误" in message:
+                # 失败状态
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255, 107, 107, 0.1); border-radius: 12px; border: 1px solid rgba(255, 107, 107, 0.4); padding: 16px;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">❌</div>
+                    <div style="color: #ff6b6b; font-size: 13px; text-align: center; font-weight: 500;">{message.replace("[FAIL]", "").strip()}</div>
+                </div>'''
+            elif "[WARN]" in message or "警告" in message or "请先" in message:
+                # 警告状态
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255, 193, 7, 0.1); border-radius: 12px; border: 1px solid rgba(255, 193, 7, 0.4); padding: 16px;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
+                    <div style="color: #ffc107; font-size: 13px; text-align: center; font-weight: 500;">{message.replace("[WARN]", "").strip()}</div>
+                </div>'''
+            elif "📷" in message or "上传" in message:
+                # 图片已上传状态
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(102, 126, 234, 0.08); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.25); padding: 16px;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
+                    <div style="color: #667eea; font-size: 13px; text-align: center; font-weight: 500;">{message.replace("📷", "").strip()}</div>
+                </div>'''
+            else:
+                # 默认等待状态
+                return f'''<div style="height: 100%; min-height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 16px;">
+                    <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.6;">⏳</div>
+                    <div style="color: #888; font-size: 13px; text-align: center;">{message}</div>
+                </div>'''
+        
         def on_model_change(model_key):
-            """算法切换事件"""
+            """算法切换事件 - 使用生成器实现渐进式更新"""
+            import time
             config = MODEL_CONFIGS[model_key]
+            
+            # 第一步：立即返回加载中状态
+            yield config.description, format_status(f"正在加载 {config.name} 模型...", is_loading=True)
+            
+            # 第二步：执行实际加载
             success, message = detector.load_model(model_key)
-            return config.description, message
+            
+            # 第三步：返回最终结果
+            yield config.description, format_status(message)
         
         def on_run_click(model_key, image):
             """推理按钮点击事件"""
             if image is None:
-                return None, None, "[WARN] 请先上传图片"
+                return None, None, "<div style='padding: 20px; text-align: center; color: #888;'>请先上传图片</div>", format_status("⚠️ 请先上传测试图片")
             
             # 确保模型已加载
             success, message = detector.load_model(model_key)
             if not success:
-                return image, image, message
+                return image, image, f"<div style='padding: 20px; color: #ff6b6b;'>{message}</div>", format_status(message)
             
             # 执行推理
             original, heatmap, result = detector.predict(image)
-            return original, heatmap, result
+            return original, heatmap, result, format_status("✅ 推理完成！")
+        
+        def on_image_upload(image):
+            """图片上传事件"""
+            if image is not None:
+                return format_status("📷 图片已上传，点击开始推理")
+            return format_status("⏳ 等待上传图片...")
         
         # 绑定事件
         model_dropdown.change(
@@ -543,7 +632,13 @@ def create_interface() -> gr.Blocks:
         run_button.click(
             fn=on_run_click,
             inputs=[model_dropdown, image_input],
-            outputs=[original_output, heatmap_output, result_output]
+            outputs=[original_output, heatmap_output, result_output, load_status]
+        )
+        
+        image_input.change(
+            fn=on_image_upload,
+            inputs=image_input,
+            outputs=load_status
         )
     
     return demo

@@ -542,9 +542,17 @@ class AnomalyDetectionTrainer:
             bad_scores = []
             
             for pred in predictions:
-                score = float(pred.pred_score)
+                # pred.pred_score 可能是多元素 tensor（如 DRAEM 返回向量），取最大值作为图像级得分
+                score = float(pred.pred_score.cpu().max().item())
+                # gt_label 可能是多元素 tensor，统一转为标量（取第一个元素）
+                gt_label_tensor = pred.gt_label.cpu()
+                if gt_label_tensor.numel() == 1:
+                    gt_label_val = bool(gt_label_tensor.item())
+                else:
+                    # 多元素时取第一个元素
+                    gt_label_val = bool(gt_label_tensor.flatten()[0].item())
                 # 检查是否为 GOOD 样本 (gt_label = False/0 表示正常)
-                is_good = not bool(pred.gt_label)
+                is_good = not gt_label_val
                 
                 if is_good:
                     good_scores.append(score)
@@ -598,11 +606,13 @@ class AnomalyDetectionTrainer:
         result_dir.mkdir(parents=True, exist_ok=True)
         
         # 准备保存的数据
+        # optimal_threshold 在 self.results 中（顶层），与 metrics 平级保存，便于 UI 读取
         save_data = {
             'model': self.model_name,
             'category': self.category,
             'timestamp': datetime.now().isoformat(),
-            'metrics': self.results
+            'metrics': self.results,
+            'optimal_threshold': self.results.get('optimal_threshold'),
         }
         
         # 保存为 JSON

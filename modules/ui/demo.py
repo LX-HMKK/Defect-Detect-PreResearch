@@ -139,6 +139,12 @@ def get_available_datasets():
 # 异常检测器类
 # ================================================================================
 
+# NMS bbox detection: use a SEPARATE lower threshold from classification threshold
+# Classification threshold (from get_threshold) decides if image is anomalous
+# NMS threshold decides where to draw bounding boxes on the heatmap
+# Empirical: anomaly_map values are typically 0.3-0.6 max, far below classification threshold (0.8-0.9)
+NMS_BBOX_THRESHOLD = 0.3  # Lower threshold to detect actual anomaly regions on map
+
 class AnomalyDetector:
     """
     异常检测器
@@ -287,11 +293,18 @@ class AnomalyDetector:
                     
                     # 提取结果
                     anomaly_map = prediction.anomaly_map
-                    pred_score = float(prediction.pred_score)
+                    # pred.pred_score 可能是多元素 tensor，取最大值作为图像级得分
+                    pred_score = float(prediction.pred_score.cpu().max().item())
                     pred_label = int(prediction.pred_label)
                     
-                    # 生成热力图
-                    heatmap = self._generate_heatmap(image, anomaly_map)
+                    # 根据阈值和 NMS 过滤，得到 bbox 列表
+                    # 将 anomaly_map 缩放到原始图片尺寸，在原图坐标空间内计算 bbox
+                    # 注意：使用独立的 NMS_BBOX_THRESHOLD (0.3) 而非 classification threshold
+                    # 原因：anomaly_map.max() 通常为 0.3-0.6，远低于 classification threshold (0.8-0.9)
+                    orig_h, orig_w = image.shape[:2]
+                    bboxes = self._apply_nms_to_map(anomaly_map, NMS_BBOX_THRESHOLD, orig_h, orig_w) if anomaly_map is not None else []
+                    # 生成热力图，同时在热力图上绘制 bbox（红色边框）
+                    heatmap = self._generate_heatmap(image, anomaly_map, bboxes=bboxes)
                     
                     # 生成结果文本
                     result_text = self._format_result(pred_score, pred_label)
@@ -308,7 +321,8 @@ class AnomalyDetector:
     def _generate_heatmap(
         self,
         original: np.ndarray,
-        anomaly_map: torch.Tensor
+        anomaly_map: torch.Tensor,
+        bboxes: Optional[List[Tuple[int, int, int, int, float]]] = None
     ) -> np.ndarray:
         """生成异常热力图"""
         # 将 tensor 转换为 numpy
@@ -333,6 +347,9 @@ class AnomalyDetector:
         
         # 叠加
         overlay = cv2.addWeighted(original, 0.5, heatmap_colored, 0.5, 0)
+        # 如有 bbox，绘制在热力图上（红色边框）
+        if bboxes:
+            overlay = self._draw_bboxes(overlay, bboxes, color=(255, 0, 0))
         
         return overlay
     
@@ -408,7 +425,95 @@ class AnomalyDetector:
 """
 
 
-# 全局检测器实例
+    def _apply_nms_to_map(self, anomaly_map: torch.Tensor, threshold: float, target_h: int, target_w: int) -> List[Tuple[int, int, int, int, float]]:
+        """Apply thresholding and NMS on anomaly_map to obtain bounding boxes.
+        Computes bboxes at model resolution (256x256), then scales coordinates
+        to target image size for correct alignment.
+        Returns list of (x, y, w, h, score) in target image coordinates.
+        """
+        # Convert anomaly_map to numpy at model resolution
+        if isinstance(anomaly_map, torch.Tensor):
+            map_np = anomaly_map.cpu().numpy()
+        else:
+            map_np = anomaly_map
+        if map_np.ndim == 3 and map_np.shape[0] == 1:
+            map_np = map_np[0]
+        
+        map_h, map_w = map_np.shape[:2]
+        
+        # Binary mask at model resolution
+        binary = (map_np > float(threshold)).astype(np.uint8)
+        # Find contours
+        cnts = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = cnts[0] if len(cnts) == 2 else cnts[1]
+        
+        if not contours:
+            return []
+        
+        boxes = []
+        # min_area at model resolution (256x256). Lower from 100 to 30 to catch small defects
+        # Also filter out full-image bboxes (which are false positives from threshold artifacts)
+        min_area = 30
+        max_area_ratio = 0.8  # Filter out bboxes covering >80% of the image
+        max_area = int(map_h * map_w * max_area_ratio)
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            area = w * h
+            if area < min_area or area > max_area:
+                continue
+            # Score: max anomaly score in the region at model resolution
+            region = map_np[y:y+h, x:x+w]
+            score = float(np.max(region)) if region.size > 0 else 0.0
+            # Scale bbox coordinates to target image size
+            sx = x / map_w * target_w
+            sy = y / map_h * target_h
+            sw = w / map_w * target_w
+            sh = h / map_h * target_h
+            boxes.append((int(sx), int(sy), int(sw), int(sh), score))
+        
+        if not boxes:
+            return []
+        
+        # NMS: sort by score descending
+        boxes.sort(key=lambda b: b[4], reverse=True)
+        kept = []
+        while boxes:
+            best = boxes.pop(0)
+            kept.append(best)
+            rem = []
+            for bb in boxes:
+                iou = self._iou(best, bb)
+                if iou < 0.3:
+                    rem.append(bb)
+            boxes = rem
+        return kept
+
+    def _draw_bboxes(self, image: np.ndarray, bboxes: List[Tuple[int,int,int,int,float]], color=(255,0,0)) -> np.ndarray:
+        """Draw bounding boxes on RGB image. Returns image with red boxes."""
+        if image is None:
+            return image
+        img_bgr = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        for (x, y, w, h, s) in bboxes:
+            cv2.rectangle(img_bgr, (int(x), int(y)), (int(x+w), int(y+h)), (0, 0, 255), 2)
+        return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+    def _iou(self, a: Tuple[int,int,int,int,float], b: Tuple[int,int,int,int,float]) -> float:
+        ax, ay, aw, ah, _ = a
+        bx, by, bw, bh, _ = b
+        ix1 = max(ax, bx)
+        iy1 = max(ay, by)
+        ix2 = min(ax+aw, bx+bw)
+        iy2 = min(ay+ah, by+bh)
+        iw = max(0, ix2 - ix1)
+        ih = max(0, iy2 - iy1)
+        inter = iw * ih
+        area_a = aw * ah
+        area_b = bw * bh
+        union = area_a + area_b - inter
+        if union <= 0:
+            return 0.0
+        return inter / union
+
 detector = AnomalyDetector()
 
 

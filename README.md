@@ -20,7 +20,6 @@
 | **FRE** | 特征重构误差 | 95% | - | ✅ 备选 |
 | **DRAEM** | 合成异常 + 判别网络 | 99.2% | 93.9% | ✅ 备选 |
 
-> 测试数据集：MVTec AD bottle（209 训练样本，83 测试样本）
 
 ---
 
@@ -34,21 +33,54 @@ python run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_tra
 
 ### 2. 模型训练
 
+#### 单数据集训练
+
 ```bash
-# 推荐：PatchCore（最快，效果最好）
+# PatchCore（推荐，最快效果最好）
 python run_training.py -m patchcore -c bottle -d ./data
 
-# 或训练 FRE 重构法
+# FRE 重构法
 python run_training.py -m fre -c bottle -d ./data
 
-# 或训练所有算法
+# DRAEM（合成异常 + 判别网络）
+python run_training.py -m draem -c bottle -d ./data
+
+# 训练所有算法
 python run_training.py -m all -c bottle -d ./data
 ```
+
+#### 多数据集训练
+
+```bash
+# 训练所有算法到所有数据集（bottle, carpet, region1）
+python run_training.py -m all -c all -d ./data
+```
+
+#### 命令行参数
+
+| 参数 | 说明 | 示例 |
+|:---|:---|:---|
+| `-m, --model` | 模型名称 | `patchcore`, `fre`, `draem`, `all` |
+| `-c, --category` | 数据类别 | `bottle`, `carpet`, `region1`, `all` |
+| `-d, --data_path` | 数据根目录 | `./data` |
+
+#### 训练特性
+
+- **早停机制**：5 轮无改善则停止训练（基于 train_loss）
+- **DRAEM/FRE**：使用验证集 `val_image_AUROC` 监控
+- **PatchCore**：使用 `image_AUROC` 监控
 
 ### 3. 评估
 
 ```bash
+# 评估单个模型
+python run_evaluation.py -m patchcore -c bottle
+
+# 评估所有模型
 python run_evaluation.py -m all -c bottle
+
+# 评估所有模型到所有数据集
+python run_evaluation.py -m all -c all
 ```
 
 ### 4. 启动 UI

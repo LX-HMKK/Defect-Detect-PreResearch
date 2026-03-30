@@ -74,7 +74,7 @@ training:
   epochs:
     patchcore: 1      # PatchCore 无需训练，仅构建记忆库
     fre: 50          # FRE 收敛较快
-    draem: 200       # DRAEM 需要较多 epoch
+    draem: 100       # DRAEM 需要较多 epoch
     
   # 优化器配置
   optimizer:
@@ -86,6 +86,15 @@ training:
   accelerator: auto  # auto/cpu/cuda
   devices: 1
   enable_progress_bar: false  # 禁用 rich 进度条避免 Windows 编码问题
+
+# 早停配置（可选，作为后备）
+early_stopping:
+  enabled: false                 # 默认关闭，在 configs/*.yaml 中启用
+  monitor: val_image_AUROC      # 监控的指标（PyTorch Lightning 验证指标前缀为 val_）
+  mode: max                     # max: 指标越大越好, min: 越小越好
+  patience: 10                  # 容忍多少个 epoch 没有改善
+  min_delta: 0.001              # 最小改善幅度
+  verbose: true                 # 打印早停信息
 
 # ================================================================================
 # 5. 评估配置

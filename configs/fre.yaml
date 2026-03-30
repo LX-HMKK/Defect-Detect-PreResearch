@@ -88,7 +88,7 @@ trainer:
   min_steps: null
   max_time: null
   limit_train_batches: 1.0
-  limit_val_batches: 0
+  limit_val_batches: 1.0
   limit_test_batches: 1.0
   limit_predict_batches: 1.0
   val_check_interval: 5
@@ -97,3 +97,14 @@ trainer:
   strategy: null
   sync_batchnorm: false
   num_sanity_val_steps: 0
+
+# 早停配置
+# 注意: DRAEM/FRE 的评估指标(image_AUROC等)只在 test() 时计算，不在训练时计算
+# 因此使用 train_loss 作为早停指标 (mode: min 表示 loss 下降时停止)
+early_stopping:
+  enabled: true
+  monitor: train_loss
+  mode: min
+  patience: 10
+  min_delta: 0.01
+  verbose: true

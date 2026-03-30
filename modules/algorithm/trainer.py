@@ -51,6 +51,145 @@ from anomalib.models import (
     Fre,
 )
 
+# ================================================================================
+# 修复: anomalib 2.3.0 与 PyTorch Lightning 1.9.5 不兼容问题
+# TimerCallback.on_before_optimizer_step() 缺少 opt_idx 参数
+# 这个问题会在使用 callbacks（如 EarlyStopping）时触发
+#
+# 注意: 有两个不同的 Callback 类:
+#   - pytorch_lightning.callbacks.Callback (Lightning 内部使用)
+#   - lightning.pytorch.callbacks.Callback (TimerCallback 继承)
+# 需要同时 patch 两个类
+# ================================================================================
+from anomalib.callbacks import TimerCallback
+
+# 获取 TimerCallback 的父类
+_anomalib_callback_class = TimerCallback.__mro__[1]
+_original_anomalib_callback_method = _anomalib_callback_class.on_before_optimizer_step
+
+# 获取 Lightning 的 Callback 类
+import pytorch_lightning.callbacks
+_lightning_callback_class = pytorch_lightning.callbacks.Callback
+_original_lightning_callback_method = _lightning_callback_class.on_before_optimizer_step
+
+
+def _patched_on_before_optimizer_step(self, trainer, pl_module, optimizer, **kwargs):
+    """Patch for anomalib Callback: 接收 Lightning 传递的 opt_idx 参数但忽略它
+    TimerCallback 的原始方法不需要 opt_idx，所以我们不传
+    """
+    return _original_anomalib_callback_method(self, trainer, pl_module, optimizer)
+
+
+def _patched_lightning_on_before_optimizer_step(self, trainer, pl_module, optimizer, **kwargs):
+    """Patch for Lightning Callback: 接收 Lightning 传递的 opt_idx 参数（如果没有则使用默认值 0）
+    
+    注意: Lightning 的 precision plugin 有 bug，不传 opt_idx，但我们需要它。
+    所以这里用 kwargs.get('opt_idx', 0) 来提供一个默认值。
+    """
+    opt_idx = kwargs.get('opt_idx', 0)
+    return _original_lightning_callback_method(self, trainer, pl_module, optimizer, opt_idx)
+
+
+# Patch both Callback classes
+_anomalib_callback_class.on_before_optimizer_step = _patched_on_before_optimizer_step
+_lightning_callback_class.on_before_optimizer_step = _patched_lightning_on_before_optimizer_step
+
+# ================================================================================
+# 修复: on_validation_batch_start() dataloader_idx 参数问题
+# pytorch_lightning.callbacks.Callback 要求的 dataloader_idx 在 lightning.pytorch 中有默认值
+# ================================================================================
+_original_lightning_val_batch_start = _lightning_callback_class.on_validation_batch_start
+
+
+def _patched_on_validation_batch_start(self, trainer, pl_module, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_lightning_val_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_validation_batch_start = _patched_on_validation_batch_start
+
+# ================================================================================
+# 修复: 所有 batch 回调的 dataloader_idx 参数问题
+# lightning.pytorch 有默认值 0，pytorch_lightning 没有
+# ================================================================================
+
+# Patch on_validation_batch_end
+_original_val_batch_end = _lightning_callback_class.on_validation_batch_end
+
+
+def _patched_on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_val_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_validation_batch_end = _patched_on_validation_batch_end
+
+# Patch on_test_batch_start
+_original_test_batch_start = _lightning_callback_class.on_test_batch_start
+
+
+def _patched_on_test_batch_start(self, trainer, pl_module, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_test_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_test_batch_start = _patched_on_test_batch_start
+
+# Patch on_test_batch_end
+_original_test_batch_end = _lightning_callback_class.on_test_batch_end
+
+
+def _patched_on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_test_batch_end = _patched_on_test_batch_end
+
+# Patch on_predict_batch_start
+_original_predict_batch_start = _lightning_callback_class.on_predict_batch_start
+
+
+def _patched_on_predict_batch_start(self, trainer, pl_module, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_predict_batch_start(self, trainer, pl_module, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_predict_batch_start = _patched_on_predict_batch_start
+
+# Patch on_predict_batch_end
+_original_predict_batch_end = _lightning_callback_class.on_predict_batch_end
+
+
+def _patched_on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, **kwargs):
+    """Patch: 提供 dataloader_idx 默认值"""
+    dataloader_idx = kwargs.get('dataloader_idx', 0)
+    return _original_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+
+
+_lightning_callback_class.on_predict_batch_end = _patched_on_predict_batch_end
+
+# Patch on_predict_epoch_end
+# TimerCallback 继承自 lightning.pytorch.callbacks.Callback，on_predict_epoch_end 没有 outputs 参数
+# 但 pytorch_lightning Trainer 调用时传递了 outputs 位置参数
+# 需要 patch lightning.pytorch.callbacks.Callback（不是 pytorch_lightning.callbacks.Callback）
+import lightning.pytorch.callbacks
+_lt_callback_class = lightning.pytorch.callbacks.Callback
+_original_lt_predict_epoch_end = _lt_callback_class.on_predict_epoch_end
+
+
+def _patched_lt_on_predict_epoch_end(self, trainer, pl_module, *args, **kwargs):
+    """Patch: 忽略 pytorch_lightning 传递的 outputs 参数（不传递给 lightning.pytorch 原生方法）"""
+    return _original_lt_predict_epoch_end(self, trainer, pl_module)
+
+
+_lt_callback_class.on_predict_epoch_end = _patched_lt_on_predict_epoch_end
+
 # 配置管理
 from modules.config import get_model_config, get_data_config, get
 
@@ -107,6 +246,44 @@ MODEL_INFO = {
 }
 
 
+def _get_required_data_config(config: Optional[Dict[str, Any]], 
+                              key: str, 
+                              model_name: str) -> Any:
+    """
+    从配置中获取必需的数据参数，如果缺失则报错
+    
+    Args:
+        config: 传入的配置
+        key: 配置键名
+        model_name: 模型名称（用于错误信息）
+        
+    Returns:
+        配置值
+        
+    Raises:
+        ValueError: 配置缺失时抛出
+    """
+    # 1. 尝试从传入的 config 读取（Anomalib 2.x 格式）
+    if config:
+        if 'data' in config and 'init_args' in config['data']:
+            data_config = config['data']['init_args']
+            if key in data_config:
+                return data_config[key]
+        elif key in config:
+            return config[key]
+    
+    # 2. 尝试从 config/config.yaml 读取
+    value = get(f'data.{key}', None)
+    if value is not None:
+        return value
+    
+    # 3. 如果仍然缺失，报错
+    raise ValueError(
+        f"数据配置缺失: 请在 configs/{model_name}.yaml 的 data.init_args 部分或 "
+        f"config/config.yaml 的 data 部分设置 {key}"
+    )
+
+
 def get_datamodule_from_config(
     data_path: str,
     category: str,
@@ -114,7 +291,7 @@ def get_datamodule_from_config(
     config: Optional[Dict[str, Any]] = None
 ) -> Union[MVTec, Folder]:
     """
-    根据配置创建数据模块
+    根据配置创建数据模块 - 严格从 YAML 读取，缺配置直接报错
     
     Args:
         data_path: 数据目录路径
@@ -124,28 +301,16 @@ def get_datamodule_from_config(
     
     Returns:
         MVTec 或 Folder 数据模块
+        
+    Raises:
+        ValueError: 配置缺失时抛出
     """
     data_path = Path(data_path)
     
-    # 从配置管理系统获取默认配置
-    default_config = get_data_config(model_name)
-    train_batch_size = default_config['train_batch_size']
-    eval_batch_size = default_config['eval_batch_size']
-    num_workers = default_config['num_workers']
-    
-    # 从传入的 config 覆盖（Anomalib 2.x 格式）
-    if config:
-        if 'data' in config and 'init_args' in config['data']:
-            # 完整 config，包含 data.init_args
-            data_config = config['data']['init_args']
-            train_batch_size = data_config.get('train_batch_size', train_batch_size)
-            eval_batch_size = data_config.get('eval_batch_size', eval_batch_size)
-            num_workers = data_config.get('num_workers', num_workers)
-        else:
-            # 直接是 data.init_args 或其他格式
-            train_batch_size = config.get('train_batch_size', train_batch_size)
-            eval_batch_size = config.get('eval_batch_size', eval_batch_size)
-            num_workers = config.get('num_workers', num_workers)
+    # 严格从配置读取，缺失则报错
+    train_batch_size = _get_required_data_config(config, 'train_batch_size', model_name)
+    eval_batch_size = _get_required_data_config(config, 'eval_batch_size', model_name)
+    num_workers = _get_required_data_config(config, 'num_workers', model_name)
     
     # 检测数据集格式
     category_path = data_path / category
@@ -173,16 +338,51 @@ def get_datamodule_from_config(
         )
 
 
+def _require_config(config: Optional[Dict[str, Any]], model_defaults: Dict[str, Any], 
+                    key: str, model_name: str) -> Any:
+    """
+    从配置中获取必需参数，如果缺失则报错
+    
+    Args:
+        config: 传入的配置
+        model_defaults: 默认配置
+        key: 配置键名
+        model_name: 模型名称（用于错误信息）
+        
+    Returns:
+        配置值
+        
+    Raises:
+        ValueError: 配置缺失时抛出
+    """
+    # 优先从传入的 config 读取
+    if config and key in config:
+        return config[key]
+    
+    # 其次从 model_defaults 读取
+    if key in model_defaults:
+        return model_defaults[key]
+    
+    # 如果都没有，报错
+    raise ValueError(
+        f"配置缺失: 请在 config/config.yaml 的 models.{model_name} 部分或 "
+        f"configs/{model_name}.yaml 的 model.init_args 部分设置 {key}"
+    )
+
+
 def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None):
     """
-    根据配置创建模型
+    根据配置创建模型 - 严格从 YAML 读取，缺配置直接报错
     
     Args:
         model_name: 模型名称
-        config: 模型配置参数
+        config: 模型配置参数（来自 YAML 的 model.init_args）
     
     Returns:
         模型实例
+        
+    Raises:
+        ValueError: 配置缺失时抛出
     """
     # 创建 evaluator，启用 AUPR 和 PRO 指标（PatchCore 和 Draem 支持像素级指标）
     from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
@@ -201,19 +401,12 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
     model_defaults = get_model_config(model_name)
     
     if model_name == 'patchcore':
-        # 从配置读取默认值，允许传入 config 覆盖
-        backbone = model_defaults.get('backbone', 'wide_resnet50_2')
-        layers = model_defaults.get('layers', ['layer2', 'layer3'])
-        coreset_sampling_ratio = model_defaults.get('coreset_sampling_ratio', 0.1)
-        num_neighbors = model_defaults.get('num_neighbors', 9)
-        pre_trained = model_defaults.get('pre_trained', True)
-        
-        if config:
-            backbone = config.get('backbone', backbone)
-            layers = config.get('layers', layers)
-            coreset_sampling_ratio = config.get('coreset_sampling_ratio', coreset_sampling_ratio)
-            num_neighbors = config.get('num_neighbors', num_neighbors)
-            pre_trained = config.get('pre_trained', pre_trained)
+        # 严格从配置读取，缺失则报错
+        backbone = _require_config(config, model_defaults, 'backbone', 'patchcore')
+        layers = _require_config(config, model_defaults, 'layers', 'patchcore')
+        coreset_sampling_ratio = _require_config(config, model_defaults, 'coreset_sampling_ratio', 'patchcore')
+        num_neighbors = _require_config(config, model_defaults, 'num_neighbors', 'patchcore')
+        pre_trained = _require_config(config, model_defaults, 'pre_trained', 'patchcore')
         
         return Patchcore(
             backbone=backbone,
@@ -225,22 +418,13 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         )
     
     elif model_name == 'fre':
-        # FRE (Feature Reconstruction Error) - 重构法改进版
-        backbone = model_defaults.get('backbone', 'resnet50')
-        layer = model_defaults.get('layer', 'layer3')
-        pre_trained = model_defaults.get('pre_trained', True)
-        pooling_kernel_size = model_defaults.get('pooling_kernel_size', 2)
-        input_dim = model_defaults.get('input_dim', 65536)
-        latent_dim = model_defaults.get('latent_dim', 220)
-        
-        # 允许传入 config 覆盖
-        if config:
-            backbone = config.get('backbone', backbone)
-            layer = config.get('layer', layer)
-            pre_trained = config.get('pre_trained', pre_trained)
-            pooling_kernel_size = config.get('pooling_kernel_size', pooling_kernel_size)
-            input_dim = config.get('input_dim', input_dim)
-            latent_dim = config.get('latent_dim', latent_dim)
+        # 严格从配置读取，缺失则报错
+        backbone = _require_config(config, model_defaults, 'backbone', 'fre')
+        layer = _require_config(config, model_defaults, 'layer', 'fre')
+        pre_trained = _require_config(config, model_defaults, 'pre_trained', 'fre')
+        pooling_kernel_size = _require_config(config, model_defaults, 'pooling_kernel_size', 'fre')
+        input_dim = _require_config(config, model_defaults, 'input_dim', 'fre')
+        latent_dim = _require_config(config, model_defaults, 'latent_dim', 'fre')
         
         return Fre(
             backbone=backbone,
@@ -253,14 +437,16 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         )
     
     elif model_name == 'draem':
-        # 从配置读取 beta 范围和 SSPCAB 设置
-        beta = model_defaults.get('beta', [0.1, 1.0])
-        enable_sspcab = model_defaults.get('enable_sspcab', False)
+        # DRAEM 使用默认参数，可选配置
+        beta = [0.1, 1.0]
+        enable_sspcab = False
         
-        # 允许传入 config 覆盖
         if config:
             beta = config.get('beta', beta)
             enable_sspcab = config.get('enable_sspcab', enable_sspcab)
+        elif model_defaults:
+            beta = model_defaults.get('beta', beta)
+            enable_sspcab = model_defaults.get('enable_sspcab', enable_sspcab)
         
         return Draem(
             beta=tuple(beta) if isinstance(beta, list) else beta,
@@ -319,8 +505,9 @@ class AnomalyDetectionTrainer:
         if config_path:
             config_path = Path(config_path)
             if config_path.exists():
-                from anomalib.deploy.config import load_config
-                self.config = load_config(str(config_path))
+                import yaml
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.config = yaml.safe_load(f)
                 print(f"[CONFIG] 已加载配置文件: {config_path}")
             else:
                 print(f"[WARN] 配置文件不存在: {config_path}")
@@ -370,49 +557,102 @@ class AnomalyDetectionTrainer:
         print(f"\n[BUILD] 创建 {self.model_name} 模型...")
         self.model = get_model_from_config(self.model_name, model_config)
     
+    def _load_required_config(self, config_key: str, config_section: str = None, error_msg: str = None) -> Any:
+        """
+        从配置中加载必需参数，如果缺失则报错
+        
+        Args:
+            config_key: 配置键名
+            config_section: 配置所在 section（如 'trainer', 'model'）
+            error_msg: 自定义错误信息
+            
+        Returns:
+            配置值
+            
+        Raises:
+            ValueError: 配置缺失时抛出
+        """
+        value = None
+        
+        # 1. 尝试从传入的 YAML 配置读取
+        if self.config:
+            if config_section and config_section in self.config:
+                value = self.config[config_section].get(config_key)
+            else:
+                value = self.config.get(config_key)
+        
+        # 2. 尝试从 config/config.yaml 读取
+        if value is None:
+            value = get(config_key, None)
+        
+        # 3. 如果仍然缺失，报错
+        if value is None:
+            if error_msg is None:
+                section_str = f"{config_section}." if config_section else ""
+                error_msg = f"配置缺失: 请在 YAML 配置文件中设置 {section_str}{config_key}"
+            raise ValueError(error_msg)
+        
+        return value
+    
     def train(self, max_epochs: Optional[int] = None) -> Dict[str, Any]:
         """
         训练模型
         
         Args:
-            max_epochs: 最大训练轮次（可选，默认为模型推荐值）
+            max_epochs: 最大训练轮次（可选，优先从 YAML 配置读取）
         
         Returns:
             Dict: 训练结果
+            
+        Raises:
+            ValueError: 配置缺失时抛出
         """
         self._print_model_info()
         self.setup()
         
-        # 设置默认 epoch（优先级：传入参数 > YAML 配置 > config.yaml > 代码默认值）
+        # 从 YAML 配置严格读取 max_epochs
         if max_epochs is None:
-            # 尝试从 YAML 配置读取
-            if self.config and 'trainer' in self.config:
-                max_epochs = self.config['trainer'].get('max_epochs')
-            
-            # 从主配置文件 config.yaml 读取
-            if max_epochs is None:
-                max_epochs = get(f'training.epochs.{self.model_name}', None)
-            
-            # 如果都没有，使用硬编码默认值
-            if max_epochs is None:
-                if self.model_name == 'patchcore':
-                    max_epochs = 1
-                elif self.model_name == 'fre':
-                    max_epochs = 50
-                elif self.model_name == 'draem':
-                    max_epochs = 200
+            max_epochs = self._load_required_config(
+                'max_epochs',
+                config_section='trainer',
+                error_msg=f"训练配置缺失: 请在 configs/{self.model_name}.yaml 的 trainer 部分设置 max_epochs"
+            )
+        
+        # 读取早停配置
+        early_stopping_callback = None
+        if self.config and 'early_stopping' in self.config:
+            early_stopping_config = self.config['early_stopping']
+            if early_stopping_config.get('enabled', False):
+                from pytorch_lightning.callbacks import EarlyStopping
+                
+                # 读取早停参数，使用 _load_required_config 模式
+                es_monitor = early_stopping_config.get('monitor', 'image_AUROC')
+                es_mode = early_stopping_config.get('mode', 'max')
+                es_patience = early_stopping_config.get('patience', 10)
+                es_min_delta = early_stopping_config.get('min_delta', 0.001)
+                
+                early_stopping_callback = EarlyStopping(
+                    monitor=es_monitor,
+                    mode=es_mode,
+                    patience=es_patience,
+                    min_delta=es_min_delta,
+                    verbose=True,
+                )
+                print(f"   [INFO] 启用早停机制: monitor={es_monitor}, patience={es_patience}, mode={es_mode}")
         
         # 创建 Engine (禁用 rich 进度条避免 Windows GBK 编码问题)
         print("\n[WAIT] 开始训练...")
         if self.model_name == 'patchcore':
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
         
+        # 创建 Engine
         self.engine = Engine(
             max_epochs=max_epochs,
             accelerator=self.device,
             devices=1,
             default_root_dir=str(self.output_dir / self.model_name),
             enable_progress_bar=False,  # 禁用 rich 进度条
+            callbacks=[early_stopping_callback] if early_stopping_callback else None,
         )
         
         # 训练

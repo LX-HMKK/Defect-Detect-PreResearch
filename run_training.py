@@ -71,6 +71,8 @@ def parse_args():
                         help='随机种子')
     parser.add_argument('--epochs', type=int, default=None,
                         help='最大训练轮次')
+    parser.add_argument('--config', type=str, default=None,
+                        help='YAML 配置文件路径（默认使用 configs/{model}.yaml）')
     
     return parser.parse_args()
 
@@ -113,11 +115,20 @@ def main():
         print("=" * 70)
         
         try:
+            # 确定配置文件路径
+            config_path = args.config
+            if config_path is None:
+                # 默认使用 configs/{model}.yaml
+                default_config = Path(__file__).parent / "configs" / f"{model_name}.yaml"
+                if default_config.exists():
+                    config_path = str(default_config)
+            
             trainer = AnomalyDetectionTrainer(
                 model_name=model_name,
                 data_path=args.data_path,
                 category=args.category,
                 output_dir=args.output_dir,
+                config_path=config_path,
                 device=args.device,
                 seed=args.seed
             )

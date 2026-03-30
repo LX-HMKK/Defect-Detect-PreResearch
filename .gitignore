@@ -53,11 +53,13 @@ data/dtd_images/
 !data/.gitkeep
 data/
 datasets/
+results_test/
 
 # Logs
 *.log
 logs/
 tensorboard_logs/
+lightning_logs/
 
 # Temporary files
 tmp/

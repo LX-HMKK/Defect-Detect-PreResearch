@@ -66,7 +66,7 @@ training:
   epochs:
     patchcore: 1
     fre: 50
-    draem: 200
+    draem: 100
   optimizer:
     lr: 0.0001
     weight_decay: 0.00001

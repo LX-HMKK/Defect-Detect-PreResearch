@@ -38,6 +38,7 @@ import argparse
 from io import StringIO
 
 import torch
+import numpy as np
 import cv2  # Import cv2 first to avoid DLL loading issues with anomalib
 import pandas as pd
 from tqdm import tqdm
@@ -177,18 +178,44 @@ _lightning_callback_class.on_predict_batch_end = _patched_on_predict_batch_end
 # Patch on_predict_epoch_end
 # TimerCallback 继承自 lightning.pytorch.callbacks.Callback，on_predict_epoch_end 没有 outputs 参数
 # 但 pytorch_lightning Trainer 调用时传递了 outputs 位置参数
-# 需要 patch lightning.pytorch.callbacks.Callback（不是 pytorch_lightning.callbacks.Callback）
+# 需要同时 patch 两个 Callback 类
+
+# 1. Patch lightning.pytorch.callbacks.Callback
 import lightning.pytorch.callbacks
 _lt_callback_class = lightning.pytorch.callbacks.Callback
 _original_lt_predict_epoch_end = _lt_callback_class.on_predict_epoch_end
 
 
-def _patched_lt_on_predict_epoch_end(self, trainer, pl_module, *args, **kwargs):
-    """Patch: 忽略 pytorch_lightning 传递的 outputs 参数（不传递给 lightning.pytorch 原生方法）"""
+def _patched_lt_on_predict_epoch_end(self, trainer, pl_module, outputs=None):
+    """Patch: 接收可选的 outputs 参数（pytorch_lightning 传递，但 lightning.pytorch 不需要）"""
     return _original_lt_predict_epoch_end(self, trainer, pl_module)
 
 
 _lt_callback_class.on_predict_epoch_end = _patched_lt_on_predict_epoch_end
+
+# 2. Patch pytorch_lightning.callbacks.Callback（Trainer 实际使用的）
+_original_pl_predict_epoch_end = _lightning_callback_class.on_predict_epoch_end
+
+
+def _patched_pl_on_predict_epoch_end(self, trainer, pl_module, *args, **kwargs):
+    """Patch: 健壮处理 outputs 参数（支持位置参数和关键字参数）
+    
+    lightning.pytorch 调用: on_predict_epoch_end(trainer, pl_module) - 无 outputs
+    pytorch_lightning 调用: on_predict_epoch_end(trainer, pl_module, outputs) - 有 outputs
+    也可能通过关键字参数传递: on_predict_epoch_end(..., outputs=...)
+    """
+    # 优先从位置参数获取 outputs，其次从关键字参数获取
+    if args:
+        outputs = args[0]
+    elif 'outputs' in kwargs:
+        outputs = kwargs['outputs']
+    else:
+        outputs = None
+    
+    return _original_pl_predict_epoch_end(self, trainer, pl_module, outputs)
+
+
+_lightning_callback_class.on_predict_epoch_end = _patched_pl_on_predict_epoch_end
 
 # 配置管理
 from modules.config import get_model_config, get_data_config, get
@@ -801,6 +828,17 @@ class AnomalyDetectionTrainer:
             
             if not good_scores or not bad_scores:
                 return default_threshold
+            # Diagnostic: 输出分数分布信息，帮助理解阈值搜索的行为
+            try:
+                if len(good_scores) > 0 and len(bad_scores) > 0:
+                    good_arr = np.array(good_scores, dtype=float)
+                    bad_arr = np.array(bad_scores, dtype=float)
+                    print(
+                        f"[DIAG] score distribution - good: min={good_arr.min():.3f} max={good_arr.max():.3f} mean={good_arr.mean():.3f} | "
+                        f"bad:  min={bad_arr.min():.3f} max={bad_arr.max():.3f} mean={bad_arr.mean():.3f}"
+                    )
+            except Exception:
+                pass
             
             # 搜索最优阈值
             best_threshold = default_threshold
@@ -808,8 +846,9 @@ class AnomalyDetectionTrainer:
             
             # 在得分范围内搜索
             all_scores = good_scores + bad_scores
-            min_score = max(search_min, min(all_scores))
-            max_score = min(search_max, max(all_scores))
+            # 使用固定搜索区间 [search_min, search_max]，而不是受实际分数范围限制
+            min_score = search_min
+            max_score = search_max
             
             # 在范围内均匀采样 search_steps 个点
             step_size = (max_score - min_score) / search_steps
@@ -834,6 +873,8 @@ class AnomalyDetectionTrainer:
                     best_j = j
                     best_threshold = threshold
             
+            # 更新当前数据集的最优阈值到结果 JSON（仅对当前 category 的 JSON 生效）
+            self._update_results_json_threshold(best_threshold)
             return round(best_threshold, 3)
             
         except Exception as e:
@@ -861,6 +902,32 @@ class AnomalyDetectionTrainer:
             json.dump(save_data, f, indent=2, ensure_ascii=False)
         
         print(f"\n[FILE] 结果已保存: {json_path}")
+
+    def _update_results_json_threshold(self, threshold_value: float) -> None:
+        """将当前数据集的最优阈值写入对应的 results JSON 文件。
+
+        目标文件形如: results/comparison/patchcore_<category>_results.json
+        其中 metrics.optimal_threshold 和顶层 optimal_threshold 将被更新。
+        """
+        try:
+            json_path = self.output_dir / 'comparison' / f"patchcore_{self.category}_results.json"
+            if not json_path.exists():
+                return
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            # 兼容历史结构：metrics 下有 optimistic field
+            if isinstance(data, dict):
+                metrics = data.get('metrics', {})
+                if isinstance(metrics, dict):
+                    metrics['optimal_threshold'] = threshold_value
+                data['metrics'] = metrics
+                data['optimal_threshold'] = threshold_value
+            # 写回文件
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            print(f"[FILE] 更新阈值到: {json_path} (threshold={threshold_value:.3f})")
+        except Exception as e:
+            print(f"   [WARN] 无法更新阈值 JSON: {e}")
     
     def train_and_evaluate(self, max_epochs: Optional[int] = None) -> Dict:
         """

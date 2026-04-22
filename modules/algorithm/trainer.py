@@ -273,6 +273,49 @@ MODEL_INFO = {
 }
 
 
+def find_latest_checkpoint(output_dir: str | Path, model_name: str, category: Optional[str] = None) -> Optional[Path]:
+    """
+    在输出目录中查找指定模型（可选指定类别）的最新 checkpoint。
+
+    Args:
+        output_dir: 结果根目录（通常为 ./results）
+        model_name: 模型名称（fre/patchcore/draem）
+        category: 数据类别（可选）
+
+    Returns:
+        最新 checkpoint 路径；未找到则返回 None。
+    """
+    model_root = Path(output_dir) / model_name
+    if not model_root.exists():
+        return None
+
+    if category:
+        patterns: List[str] = [
+            f"**/MVTec/{category}/**/weights/lightning/model.ckpt",
+            f"**/{category}/**/weights/lightning/model.ckpt",
+            f"**/MVTec/{category}/**/model.ckpt",
+            f"**/{category}/**/model.ckpt",
+            f"**/MVTec/{category}/**/*.ckpt",
+            f"**/{category}/**/*.ckpt",
+        ]
+    else:
+        patterns = [
+            "**/weights/lightning/model.ckpt",
+            "**/model.ckpt",
+            "**/*.ckpt",
+        ]
+
+    candidates: List[Path] = []
+    for pattern in patterns:
+        for path in model_root.glob(pattern):
+            if path.is_file():
+                candidates.append(path)
+
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
 def _get_required_data_config(config: Optional[Dict[str, Any]], 
                               key: str, 
                               model_name: str) -> Any:
@@ -299,7 +342,7 @@ def _get_required_data_config(config: Optional[Dict[str, Any]],
         elif key in config:
             return config[key]
     
-    # 2. 尝试从 config/config.yaml 读取
+    # 2. 尝试从 configs/config.yaml 读取
     value = get(f'data.{key}', None)
     if value is not None:
         return value
@@ -307,7 +350,7 @@ def _get_required_data_config(config: Optional[Dict[str, Any]],
     # 3. 如果仍然缺失，报错
     raise ValueError(
         f"数据配置缺失: 请在 configs/{model_name}.yaml 的 data.init_args 部分或 "
-        f"config/config.yaml 的 data 部分设置 {key}"
+        f"configs/config.yaml 的 data 部分设置 {key}"
     )
 
 
@@ -392,7 +435,7 @@ def _require_config(config: Optional[Dict[str, Any]], model_defaults: Dict[str, 
     
     # 如果都没有，报错
     raise ValueError(
-        f"配置缺失: 请在 config/config.yaml 的 models.{model_name} 部分或 "
+        f"配置缺失: 请在 configs/config.yaml 的 models.{model_name} 部分或 "
         f"configs/{model_name}.yaml 的 model.init_args 部分设置 {key}"
     )
 
@@ -608,7 +651,7 @@ class AnomalyDetectionTrainer:
             else:
                 value = self.config.get(config_key)
         
-        # 2. 尝试从 config/config.yaml 读取
+        # 2. 尝试从 configs/config.yaml 读取
         if value is None:
             value = get(config_key, None)
         
@@ -678,6 +721,7 @@ class AnomalyDetectionTrainer:
             accelerator=self.device,
             devices=1,
             default_root_dir=str(self.output_dir / self.model_name),
+            logger=False,
             enable_progress_bar=False,  # 禁用 rich 进度条
             callbacks=[early_stopping_callback] if early_stopping_callback else None,
         )
@@ -716,6 +760,7 @@ class AnomalyDetectionTrainer:
                 accelerator=self.device,
                 devices=1,
                 default_root_dir=str(self.output_dir / self.model_name),
+                logger=False,
                 enable_progress_bar=False,
             )
         
@@ -767,7 +812,7 @@ class AnomalyDetectionTrainer:
         
         # 计算最优阈值 (Youden's J)
         print("\n[WAIT] 计算最优阈值...")
-        optimal_threshold = self._compute_optimal_threshold()
+        optimal_threshold = self._compute_optimal_threshold(checkpoint_path=checkpoint_path)
         self.results['optimal_threshold'] = optimal_threshold
         print(f"   [OK] 最优阈值: {optimal_threshold:.3f} (Youden's J)")
         
@@ -776,7 +821,7 @@ class AnomalyDetectionTrainer:
         
         return self.results
     
-    def _compute_optimal_threshold(self) -> float:
+    def _compute_optimal_threshold(self, checkpoint_path: Optional[str] = None) -> float:
         """
         使用 Youden's J 统计量计算最优阈值
         
@@ -802,6 +847,7 @@ class AnomalyDetectionTrainer:
             predictions = self.engine.predict(
                 datamodule=self.datamodule,
                 model=self.model,
+                ckpt_path=checkpoint_path,
             )
             
             # 收集得分和标签
@@ -906,11 +952,11 @@ class AnomalyDetectionTrainer:
     def _update_results_json_threshold(self, threshold_value: float) -> None:
         """将当前数据集的最优阈值写入对应的 results JSON 文件。
 
-        目标文件形如: results/comparison/patchcore_<category>_results.json
+        目标文件形如: results/comparison/<model>_<category>_results.json
         其中 metrics.optimal_threshold 和顶层 optimal_threshold 将被更新。
         """
         try:
-            json_path = self.output_dir / 'comparison' / f"patchcore_{self.category}_results.json"
+            json_path = self.output_dir / 'comparison' / f"{self.model_name}_{self.category}_results.json"
             if not json_path.exists():
                 return
             with open(json_path, 'r', encoding='utf-8') as f:
@@ -1034,7 +1080,7 @@ def main():
     )
     parser.add_argument('--model', '-m', type=str, default='patchcore',
                         choices=SUPPORTED_MODELS + ['all'],
-                        help='模型名称 (ganomaly/patchcore/draem/all)')
+                        help='模型名称 (fre/patchcore/draem/all)')
     parser.add_argument('--data_path', '-d', type=str, default='./data',
                         help='数据集路径（MVTec AD 格式）')
     parser.add_argument('--category', '-c', type=str, default='bottle',

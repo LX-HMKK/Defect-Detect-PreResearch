@@ -40,6 +40,7 @@ import argparse
 
 import numpy as np
 import torch
+from scipy import ndimage
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
 
 
@@ -188,8 +189,16 @@ class MetricsEvaluator:
         Returns:
             float: PRO 值
         """
+        anomaly_maps = np.asarray(anomaly_maps, dtype=np.float32)
+        ground_truth_masks = np.asarray(ground_truth_masks)
+
         # 标准化异常图到 [0, 1]
-        anomaly_maps_norm = (anomaly_maps - anomaly_maps.min()) / (anomaly_maps.max() - anomaly_maps.min() + 1e-8)
+        min_score = float(anomaly_maps.min())
+        max_score = float(anomaly_maps.max())
+        if max_score - min_score < 1e-8:
+            anomaly_maps_norm = np.zeros_like(anomaly_maps, dtype=np.float32)
+        else:
+            anomaly_maps_norm = (anomaly_maps - min_score) / (max_score - min_score)
         
         # 生成不同阈值
         thresholds = np.linspace(0, 1, 100)
@@ -202,15 +211,16 @@ class MetricsEvaluator:
             pred_masks = (anomaly_maps_norm >= threshold).astype(int)
             
             # 计算每个连通区域的 Overlap
-            region_overlaps = []
+            weighted_overlap = 0.0
             total_gt_pixels = 0
+            fp = 0
+            tn = 0
             
             for i in range(len(ground_truth_masks)):
-                gt_mask = ground_truth_masks[i]
+                gt_mask = (ground_truth_masks[i] > 0).astype(np.uint8)
                 pred_mask = pred_masks[i]
                 
                 # 找到所有连通区域
-                from scipy import ndimage
                 labeled_array, num_features = ndimage.label(gt_mask)
                 
                 for region_id in range(1, num_features + 1):
@@ -220,17 +230,18 @@ class MetricsEvaluator:
                     
                     if region_pixels > 0:
                         overlap = (pred_mask * region_mask).sum() / region_pixels
-                        region_overlaps.append(overlap * region_pixels)
+                        weighted_overlap += overlap * region_pixels
+
+                fp += int(((pred_mask == 1) & (gt_mask == 0)).sum())
+                tn += int(((pred_mask == 0) & (gt_mask == 0)).sum())
             
             # 计算平均 PRO
             if total_gt_pixels > 0:
-                avg_pro = sum(region_overlaps) / total_gt_pixels
+                avg_pro = weighted_overlap / total_gt_pixels
             else:
                 avg_pro = 0
             
             # 计算假阳性率 (FPR)
-            fp = ((pred_mask == 1) & (gt_mask == 0)).sum()
-            tn = ((pred_mask == 0) & (gt_mask == 0)).sum()
             fpr = fp / (fp + tn + 1e-8)
             
             pro_values.append(avg_pro)
@@ -240,14 +251,27 @@ class MetricsEvaluator:
         pro_values = np.array(pro_values)
         fpr_values = np.array(fpr_values)
         
+        # 按 FPR 升序聚合，处理重复值
+        fpr_to_pro: Dict[float, float] = {}
+        for fpr, pro in zip(fpr_values.tolist(), pro_values.tolist()):
+            if fpr in fpr_to_pro:
+                fpr_to_pro[fpr] = max(fpr_to_pro[fpr], pro)
+            else:
+                fpr_to_pro[fpr] = pro
+        sorted_fpr = np.array(sorted(fpr_to_pro.keys()), dtype=np.float64)
+        sorted_pro = np.array([fpr_to_pro[fpr] for fpr in sorted_fpr], dtype=np.float64)
+
+        if sorted_fpr.size == 0:
+            return 0.0
+
         # 插值到均匀的 FPR 点
         fpr_grid = np.linspace(0, self.pro_integration_limit, 100)
-        pro_interp = np.interp(fpr_grid, fpr_values, pro_values)
+        pro_interp = np.interp(fpr_grid, sorted_fpr, sorted_pro)
         
         # 计算积分 (梯形法则)
         pro_score = np.trapz(pro_interp, fpr_grid) / self.pro_integration_limit
         
-        return float(pro_score)
+        return float(np.clip(pro_score, 0.0, 1.0))
     
     def compute_all(
         self,
@@ -308,7 +332,7 @@ class MetricsEvaluator:
         print("="*70)
 
 
-def load_and_evaluate(results_dir: str, model_name: str, category: str):
+def load_and_evaluate(results_dir: str, model_name: str, category: str) -> bool:
     """
     加载已有结果并打印指标
     
@@ -321,7 +345,7 @@ def load_and_evaluate(results_dir: str, model_name: str, category: str):
     
     if not json_path.exists():
         print(f"[FAIL] 结果文件不存在: {json_path}")
-        return
+        return False
     
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -337,6 +361,7 @@ def load_and_evaluate(results_dir: str, model_name: str, category: str):
     
     evaluator = MetricsEvaluator()
     evaluator.print_metrics(metrics, f"{model_name.upper()} - {category}")
+    return True
 
 
 def main():
@@ -347,7 +372,7 @@ def main():
     parser.add_argument('--results_dir', '-r', type=str, default='./results',
                         help='结果目录')
     parser.add_argument('--model', '-m', type=str, required=True,
-                        choices=['efficientad', 'ganomaly', 'patchcore', 'draem', 'all'],
+                        choices=['fre', 'patchcore', 'draem', 'all'],
                         help='模型名称')
     parser.add_argument('--category', '-c', type=str, required=True,
                         help='产品类别')
@@ -363,7 +388,7 @@ def main():
     print("="*70)
     
     if args.model == 'all':
-        for model in ['efficientad', 'ganomaly', 'patchcore', 'draem']:
+        for model in ['fre', 'patchcore', 'draem']:
             load_and_evaluate(args.results_dir, model, args.category)
             print()
     else:

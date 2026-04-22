@@ -59,12 +59,10 @@ results_test/
 *.log
 logs/
 tensorboard_logs/
-lightning_logs/
 
 # Temporary files
 tmp/
 temp/
 *.tmp
 pre_trained/
-temp_predict/
 nul

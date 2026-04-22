@@ -16,11 +16,11 @@
     然后访问 http://127.0.0.1:7860
 
 或者从根目录启动:
-    python run_ui.py
+    python scripts/run_ui.py
 ================================================================================
 """
 
-import os
+import uuid
 import warnings
 from pathlib import Path
 from typing import Tuple, Optional, List
@@ -41,7 +41,7 @@ from anomalib.models import (
 )
 
 # 配置管理
-from modules.config import get_threshold, get_model_config, get_data_config
+from modules.config import get, get_threshold, get_model_config, get_data_config
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -50,7 +50,7 @@ warnings.filterwarnings('ignore')
 # ================================================================================
 # 配置常量（从配置文件读取）
 # ================================================================================
-# 移除硬编码的阈值配置，改为从 config.yaml 和训练结果动态读取
+# 移除硬编码的阈值配置，改为从 configs/config.yaml 和训练结果动态读取
 
 @dataclass
 class ModelConfig:
@@ -155,9 +155,24 @@ class AnomalyDetector:
     def __init__(self):
         self.current_model: Optional[str] = None
         self.current_dataset: Optional[str] = None
+        self.current_checkpoint: Optional[Path] = None
         self.model = None
         self.engine = None
-    
+
+    def _resolve_weight_path(self, model_key: str, dataset: str) -> Optional[Path]:
+        """Resolve checkpoint path with model/category priority."""
+        from modules.algorithm.trainer import find_latest_checkpoint
+
+        latest_dataset = find_latest_checkpoint("./results", model_key, dataset)
+        if latest_dataset and latest_dataset.exists():
+            return latest_dataset
+
+        fallback = Path(MODEL_CONFIGS[model_key].weight_path)
+        if fallback.exists() and dataset in str(fallback):
+            return fallback
+
+        return None
+
     def load_model(self, model_key: str, dataset: str = None) -> Tuple[bool, str]:
         """
         加载指定模型
@@ -176,15 +191,16 @@ class AnomalyDetector:
         if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
             return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name} ({dataset})"
         
-        config = MODEL_CONFIGS.get(model_key)
-        if config is None:
+        ui_config = MODEL_CONFIGS.get(model_key)
+        config = ui_config
+        if ui_config is None:
             return False, f"[FAIL] 未知模型: {model_key}"
         
         # 查找权重文件 - 优先查找对应数据集的权重
-        weight_path = Path(config.weight_path)
+        weight_path = self._resolve_weight_path(model_key, dataset)
         
         # 如果默认路径不存在或数据集不匹配，搜索对应数据集的权重
-        if not weight_path.exists() or dataset not in str(weight_path):
+        if weight_path is None:
             search_base = Path('./results')
             
             # 首先尝试查找对应数据集的权重
@@ -196,19 +212,8 @@ class AnomalyDetector:
                         weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
                         break
             
-            # 如果没找到，搜索所有可用权重
-            if not weight_path.exists():
-                if search_base.exists():
-                    for pattern in [
-                        f'{model_key}/**/lightning/model.ckpt',
-                        f'{model_key}/**/*.ckpt',
-                    ]:
-                        candidates = list(search_base.glob(pattern))
-                        if candidates:
-                            weight_path = max(candidates, key=lambda p: p.stat().st_mtime)
-                            break
-        
-        if not weight_path.exists():
+
+        if weight_path is None or not weight_path.exists():
             return False, (
                 f"[FAIL] 未找到模型权重: {config.weight_path}\n\n"
                 f"请先训练模型:\n"
@@ -219,23 +224,24 @@ class AnomalyDetector:
         
         try:
             # 创建模型实例（使用配置的自定义参数）
-            model_kwargs = getattr(config, 'model_kwargs', {}) or {}
-            self.model = config.model_class(**model_kwargs)
+            from modules.algorithm.trainer import get_model_from_config
+            model_config = get_model_config(model_key) or None
+            self.model = get_model_from_config(model_key, model_config)
             
-            # 创建 Engine
-            self.engine = Engine()
-            
-            # 加载权重
-            checkpoint = torch.load(weight_path, map_location='cpu')
-            if 'state_dict' in checkpoint:
-                self.model.load_state_dict(checkpoint['state_dict'], strict=False)
-            else:
-                self.model.load_state_dict(checkpoint, strict=False)
+            temp_dir = Path(get('paths.temp_dir', './temp'))
+            if not temp_dir.is_absolute():
+                temp_dir = Path(__file__).resolve().parents[2] / temp_dir
+            self.engine = Engine(
+                default_root_dir=str(temp_dir / "lightning_logs"),
+                logger=False,
+                enable_progress_bar=False,
+            )
             
             self.model.eval()
             self.current_model = model_key
             self.current_dataset = dataset
             
+            self.current_checkpoint = weight_path
             return True, f"[OK] 成功加载 {config.name} ({dataset})"
         
         except Exception as e:
@@ -253,7 +259,11 @@ class AnomalyDetector:
         """
         if self.model is None or self.engine is None:
             return image, image, "[FAIL] 模型未加载"
+        if self.current_checkpoint is None:
+            return image, image, "[FAIL] 未找到当前模型 checkpoint"
         
+        temp_path: Optional[Path] = None
+
         try:
             # 确保图片格式正确
             if len(image.shape) == 2:
@@ -262,25 +272,27 @@ class AnomalyDetector:
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
             
             # 保存临时文件用于 PredictDataset（传入文件路径而不是目录）
-            temp_dir = Path('./temp_predict')
-            temp_dir.mkdir(exist_ok=True)
-            temp_path = temp_dir / 'temp_image.png'
+            temp_dir = Path(get('paths.temp_dir', './temp'))
+            if not temp_dir.is_absolute():
+                temp_dir = Path(__file__).resolve().parents[2] / temp_dir
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_path = temp_dir / f'predict_{uuid.uuid4().hex}.png'
             cv2.imwrite(str(temp_path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             
             # 创建预测数据集 - 传入文件路径
+            data_config = get_data_config(self.current_model)
+            image_size = tuple(data_config.get('image_size', [256, 256]))
             dataset = PredictDataset(
                 path=temp_path,  # 传入文件路径而不是目录
-                image_size=(256, 256),
+                image_size=image_size,
             )
             
             # 执行推理
             predictions = self.engine.predict(
                 model=self.model,
                 dataset=dataset,
+                ckpt_path=str(self.current_checkpoint),
             )
-            
-            # 清理临时文件
-            temp_path.unlink(missing_ok=True)
             
             # 获取预测结果
             if predictions is not None:
@@ -317,6 +329,9 @@ class AnomalyDetector:
             import traceback
             traceback.print_exc()
             return image, image, f"[FAIL] 推理失败: {str(e)}"
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
     
     def _generate_heatmap(
         self,
@@ -364,6 +379,10 @@ class AnomalyDetector:
         # 根据阈值判断是否为异常
         is_anomaly = score > threshold
         confidence = score if is_anomaly else 1 - score
+        score_width = float(np.clip(score, 0.0, 1.0) * 100)
+        threshold_width = float(np.clip(threshold, 0.0, 1.0) * 100)
+        confidence_display = float(np.clip(confidence, 0.0, 1.0))
+        confidence_width = confidence_display * 100
         
         # 莫兰迪色系
         status_normal = "var(--status-normal-text)"
@@ -392,11 +411,11 @@ class AnomalyDetector:
             <div class="value {'anomaly' if is_anomaly else 'normal'}">{score:.4f}</div>
             <div class="progress-container">
                 <div class="progress-bar-mini">
-                    <div class="progress-fill {'anomaly' if is_anomaly else 'normal'}" style="width: {score*100}%;"></div>
+                    <div class="progress-fill {'anomaly' if is_anomaly else 'normal'}" style="width: {score_width}%;"></div>
                 </div>
                     <div class="threshold-line">
-                    <div class="threshold-marker" style="left: {threshold*100}%;"></div>
-                    <div class="threshold-label" style="left: {threshold*100}%;">{threshold}</div>
+                    <div class="threshold-marker" style="left: {threshold_width}%;"></div>
+                    <div class="threshold-label" style="left: {threshold_width}%;">{threshold}</div>
                 </div>
             </div>
         </div>
@@ -404,10 +423,10 @@ class AnomalyDetector:
         <!-- 置信度 -->
         <div class="core-metric">
             <div class="label">置信度</div>
-            <div class="value" style="color: var(--accent-primary);">{confidence:.1%}</div>
+            <div class="value" style="color: var(--accent-primary);">{confidence_display:.1%}</div>
             <div class="progress-container">
                 <div class="progress-bar-mini">
-                    <div class="progress-fill" style="width: {confidence*100}%; background: linear-gradient(90deg, var(--accent-subtle), var(--accent-primary));"></div>
+                    <div class="progress-fill" style="width: {confidence_width}%; background: linear-gradient(90deg, var(--accent-subtle), var(--accent-primary));"></div>
                 </div>
             </div>
         </div>
@@ -739,9 +758,9 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                 'draem': '<h4>DRAEM — 自监督学习</h4><p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>'
             }
             
-            yield algo_descriptions.get(model_key, ''), format_status(f"正在加载 {config.name}...", is_loading=True)
+            yield format_status(f"正在加载 {config.name}...", is_loading=True)
             success, message = detector.load_model(model_key, dataset)
-            yield algo_descriptions.get(model_key, ''), format_status(message)
+            yield format_status(message)
         
         def on_run_click(model_key, dataset, image):
             """推理按钮点击事件"""

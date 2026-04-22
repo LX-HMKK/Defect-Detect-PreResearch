@@ -143,7 +143,7 @@ ui:
 paths:
   data_root: "./data"
   results_root: "./results"
-  temp_dir: "./temp_predict"
+  temp_dir: "./temp"
   pre_trained_dir: "./pre_trained"
   
   # 预训练权重缓存
@@ -157,4 +157,4 @@ paths:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  log_dir: "./logs"
+  log_dir: "./temp/logs"

@@ -86,6 +86,31 @@ class MVTecFormatter:
             'test_defect': 0,
             'truncated': 0  # 因超过上限而被截断的样本数
         }
+
+    def _resize_with_letterbox(
+        self,
+        image: np.ndarray,
+        target_size: Tuple[int, int],
+        interpolation: int,
+        border_value: int | Tuple[int, int, int] = 0,
+    ) -> np.ndarray:
+        """将图像缩放并居中填充到目标尺寸。"""
+        target_h, target_w = target_size
+        h, w = image.shape[:2]
+
+        scale = min(target_h / h, target_w / w)
+        new_h, new_w = max(1, int(h * scale)), max(1, int(w * scale))
+        resized = cv2.resize(image, (new_w, new_h), interpolation=interpolation)
+
+        if image.ndim == 2:
+            canvas = np.full((target_h, target_w), border_value, dtype=image.dtype)
+        else:
+            canvas = np.full((target_h, target_w, image.shape[2]), border_value, dtype=image.dtype)
+
+        y_offset = (target_h - new_h) // 2
+        x_offset = (target_w - new_w) // 2
+        canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
+        return canvas
     
     def _find_images(self, directory: Path) -> List[Path]:
         """
@@ -97,11 +122,13 @@ class MVTecFormatter:
         Returns:
             List[Path]: 图片文件路径列表
         """
-        images = []
+        unique_images: Dict[str, Path] = {}
         for ext in self.image_extensions:
-            images.extend(directory.glob(f'*{ext}'))
-            images.extend(directory.glob(f'*{ext.upper()}'))
-        return sorted(images)
+            for image_path in directory.glob(f'*{ext}'):
+                unique_images[str(image_path.resolve()).lower()] = image_path
+            for image_path in directory.glob(f'*{ext.upper()}'):
+                unique_images[str(image_path.resolve()).lower()] = image_path
+        return sorted(unique_images.values())
     
     def _detect_structure(self) -> Dict:
         """
@@ -120,7 +147,8 @@ class MVTecFormatter:
             'train_normal': [],
             'test_normal': [],
             'test_defect': [],
-            'defect_types': []
+            'defect_types': [],
+            'test_defect_by_type': {},
         }
         
         # 尝试检测结构 1: 已分割
@@ -140,8 +168,10 @@ class MVTecFormatter:
                 # 检测异常类别
                 for subdir in test_dir.iterdir():
                     if subdir.is_dir() and subdir.name != 'good':
+                        defect_images = self._find_images(subdir)
                         structure['defect_types'].append(subdir.name)
-                        structure['test_defect'].extend(self._find_images(subdir))
+                        structure['test_defect'].extend(defect_images)
+                        structure['test_defect_by_type'][subdir.name] = defect_images
         
         # 尝试检测结构 2: 半分割
         elif (self.input_dir / 'good').exists():
@@ -156,8 +186,10 @@ class MVTecFormatter:
             # 检测异常类别
             for subdir in self.input_dir.iterdir():
                 if subdir.is_dir() and subdir.name != 'good':
+                    defect_images = self._find_images(subdir)
                     structure['defect_types'].append(subdir.name)
-                    structure['test_defect'].extend(self._find_images(subdir))
+                    structure['test_defect'].extend(defect_images)
+                    structure['test_defect_by_type'][subdir.name] = defect_images
         
         # 结构 3: 单文件夹
         else:
@@ -210,27 +242,12 @@ class MVTecFormatter:
             try:
                 img = cv2.imread(str(src_path))
                 if img is not None:
-                    # Resize to target size (高度优先，保持内容完整)
-                    # 使用 letterbox 方式：先按比例缩放，再padding到目标尺寸
-                    h, w = img.shape[:2]
-                    
-                    # 计算缩放比例（确保内容完整，不裁剪）
-                    scale = min(target_h / h, target_w / w)
-                    new_h, new_w = int(h * scale), int(w * scale)
-                    
-                    # 缩放
-                    resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-                    
-                    # 创建目标尺寸的画布（黑色背景）
-                    canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-                    
-                    # 计算居中偏移
-                    y_offset = (target_h - new_h) // 2
-                    x_offset = (target_w - new_w) // 2
-                    
-                    # 粘贴到画布中央
-                    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
-                    
+                    canvas = self._resize_with_letterbox(
+                        img,
+                        (target_h, target_w),
+                        interpolation=cv2.INTER_AREA,
+                        border_value=(0, 0, 0),
+                    )
                     cv2.imwrite(str(dst_path), canvas)
                     count += 1
                 else:
@@ -240,26 +257,77 @@ class MVTecFormatter:
                 print(f"[FAIL] 处理失败 {src_path}: {e}")
         
         return count
-    
-    def _generate_dummy_masks(self, test_defect_dir: Path, mask_output_dir: Path, mask_size: Tuple[int, int] = (256, 256)):
-        """
-        生成空白掩膜作为占位符（如果没有提供真实掩膜）
-        
-        Args:
-            test_defect_dir: 测试异常样本目录
-            mask_output_dir: 掩膜输出目录
-            mask_size: 掩膜目标尺寸 (height, width)
-        """
-        mask_output_dir.mkdir(parents=True, exist_ok=True)
-        target_h, target_w = mask_size
-        
-        for img_path in self._find_images(test_defect_dir):
-            # 创建统一尺寸的空白掩膜
-            mask = np.zeros((target_h, target_w), dtype=np.uint8)
-            mask_path = mask_output_dir / f"{img_path.stem}_mask.png"
-            cv2.imwrite(str(mask_path), mask)
-        
-        print(f"[WARN] 已为 {test_defect_dir.name} 生成空白掩膜（请替换为真实标注）")
+
+    def _find_mask_for_image(self, mask_dir: Path, image_stem: str) -> Optional[Path]:
+        """根据图片 stem 查找对应 mask 文件。"""
+        for ext in self.image_extensions:
+            candidate = mask_dir / f"{image_stem}_mask{ext.lower()}"
+            if candidate.exists():
+                return candidate
+            candidate_upper = mask_dir / f"{image_stem}_mask{ext.upper()}"
+            if candidate_upper.exists():
+                return candidate_upper
+        for ext in self.image_extensions:
+            candidate = mask_dir / f"{image_stem}{ext.lower()}"
+            if candidate.exists():
+                return candidate
+            candidate_upper = mask_dir / f"{image_stem}{ext.upper()}"
+            if candidate_upper.exists():
+                return candidate_upper
+        return None
+
+    def _copy_defect_images_with_masks(
+        self,
+        src_images: List[Path],
+        src_mask_dir: Path,
+        dst_test_dir: Path,
+        dst_mask_dir: Path,
+        desc: str,
+        target_size: Tuple[int, int] = (256, 256),
+    ) -> int:
+        """复制异常样本及其真实掩膜；掩膜与图像使用相同 letterbox 对齐。"""
+        if not src_mask_dir.exists():
+            raise ValueError(f"缺少真实掩膜目录: {src_mask_dir}")
+
+        dst_test_dir.mkdir(parents=True, exist_ok=True)
+        dst_mask_dir.mkdir(parents=True, exist_ok=True)
+        copied = 0
+
+        for idx, src_image in enumerate(tqdm(src_images, desc=desc)):
+            src_mask = self._find_mask_for_image(src_mask_dir, src_image.stem)
+            if src_mask is None:
+                raise ValueError(f"缺少真实掩膜: {src_mask_dir} 中未找到 {src_image.stem} 的 mask")
+
+            image = cv2.imread(str(src_image))
+            if image is None:
+                raise ValueError(f"无法读取异常图像: {src_image}")
+
+            mask = cv2.imread(str(src_mask), cv2.IMREAD_GRAYSCALE)
+            if mask is None:
+                raise ValueError(f"无法读取真实掩膜: {src_mask}")
+
+            dst_image_name = f"{idx:03d}{src_image.suffix.lower()}"
+            dst_image_path = dst_test_dir / dst_image_name
+            dst_mask_path = dst_mask_dir / f"{Path(dst_image_name).stem}_mask.png"
+
+            resized_image = self._resize_with_letterbox(
+                image,
+                target_size,
+                interpolation=cv2.INTER_AREA,
+                border_value=(0, 0, 0),
+            )
+            resized_mask = self._resize_with_letterbox(
+                mask,
+                target_size,
+                interpolation=cv2.INTER_NEAREST,
+                border_value=0,
+            )
+
+            cv2.imwrite(str(dst_image_path), resized_image)
+            cv2.imwrite(str(dst_mask_path), resized_mask)
+            copied += 1
+
+        return copied
     
     def convert(self, defect_types: Optional[List[str]] = None) -> Dict:
         """
@@ -296,6 +364,10 @@ class MVTecFormatter:
         # 3. 确定异常类型
         if defect_types:
             structure['defect_types'] = defect_types
+            if structure['test_defect'] and not any(
+                defect in structure['test_defect_by_type'] for defect in defect_types
+            ):
+                structure['test_defect_by_type'] = {defect_types[0]: structure['test_defect']}
         elif not structure['defect_types']:
             structure['defect_types'] = ['defect']
         
@@ -325,33 +397,21 @@ class MVTecFormatter:
             "测试集-正常"
         )
         
-        # 复制异常样本
-        if structure['type'] == 'pre_split' and structure['defect_types']:
-            # 已分割结构：按类别复制
-            for defect_type in structure['defect_types']:
-                src_dir = self.input_dir / 'test' / defect_type
-                if src_dir.exists():
-                    count = self._copy_images(
-                        self._find_images(src_dir),
-                        self.output_dir / 'test' / defect_type,
-                        f"测试集-{defect_type}"
-                    )
-                    self.stats['test_defect'] += count
-        else:
-            # 其他结构：统一放入第一个异常类别
-            self.stats['test_defect'] = self._copy_images(
-                structure['test_defect'],
-                self.output_dir / 'test' / structure['defect_types'][0],
-                "测试集-异常"
-            )
-        
-        # 7. 处理掩膜
-        print("\n🎭 处理像素级标注掩膜...")
+        # 复制异常样本 + 真实掩膜（严格模式：缺掩膜即失败）
+        print("\n🎭 处理异常样本与像素级标注掩膜...")
         for defect_type in structure['defect_types']:
-            test_defect_dir = self.output_dir / 'test' / defect_type
-            mask_dir = self.output_dir / 'ground_truth' / defect_type
-            if test_defect_dir.exists():
-                self._generate_dummy_masks(test_defect_dir, mask_dir)
+            src_images = structure['test_defect_by_type'].get(defect_type, [])
+            if not src_images:
+                continue
+            src_mask_dir = self.input_dir / 'ground_truth' / defect_type
+            count = self._copy_defect_images_with_masks(
+                src_images=src_images,
+                src_mask_dir=src_mask_dir,
+                dst_test_dir=self.output_dir / 'test' / defect_type,
+                dst_mask_dir=self.output_dir / 'ground_truth' / defect_type,
+                desc=f"测试集-{defect_type}",
+            )
+            self.stats['test_defect'] += count
         
         # 8. 输出统计信息
         print("\n" + "="*70)
@@ -365,7 +425,7 @@ class MVTecFormatter:
         print(f"   测试集（异常）: {self.stats['test_defect']} 张")
         print(f"\n[DIR] 输出目录: {self.output_dir}")
         print("\n💡 提示:")
-        print("   - 请检查 ground_truth/ 下的掩膜是否为真实标注")
+        print("   - 已严格校验 ground_truth/ 下存在真实掩膜")
         print("   - 训练时模型将只使用 train/good/ 下的样本")
         
         return self.stats

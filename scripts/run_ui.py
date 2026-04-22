@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 入口脚本 4: 启动 UI 演示
-用法: python run_ui.py
+用法: python scripts/run_ui.py
 """
 
-import sys
 import io
 import argparse
+import os
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # 设置 Windows 终端编码为 UTF-8
 if sys.platform == 'win32':
@@ -16,7 +19,18 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent))
+def _configure_runtime_temp() -> None:
+    temp_dir = PROJECT_ROOT / "temp"
+    pycache_dir = temp_dir / "pycache"
+    temp_dir.mkdir(exist_ok=True)
+    pycache_dir.mkdir(exist_ok=True)
+    sys.pycache_prefix = str(pycache_dir)
+    os.environ["PYTHONPYCACHEPREFIX"] = str(pycache_dir)
+
+
+_configure_runtime_temp()
+
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def print_banner():
@@ -43,9 +57,9 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python run_ui.py                        # 使用默认端口 7860
-  python run_ui.py --port 8080            # 指定端口
-  python run_ui.py --share                # 创建分享链接
+  python scripts/run_ui.py                        # 使用默认端口 7860
+  python scripts/run_ui.py --port 8080            # 指定端口
+  python scripts/run_ui.py --share                # 创建分享链接
         """
     )
     parser.add_argument('--port', '-p', type=int, default=7860,

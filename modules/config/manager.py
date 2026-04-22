@@ -44,12 +44,12 @@ class ConfigManager:
         初始化配置管理器
         
         Args:
-            config_path: 主配置文件路径（默认从 config/config.yaml 加载）
+            config_path: 主配置文件路径（默认从 configs/config.yaml 加载）
         """
-        # 默认路径：config/config.yaml
+        # 默认路径：configs/config.yaml
         if config_path is None:
             # 相对于项目根目录
-            config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            config_path = Path(__file__).parent.parent.parent / "configs" / "config.yaml"
         self.config_path = Path(config_path)
         self._config: Dict[str, Any] = {}
         self._load_config()
@@ -270,7 +270,7 @@ def get_config(config_path: str = None) -> ConfigManager:
     获取全局配置实例
     
     Args:
-        config_path: 配置文件路径（默认从 config/config.yaml 加载）
+        config_path: 配置文件路径（默认从 configs/config.yaml 加载）
         
     Returns:
         ConfigManager 实例

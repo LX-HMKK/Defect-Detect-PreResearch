@@ -28,7 +28,7 @@
 ### 1. 数据处理
 
 ```bash
-python run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_train 150
+python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_train 150
 ```
 
 ### 2. 模型训练
@@ -37,23 +37,23 @@ python run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_tra
 
 ```bash
 # PatchCore（推荐，最快效果最好）
-python run_training.py -m patchcore -c bottle -d ./data
+python scripts/run_training.py -m patchcore -c bottle -d ./data
 
 # FRE 重构法
-python run_training.py -m fre -c bottle -d ./data
+python scripts/run_training.py -m fre -c bottle -d ./data
 
 # DRAEM（合成异常 + 判别网络）
-python run_training.py -m draem -c bottle -d ./data
+python scripts/run_training.py -m draem -c bottle -d ./data
 
 # 训练所有算法
-python run_training.py -m all -c bottle -d ./data
+python scripts/run_training.py -m all -c bottle -d ./data
 ```
 
 #### 多数据集训练
 
 ```bash
 # 训练所有算法到所有数据集（bottle, carpet, region1）
-python run_training.py -m all -c all -d ./data
+python scripts/run_training.py -m all -c all -d ./data
 ```
 
 #### 命令行参数
@@ -74,19 +74,19 @@ python run_training.py -m all -c all -d ./data
 
 ```bash
 # 评估单个模型
-python run_evaluation.py -m patchcore -c bottle
+python scripts/run_evaluation.py -m patchcore -c bottle
 
 # 评估所有模型
-python run_evaluation.py -m all -c bottle
+python scripts/run_evaluation.py -m all -c bottle
 
 # 评估所有模型到所有数据集
-python run_evaluation.py -m all -c all
+python scripts/run_evaluation.py -m all -c all
 ```
 
 ### 4. 启动 UI
 
 ```bash
-python run_ui.py
+python scripts/run_ui.py
 # 访问 http://127.0.0.1:7860
 ```
 
@@ -129,10 +129,10 @@ Defect-Detect-PreResearch/
 │   └── ui/                # Web 界面 (Gradio)
 │       ├── demo.py        # 界面逻辑
 │       └── styles.css     # 工业暗色主题样式
-├── configs/                # YAML 配置
+├── configs/                # 主配置与算法 YAML 配置
 ├── data/                  # 数据集
 ├── results/                # 训练结果
-├── run_*.py               # 入口脚本
+├── scripts/                # 入口脚本
 └── README.md
 ```
 

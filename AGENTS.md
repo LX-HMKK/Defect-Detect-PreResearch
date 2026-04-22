@@ -15,9 +15,8 @@ Defect-Detect-PreResearch/
 │   ├── data_processing/  # 数据格式转换 (MVTec AD)
 │   ├── evaluation/        # 指标计算 (AUROC/AUPR/PRO)
 │   └── ui/               # Gradio Web 界面
-├── configs/               # 算法 YAML 配置
-├── config/config.yaml     # 主配置文件
-├── run_*.py              # 入口脚本
+├── configs/               # 主配置与算法 YAML 配置
+├── scripts/               # 入口脚本
 └── results/              # 训练结果
 ```
 
@@ -32,25 +31,25 @@ Defect-Detect-PreResearch/
 mamba activate anomalib
 
 # 数据处理
-python run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_train 150
+python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_train 150
 
 # 模型训练
-python run_training.py -m patchcore -c bottle -d ./data
-python run_training.py -m all -c all -d ./data    # 所有模型+数据集
+python scripts/run_training.py -m patchcore -c bottle -d ./data
+python scripts/run_training.py -m all -c all -d ./data    # 所有模型+数据集
 
 # 独立计算阈值
-python run_threshold.py -m patchcore -c bottle     # 计算阈值
-python run_threshold.py -m all -c all --save       # 计算并保存
+python scripts/run_threshold.py -m patchcore -c bottle     # 计算阈值
+python scripts/run_threshold.py -m all -c all --save       # 计算并保存
 
 # 评估
-python run_evaluation.py -m patchcore -c bottle
+python scripts/run_evaluation.py -m patchcore -c bottle
 
 # UI 启动
-python run_ui.py
+python scripts/run_ui.py
 # 访问 http://127.0.0.1:7860
 
 # 直接指定 Python (Windows)
-"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" run_training.py -m patchcore -c bottle
+"C:\Users\lx_hm\.conda\envs\anomalib\python.exe" scripts/run_training.py -m patchcore -c bottle
 ```
 
 ### 测试 (无正式测试套件)

@@ -2,14 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 入口脚本 1: 数据集处理
-用法: python run_data_processing.py --input_dir ./data/raw --output_dir ./data/processed/my_product
+用法: python scripts/run_data_processing.py --input_dir ./data/raw --output_dir ./data/processed/my_product
 """
 
-import sys
 import io
 import argparse
+import os
+import sys
 from pathlib import Path
 from datetime import datetime
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # 设置 Windows 终端编码为 UTF-8
 if sys.platform == 'win32':
@@ -17,7 +20,18 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent))
+def _configure_runtime_temp() -> None:
+    temp_dir = PROJECT_ROOT / "temp"
+    pycache_dir = temp_dir / "pycache"
+    temp_dir.mkdir(exist_ok=True)
+    pycache_dir.mkdir(exist_ok=True)
+    sys.pycache_prefix = str(pycache_dir)
+    os.environ["PYTHONPYCACHEPREFIX"] = str(pycache_dir)
+
+
+_configure_runtime_temp()
+
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def print_banner():
@@ -44,8 +58,8 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python run_data_processing.py -i ./data/raw -o ./data/processed/my_product
-  python run_data_processing.py -i ./data/raw -o ./data/processed/product2 --max_train 200
+  python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/my_product
+  python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/product2 --max_train 200
         """
     )
     parser.add_argument('--input_dir', '-i', type=str, required=True,

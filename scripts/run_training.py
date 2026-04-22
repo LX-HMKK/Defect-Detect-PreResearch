@@ -3,16 +3,19 @@
 """
 入口脚本 2: 模型训练
 用法: 
-    python run_training.py                    # 训练 PatchCore
-    python run_training.py --model all        # 训练所有模型
-    python run_training.py -m patchcore       # 指定模型
+    python scripts/run_training.py                    # 训练 PatchCore
+    python scripts/run_training.py --model all        # 训练所有模型
+    python scripts/run_training.py -m patchcore       # 指定模型
 """
 
-import sys
 import io
 import argparse
+import os
+import sys
 from pathlib import Path
 from datetime import datetime
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # 设置 Windows 终端编码为 UTF-8
 if sys.platform == 'win32':
@@ -20,7 +23,18 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent))
+def _configure_runtime_temp() -> None:
+    temp_dir = PROJECT_ROOT / "temp"
+    pycache_dir = temp_dir / "pycache"
+    temp_dir.mkdir(exist_ok=True)
+    pycache_dir.mkdir(exist_ok=True)
+    sys.pycache_prefix = str(pycache_dir)
+    os.environ["PYTHONPYCACHEPREFIX"] = str(pycache_dir)
+
+
+_configure_runtime_temp()
+
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def print_banner():
@@ -46,9 +60,9 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python run_training.py -m patchcore -c bottle     # 训练 PatchCore
-  python run_training.py -m all                     # 训练所有模型
-  python run_training.py -m ganomaly -d ./data      # 指定数据路径
+  python scripts/run_training.py -m patchcore -c bottle     # 训练 PatchCore
+  python scripts/run_training.py -m all                     # 训练所有模型
+  python scripts/run_training.py -m fre -d ./data           # 指定数据路径
         """
     )
     
@@ -106,9 +120,11 @@ def main():
         AnomalyDetectionTrainer,
         SUPPORTED_MODELS,
         compare_models,
+        find_latest_checkpoint,
     )
     
     results_summary = []
+    failed_models = []
     
     for i, model_name in enumerate(models_to_run, 1):
         print(f"\n📌 [{i}/{len(models_to_run)}] 处理模型: {model_name.upper()}")
@@ -119,7 +135,7 @@ def main():
             config_path = args.config
             if config_path is None:
                 # 默认使用 configs/{model}.yaml
-                default_config = Path(__file__).parent / "configs" / f"{model_name}.yaml"
+                default_config = PROJECT_ROOT / "configs" / f"{model_name}.yaml"
                 if default_config.exists():
                     config_path = str(default_config)
             
@@ -134,7 +150,20 @@ def main():
             )
             
             if args.eval_only:
-                trainer.evaluate(args.checkpoint)
+                resolved_checkpoint = args.checkpoint
+                if resolved_checkpoint is None:
+                    latest_ckpt = find_latest_checkpoint(args.output_dir, model_name, args.category)
+                    if latest_ckpt is None:
+                        raise FileNotFoundError(
+                            f"未找到可用 checkpoint: model={model_name}, category={args.category}。"
+                            f"请先训练，或通过 --checkpoint 显式指定权重路径。"
+                        )
+                    resolved_checkpoint = str(latest_ckpt)
+                    print(f"[INFO] 自动使用最新 checkpoint: {resolved_checkpoint}")
+                elif not Path(resolved_checkpoint).exists():
+                    raise FileNotFoundError(f"checkpoint 不存在: {resolved_checkpoint}")
+
+                trainer.evaluate(resolved_checkpoint)
             else:
                 result = trainer.train_and_evaluate(max_epochs=args.epochs)
                 results_summary.append({
@@ -148,6 +177,7 @@ def main():
             print(f"❌ {model_name.upper()} 失败: {e}")
             import traceback
             traceback.print_exc()
+            failed_models.append(model_name)
             continue
     
     # 生成对比报告
@@ -168,6 +198,11 @@ def main():
             auroc = result.get('image_AUROC', 0) * 100
             status = "🌟 优秀" if auroc >= 95 else "👍 良好" if auroc >= 80 else "⚠️ 一般"
             print(f"   {r['model']:12s} | AUROC: {auroc:6.2f}% | {status}")
+
+    if failed_models:
+        print()
+        print(f"❌ 失败模型: {', '.join([m.upper() for m in failed_models])}")
+        raise SystemExit(1)
     
     print()
     print("🎉 所有任务已完成!")

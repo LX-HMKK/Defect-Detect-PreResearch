@@ -17,7 +17,9 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
+import tempfile
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -48,45 +50,59 @@ def count_parameters(model) -> int:
 
 
 def measure_inference_time(model, dataloader, device: str, warmup: int = 3, repeat: int = 10) -> dict:
-    """测量推理时间"""
+    """测量推理时间 — 使用 anomalib Engine.predict() 正确方式"""
+    from anomalib.engine import Engine
+    from anomalib.data import PredictDataset
+    import tempfile, cv2
+
+    # 从 dataloader 提取一张图片作为测试图片
+    test_img_path = None
+    for batch in dataloader:
+        if hasattr(batch, 'image'):
+            img = batch.image[0] if batch.image.dim() == 4 else batch.image
+        elif isinstance(batch, dict):
+            img = batch.get('image', None)
+            if img is not None:
+                img = img[0] if img.dim() == 4 else img
+        elif isinstance(batch, torch.Tensor):
+            img = batch[0] if batch.dim() == 4 else batch
+        else:
+            continue
+        if img is not None:
+            # 保存为临时文件用于 PredictDataset
+            img_np = (img.cpu().permute(1,2,0).numpy() * 255).astype('uint8')
+            if img_np.shape[-1] == 1:
+                img_np = img_np[:,:,0]
+            elif img_np.shape[-1] == 3:
+                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+            test_img_path = Path(tempfile.mkdtemp()) / 'test.png'
+            cv2.imwrite(str(test_img_path), img_np)
+            break
+
+    if test_img_path is None:
+        return {'mean_ms': 0, 'std_ms': 0, 'fps': 0, 'error': 'No test image found'}
+
+    engine = Engine(device=device, enable_progress_bar=False)
+    dataset = PredictDataset(path=test_img_path, image_size=(256, 256))
     model.eval()
-    model.to(device)
 
     times = []
-
     with torch.no_grad():
-        for batch_idx, batch in enumerate(dataloader):
-            if isinstance(batch, dict):
-                image = batch.get('image', batch.get('input', None))
-            elif isinstance(batch, (list, tuple)):
-                image = batch[0]
-            else:
-                image = batch
-
-            if image is None:
-                continue
-
-            image = image.to(device) if isinstance(image, torch.Tensor) else image
-
-            # Warmup
-            if batch_idx < warmup:
-                _ = model(image)
-                if torch.cuda.is_available():
-                    torch.cuda.synchronize()
-                continue
-
-            # Timed iterations
+        for i in range(warmup + repeat):
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             t0 = time.perf_counter()
-            _ = model(image)
+            list(engine.predict(model=model, dataset=dataset))
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             t1 = time.perf_counter()
-            times.append((t1 - t0) * 1000)  # ms
+            if i >= warmup:
+                times.append((t1 - t0) * 1000)
 
-            if len(times) >= repeat:
-                break
+    # 清理临时文件
+    if test_img_path.parent.exists():
+        import shutil
+        shutil.rmtree(test_img_path.parent, ignore_errors=True)
 
     if not times:
         return {'avg_inference_ms': 0, 'std_inference_ms': 0, 'min_inference_ms': 0, 'max_inference_ms': 0}

@@ -183,9 +183,17 @@ def main():
             print(f"[{task_idx}/{total}] 准备: {category} @ N={n_samples}")
             print(f"{'=' * 70}")
 
-            # 清理之前的临时数据
+            # 清理之前的临时数据（Windows 兼容：重试 + 错误处理）
             if temp_root.exists():
-                shutil.rmtree(temp_root)
+                import time
+                for _ in range(3):
+                    try:
+                        shutil.rmtree(temp_root, ignore_errors=False)
+                        break
+                    except PermissionError:
+                        time.sleep(0.5)
+                else:
+                    shutil.rmtree(temp_root, ignore_errors=True)
             temp_root.mkdir(parents=True, exist_ok=True)
 
             try:

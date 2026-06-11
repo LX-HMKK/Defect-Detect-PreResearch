@@ -42,7 +42,7 @@ def print_banner():
     print("=" * 70)
     print()
     print("📋 功能:")
-    print("   🔽 切换算法 (FRE / PatchCore / DRAEM)")
+    print("   🔽 切换算法 (FRE / PatchCore / DRAEM / PaDiM)")
     print("   📤 选择/上传测试图片")
     print("   🚀 执行异常检测推理")
     print("   🖼️  并排显示原图和缺陷热力图")

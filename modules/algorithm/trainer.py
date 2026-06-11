@@ -50,6 +50,7 @@ from anomalib.models import (
     Patchcore,
     Draem,
     Fre,
+    Padim,
 )
 
 # ================================================================================
@@ -246,7 +247,7 @@ os.environ["HF_HUB_CACHE"] = str(PRETRAINED_CACHE_DIR / "huggingface" / "hub")
 # 支持的模型配置（3个算法）
 # ================================================================================
 
-SUPPORTED_MODELS = ['fre', 'patchcore', 'draem']
+SUPPORTED_MODELS = ['fre', 'patchcore', 'draem', 'padim']
 
 MODEL_INFO = {
     'fre': {
@@ -510,20 +511,32 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         # DRAEM 使用默认参数，可选配置
         beta = [0.1, 1.0]
         enable_sspcab = False
-        
+
         if config:
             beta = config.get('beta', beta)
             enable_sspcab = config.get('enable_sspcab', enable_sspcab)
         elif model_defaults:
             beta = model_defaults.get('beta', beta)
             enable_sspcab = model_defaults.get('enable_sspcab', enable_sspcab)
-        
+
         return Draem(
             beta=tuple(beta) if isinstance(beta, list) else beta,
             enable_sspcab=enable_sspcab,
             evaluator=evaluator,
         )
-    
+
+    elif model_name == 'padim':
+        backbone = _require_config(config, model_defaults, 'backbone', 'padim')
+        layers = _require_config(config, model_defaults, 'layers', 'padim')
+        pre_trained = _require_config(config, model_defaults, 'pre_trained', 'padim')
+
+        return Padim(
+            backbone=backbone,
+            layers=layers,
+            pre_trained=pre_trained,
+            evaluator=evaluator,
+        )
+
     else:
         raise ValueError(f"不支持的模型: {model_name}")
 
@@ -712,7 +725,7 @@ class AnomalyDetectionTrainer:
         
         # 创建 Engine (禁用 rich 进度条避免 Windows GBK 编码问题)
         print("\n[WAIT] 开始训练...")
-        if self.model_name == 'patchcore':
+        if self.model_name in ('patchcore', 'padim'):
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
         
         # 创建 Engine
@@ -1080,7 +1093,7 @@ def main():
     )
     parser.add_argument('--model', '-m', type=str, default='patchcore',
                         choices=SUPPORTED_MODELS + ['all'],
-                        help='模型名称 (fre/patchcore/draem/all)')
+                        help='模型名称 (fre/patchcore/draem/padim/all)')
     parser.add_argument('--data_path', '-d', type=str, default='./data',
                         help='数据集路径（MVTec AD 格式）')
     parser.add_argument('--category', '-c', type=str, default='bottle',

@@ -34,6 +34,7 @@ wheels/
 # IDEs
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -66,3 +67,5 @@ temp/
 *.tmp
 pre_trained/
 nul
+
+*.pptx

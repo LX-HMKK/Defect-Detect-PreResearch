@@ -1,6 +1,8 @@
 # 工业图像异常检测系统
 
-基于 **anomalib 2.x** 的无监督工业异常检测算法复现与性能评测系统。
+基于 **anomalib 2.3.0** 的无监督工业异常检测算法复现与性能评测系统。
+
+> **版本**: v1.0.0 | **语言**: Python 3.10 | **框架**: PyTorch 2.x + anomalib 2.3.0 + Gradio 4.x
 
 ---
 
@@ -17,6 +19,7 @@
 | 算法 | 原理 | image_AUROC | pixel_AUROC | 推荐 |
 |:---|:---|:---:|:---:|:---:|
 | **PatchCore** | 特征记忆库 + 最近邻搜索 | 100% | 98.6% | ✅ 首选 |
+| **PaDiM** | patch 高斯分布建模 + 马氏距离 | - | - | 🔬 对照 |
 | **FRE** | 特征重构误差 | 95% | - | ✅ 备选 |
 | **DRAEM** | 合成异常 + 判别网络 | 99.2% | 93.9% | ✅ 备选 |
 
@@ -90,6 +93,23 @@ python scripts/run_ui.py
 # 访问 http://127.0.0.1:7860
 ```
 
+启动工业暗色主题 Web 界面，支持图像上传、模型推理、异常热力图可视化与结果导出。
+
+### 5. 阈值计算
+
+```bash
+# 计算单个模型的最佳阈值
+python scripts/run_threshold.py -m patchcore -c bottle
+
+# 计算所有模型的阈值
+python scripts/run_threshold.py -m all -c bottle
+
+# 导出结果为 JSON
+python scripts/run_threshold.py -m patchcore -c bottle --export results/thresholds.json
+```
+
+阈值搜索结果保存至 `results/thresholds/`，包含各模型在各数据集上的最佳 F1 阈值。支持 `--export` 参数导出汇总 JSON。
+
 ---
 
 ## 界面特性
@@ -118,6 +138,23 @@ python scripts/run_ui.py
 
 ---
 
+## 配置说明
+
+所有算法参数通过 `configs/` 目录下的 YAML 文件管理：
+
+| 配置文件 | 说明 |
+|:---|:---|
+| `configs/config.yaml` | 主配置：数据集路径、输出目录、加速器设置 |
+| `configs/patchcore.yaml` | PatchCore：backbone、coreset 采样率、特征层 |
+| `configs/padim.yaml` | PaDiM：backbone、特征层、预训练开关 |
+| `configs/draem.yaml` | DRAEM：学习率、早停参数、合成异常强度 |
+| `configs/padim.yaml` | PaDiM：特征 backbone、特征层、预训练开关 |
+| `configs/fre.yaml` | FRE：重构损失权重、早停轮数、特征维度 |
+
+早停机制在各算法 YAML 的 `early_stopping` 字段中配置，支持 `patience`、`min_delta` 和 `monitor_metric` 三个参数。
+
+---
+
 ## 项目结构
 
 ```
@@ -125,14 +162,32 @@ Defect-Detect-PreResearch/
 ├── modules/
 │   ├── data_processing/    # 数据集处理
 │   ├── algorithm/          # 模型训练
+│   ├── config/             # 配置管理
 │   ├── evaluation/         # 指标计算
-│   └── ui/                # Web 界面 (Gradio)
-│       ├── demo.py        # 界面逻辑
-│       └── styles.css     # 工业暗色主题样式
-├── configs/                # 主配置与算法 YAML 配置
-├── data/                  # 数据集
+│   └── ui/                 # Web 界面 (Gradio)
+│       ├── demo.py         # 界面逻辑
+│       └── styles.css      # 工业暗色主题样式
+├── configs/                # 算法 YAML 配置
+│   ├── config.yaml         # 主配置
+│   ├── patchcore.yaml
+│   ├── draem.yaml
+│   └── fre.yaml
+├── scripts/                # 核心工作流脚本（训练、评估、UI）
+├── tools/                  # 汇报分析工具（报告、统计、基准）
+├── assets/                 # 环境配置与依赖
+│   ├── requirements.txt
+│   ├── setup_miniforge.bat
+│   └── pyrightconfig.json
+├── data/                   # 数据集
+├── datasets/               # 外部数据集 (DTD)
 ├── results/                # 训练结果
-├── scripts/                # 入口脚本
+├── pre_trained/            # 预训练权重缓存
+├── docs/                   # 项目文档
+│   ├── 任务书.md
+│   ├── 需求.md
+│   └── 讲稿.md
+├── AGENTS.md               # AI Agent 开发指南
+├── CHANGELOG.md
 └── README.md
 ```
 
@@ -162,6 +217,18 @@ pip install opencv-python==4.8.1.78 timm
 
 ---
 
+## 论文参考
+
+| 算法 | 论文 |
+|:---|:---|
+| **PatchCore** | Roth et al. "Towards Total Recall in Industrial Anomaly Detection" (CVPR 2022) |
+| **DRAEM** | Zavrtanik et al. "DRAEM — A Discriminatively Trained Reconstruction Embedding for Surface Anomaly Detection" (ICCV 2021) |
+| **FRE** | Batzner et al. "Feature Reconstruction Error for Anomaly Detection" (2024) |
+
+本项目基于 [anomalib](https://github.com/openvinotoolkit/anomalib) 深度学习异常检测库实现。
+
+---
+
 ## Git 提交规范
 
 ```
@@ -178,3 +245,9 @@ pip install opencv-python==4.8.1.78 timm
 | style | 代码格式 | `style: 格式化代码` |
 | refactor | 重构 | `refactor: 重构模型配置结构` |
 | perf | 性能优化 | `perf(patchcore): 启用预训练权重` |
+
+---
+
+## 许可证
+
+本项目仅用于学术研究目的。

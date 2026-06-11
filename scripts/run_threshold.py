@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
         "-m",
         type=str,
         default="patchcore",
-        choices=["fre", "patchcore", "draem", "all"],
+        choices=["fre", "patchcore", "draem", "padim", "all"],
         help="Model name.",
     )
     parser.add_argument(

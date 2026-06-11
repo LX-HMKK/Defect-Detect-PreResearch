@@ -38,6 +38,7 @@ from anomalib.models import (
     Patchcore,
     Draem,
     Fre,
+    Padim,
 )
 
 # 配置管理
@@ -116,6 +117,26 @@ MODEL_CONFIGS = {
         weight_path='./results/draem/Draem/MVTec/bottle/v1/weights/lightning/model.ckpt',
         model_class=Draem,
         model_kwargs={},
+    ),
+    'padim': ModelConfig(
+        name='PaDiM',
+        direction='基于特征建模（概率分布）',
+        description='''
+**算法原理**: 对每个 patch 位置建立多元高斯分布模型，
+通过马氏距离度量测试样本与正常分布的偏离程度。
+
+**特点**:
+- 与 PatchCore 同属特征建模类，但使用概率建模
+- 无需训练，仅需一次前向传播构建统计量
+- 推理速度快，内存占用适中
+''',
+        weight_path='./results/padim/Padim/MVTec/bottle/v0/weights/lightning/model.ckpt',
+        model_class=Padim,
+        model_kwargs={
+            'backbone': 'resnet18',
+            'layers': ['layer1', 'layer2', 'layer3'],
+            'pre_trained': True,
+        },
     )
 }
 
@@ -125,8 +146,8 @@ def get_available_datasets():
     """自动检测可用的数据集"""
     results_dir = Path("./results")
     datasets = set()
-    for model_key in ["fre", "patchcore", "draem"]:
-        for subdir in ["Fre", "Patchcore", "Draem"]:
+    for model_key in ["fre", "patchcore", "draem", "padim"]:
+        for subdir in ["Fre", "Patchcore", "Draem", "Padim"]:
             model_path = results_dir / model_key / subdir / "MVTec"
             if model_path.exists():
                 for cat_dir in model_path.iterdir():
@@ -599,6 +620,13 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                     <p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>
                 </div>
                 """)
+            with gr.Tab("PaDiM", elem_classes=["algorithm-tab"]) as tab_padim:
+                gr.HTML("""
+                <div class="algo-card">
+                    <h4>PaDiM — 特征概率建模</h4>
+                    <p>对每个 patch 位置建立多元高斯分布，通过马氏距离度量异常程度。与 PatchCore 同属特征建模类，使用概率建模替代记忆库检索。</p>
+                </div>
+                """)
         
         # 隐藏的选择器用于跟踪当前算法
         current_algo = gr.State(value="patchcore")
@@ -610,7 +638,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             with gr.Column(scale=1, min_width=300):
                 # 算法选择下拉菜单
                 algo_dropdown = gr.Dropdown(
-                    choices=[('FRE', 'fre'), ('PatchCore', 'patchcore'), ('DRAEM', 'draem')],
+                    choices=[('FRE', 'fre'), ('PatchCore', 'patchcore'), ('DRAEM', 'draem'), ('PaDiM', 'padim')],
                     value='patchcore',
                     label="算法选择"
                 )
@@ -755,7 +783,8 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             algo_descriptions = {
                 'patchcore': '<h4 class="recommended">PatchCore — 特征建模法</h4><p>使用预训练CNN提取局部特征，构建记忆库存储正常样本特征。测试时通过计算测试样本特征与记忆库的最近邻距离来判断异常。无需训练，推理速度最快，工业界最佳方案。</p>',
                 'fre': '<h4>FRE — 特征重构法</h4><p>使用预训练ResNet提取特征，通过线性自编码器重构特征。重构误差即异常分数。效果优秀，适合需要解释性的场景。</p>',
-                'draem': '<h4>DRAEM — 自监督学习</h4><p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>'
+                'draem': '<h4>DRAEM — 自监督学习</h4><p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>',
+                'padim': '<h4>PaDiM — 特征概率建模</h4><p>对每个 patch 建立多元高斯分布，通过马氏距离度量异常。与 PatchCore 同属特征建模类，概率建模内存占用更小。</p>'
             }
             
             yield format_status(f"正在加载 {config.name}...", is_loading=True)
@@ -785,7 +814,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         # 绑定Tab选择事件 - 更新current_algo
         def on_tab_select(tab_name):
             """Tab选择事件"""
-            algo_map = {"PatchCore": "patchcore", "FRE": "fre", "DRAEM": "draem"}
+            algo_map = {"PatchCore": "patchcore", "FRE": "fre", "DRAEM": "draem", "PaDiM": "padim"}
             return algo_map.get(tab_name, "patchcore")
         
         # tab_patchcore.select removed

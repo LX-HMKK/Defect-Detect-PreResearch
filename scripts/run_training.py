@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 入口脚本 2: 模型训练
-用法: 
+用法:
     python scripts/run_training.py                    # 训练 PatchCore
     python scripts/run_training.py --model all        # 训练所有模型
-    python scripts/run_training.py -m patchcore       # 指定模型
+    python scripts/run_training.py -m all -c all       # 训练所有模型+所有类别
 """
 
 import io
@@ -41,16 +41,31 @@ def print_banner():
     """打印欢迎横幅"""
     print()
     print("=" * 70)
-    print("🚀 异常检测模型训练模块")
-    print("📚 基于 anomalib 2.x | 支持 3 种算法")
+    print("异常检测模型训练模块")
+    print("基于 anomalib 2.x | 支持 3 种算法")
     print("=" * 70)
     print()
-    print("📋 支持的模型:")
-    print("   🔹 FRE         - 基于特征重构 (推荐)")
-    print("   🔹 PatchCore   - 基于特征建模 (工业最优)")
-    print("   🔹 DRAEM       - 基于自监督学习")
+    print("支持的模型:")
+    print("   FRE         - 基于特征重构")
+    print("   PatchCore   - 基于特征建模 (工业最优)")
+    print("   DRAEM       - 基于自监督学习")
     print()
     print("=" * 70)
+
+
+def get_all_categories(data_path: str) -> list[str]:
+    """自动发现数据目录中的所有类别（包含 train/ 子目录的文件夹）"""
+    data_dir = Path(data_path)
+    if not data_dir.exists():
+        return []
+
+    categories: list[str] = []
+    for item in sorted(data_dir.iterdir()):
+        if item.is_file() or item.name.startswith('.'):
+            continue
+        if (item / 'train').exists():
+            categories.append(item.name)
+    return categories
 
 
 def parse_args():
@@ -61,18 +76,18 @@ def parse_args():
         epilog="""
 示例:
   python scripts/run_training.py -m patchcore -c bottle     # 训练 PatchCore
-  python scripts/run_training.py -m all                     # 训练所有模型
+  python scripts/run_training.py -m all -c all              # 训练所有模型+所有类别
   python scripts/run_training.py -m fre -d ./data           # 指定数据路径
         """
     )
-    
+
     parser.add_argument('--model', '-m', type=str, default='patchcore',
-                        choices=['fre', 'patchcore', 'draem', 'all'],
-                        help='模型名称 (fre/patchcore/draem/all)')
+                        choices=['fre', 'patchcore', 'draem', 'padim', 'all'],
+                        help='模型名称 (fre/patchcore/draem/padim/all)')
     parser.add_argument('--data_path', '-d', type=str, default='./data',
                         help='数据集路径（MVTec AD 格式）')
     parser.add_argument('--category', '-c', type=str, default='bottle',
-                        help='产品类别名称')
+                        help='产品类别名称 (或 all 自动发现所有类别)')
     parser.add_argument('--output_dir', '-o', type=str, default='./results',
                         help='结果输出目录')
     parser.add_argument('--eval_only', action='store_true',
@@ -87,34 +102,39 @@ def parse_args():
                         help='最大训练轮次')
     parser.add_argument('--config', type=str, default=None,
                         help='YAML 配置文件路径（默认使用 configs/{model}.yaml）')
-    
+
     return parser.parse_args()
 
 
 def main():
     """主函数"""
     print_banner()
-    
+
     # 解析参数
     args = parse_args()
-    
-    # 确定要运行的模型
-    models_to_run = ['fre', 'patchcore', 'draem'] if args.model == 'all' else [args.model]
-    
+
+    # 确定要运行的模型和类别
+    models_to_run = ['fre', 'patchcore', 'draem', 'padim'] if args.model == 'all' else [args.model]
+    categories_to_run = get_all_categories(args.data_path) if args.category == 'all' else [args.category]
+
+    if args.category == 'all' and not categories_to_run:
+        print("[ERROR] 未找到任何有效的数据类别（需包含 train/ 子目录）")
+        raise SystemExit(1)
+
     # 打印配置信息
     print()
-    print("⚙️  配置信息")
+    print("配置信息")
     print("-" * 70)
-    print(f"   📦 模型:       {', '.join([m.upper() for m in models_to_run])}")
-    print(f"   📁 数据路径:   {args.data_path}")
-    print(f"   🏷️  产品类别:   {args.category}")
-    print(f"   💻 计算设备:   {args.device}")
-    print(f"   📝 模式:       {'仅评估' if args.eval_only else '训练 + 评估'}")
+    print(f"   模型:       {', '.join([m.upper() for m in models_to_run])}")
+    print(f"   数据路径:   {args.data_path}")
+    print(f"   产品类别:   {', '.join(categories_to_run)}")
+    print(f"   计算设备:   {args.device}")
+    print(f"   模式:       {'仅评估' if args.eval_only else '训练 + 评估'}")
     if args.epochs:
-        print(f"   🔄 训练轮次:   {args.epochs}")
+        print(f"   训练轮次:   {args.epochs}")
     print("-" * 70)
     print()
-    
+
     # 执行训练
     from modules.algorithm.trainer import (
         AnomalyDetectionTrainer,
@@ -122,90 +142,86 @@ def main():
         compare_models,
         find_latest_checkpoint,
     )
-    
-    results_summary = []
-    failed_models = []
-    
-    for i, model_name in enumerate(models_to_run, 1):
-        print(f"\n📌 [{i}/{len(models_to_run)}] 处理模型: {model_name.upper()}")
-        print("=" * 70)
-        
-        try:
-            # 确定配置文件路径
-            config_path = args.config
-            if config_path is None:
-                # 默认使用 configs/{model}.yaml
-                default_config = PROJECT_ROOT / "configs" / f"{model_name}.yaml"
-                if default_config.exists():
-                    config_path = str(default_config)
-            
-            trainer = AnomalyDetectionTrainer(
-                model_name=model_name,
-                data_path=args.data_path,
-                category=args.category,
-                output_dir=args.output_dir,
-                config_path=config_path,
-                device=args.device,
-                seed=args.seed
-            )
-            
-            if args.eval_only:
-                resolved_checkpoint = args.checkpoint
-                if resolved_checkpoint is None:
-                    latest_ckpt = find_latest_checkpoint(args.output_dir, model_name, args.category)
-                    if latest_ckpt is None:
-                        raise FileNotFoundError(
-                            f"未找到可用 checkpoint: model={model_name}, category={args.category}。"
-                            f"请先训练，或通过 --checkpoint 显式指定权重路径。"
-                        )
-                    resolved_checkpoint = str(latest_ckpt)
-                    print(f"[INFO] 自动使用最新 checkpoint: {resolved_checkpoint}")
-                elif not Path(resolved_checkpoint).exists():
-                    raise FileNotFoundError(f"checkpoint 不存在: {resolved_checkpoint}")
 
-                trainer.evaluate(resolved_checkpoint)
-            else:
-                result = trainer.train_and_evaluate(max_epochs=args.epochs)
-                results_summary.append({
-                    'model': model_name.upper(),
-                    'result': result
-                })
-            
-            print(f"✅ {model_name.upper()} 完成")
-                
-        except Exception as e:
-            print(f"❌ {model_name.upper()} 失败: {e}")
-            import traceback
-            traceback.print_exc()
-            failed_models.append(model_name)
-            continue
-    
-    # 生成对比报告
-    if len(models_to_run) > 1:
-        print("\n" + "=" * 70)
-        print("📊 生成模型对比报告...")
-        compare_models(args.output_dir, args.category)
-    
+    total_tasks = len(models_to_run) * len(categories_to_run)
+    task_idx = 0
+    all_failed: list[dict] = []
+
+    for cat_idx, category in enumerate(categories_to_run, 1):
+        if len(categories_to_run) > 1:
+            print(f"\n{'=' * 70}")
+            print(f"[{cat_idx}/{len(categories_to_run)}] 类别: {category}")
+            print(f"{'=' * 70}")
+
+        for model_name in models_to_run:
+            task_idx += 1
+            print(f"\n[{task_idx}/{total_tasks}] {model_name.upper()} @ {category}")
+            print("-" * 70)
+
+            try:
+                config_path = args.config
+                if config_path is None:
+                    default_config = PROJECT_ROOT / "configs" / f"{model_name}.yaml"
+                    if default_config.exists():
+                        config_path = str(default_config)
+
+                trainer = AnomalyDetectionTrainer(
+                    model_name=model_name,
+                    data_path=args.data_path,
+                    category=category,
+                    output_dir=args.output_dir,
+                    config_path=config_path,
+                    device=args.device,
+                    seed=args.seed
+                )
+
+                if args.eval_only:
+                    resolved_checkpoint = args.checkpoint
+                    if resolved_checkpoint is None:
+                        latest_ckpt = find_latest_checkpoint(args.output_dir, model_name, category)
+                        if latest_ckpt is None:
+                            raise FileNotFoundError(
+                                f"未找到可用 checkpoint: model={model_name}, category={category}。"
+                                f"请先训练，或通过 --checkpoint 显式指定权重路径。"
+                            )
+                        resolved_checkpoint = str(latest_ckpt)
+                        print(f"[INFO] 自动使用最新 checkpoint: {resolved_checkpoint}")
+                    elif not Path(resolved_checkpoint).exists():
+                        raise FileNotFoundError(f"checkpoint 不存在: {resolved_checkpoint}")
+
+                    trainer.evaluate(resolved_checkpoint)
+                else:
+                    trainer.train_and_evaluate(max_epochs=args.epochs)
+
+                print(f"   {model_name.upper()} @ {category} 完成")
+
+            except Exception as e:
+                print(f"   {model_name.upper()} @ {category} 失败: {e}")
+                import traceback
+                traceback.print_exc()
+                all_failed.append({'model': model_name, 'category': category})
+                continue
+
+        # 单类别模型对比报告
+        if len(models_to_run) > 1 and not args.eval_only:
+            print(f"\n生成 {category} 对比报告...")
+            compare_models(args.output_dir, category)
+
     # 最终总结
     print()
     print("=" * 70)
-    print("📋 训练任务总结")
+    print("训练任务总结")
     print("=" * 70)
-    
-    if results_summary:
-        for r in results_summary:
-            result = r['result']
-            auroc = result.get('image_AUROC', 0) * 100
-            status = "🌟 优秀" if auroc >= 95 else "👍 良好" if auroc >= 80 else "⚠️ 一般"
-            print(f"   {r['model']:12s} | AUROC: {auroc:6.2f}% | {status}")
-
-    if failed_models:
-        print()
-        print(f"❌ 失败模型: {', '.join([m.upper() for m in failed_models])}")
+    total_done = total_tasks - len(all_failed)
+    print(f"   成功: {total_done}/{total_tasks}")
+    if all_failed:
+        print(f"   失败: {len(all_failed)}/{total_tasks}")
+        for f in all_failed:
+            print(f"      - {f['model'].upper()} @ {f['category']}")
         raise SystemExit(1)
-    
+
     print()
-    print("🎉 所有任务已完成!")
+    print("所有任务已完成!")
     print("=" * 70)
     print()
 

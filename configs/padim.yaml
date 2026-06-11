@@ -1,0 +1,106 @@
+# ================================================================================
+# 算法: PaDiM (基于特征建模) - Anomalib 2.x 配置
+# ================================================================================
+# 原理: 对每个 patch 位置建立多元高斯分布，通过马氏距离度量异常程度。
+#       与 PatchCore 同属特征建模类，但使用概率建模而非记忆库检索。
+#
+# 参考: Defard et al. "PaDiM: A Patch Distribution Modeling Framework
+#        for Anomaly Detection and Localization" (ICPR 2021)
+# ================================================================================
+
+# 数据配置 (Anomalib 2.x 格式)
+data:
+  class_path: anomalib.data.MVTec
+  init_args:
+    root: ./data
+    category: bottle
+    image_size: [256, 256]
+    train_batch_size: 32
+    eval_batch_size: 32
+    num_workers: 0  # Windows 设为 0 避免多进程问题
+
+# 模型配置 (Anomalib 2.x 格式)
+model:
+  class_path: anomalib.models.Padim
+  init_args:
+    backbone: resnet18
+    layers:
+      - layer1
+      - layer2
+      - layer3
+    pre_trained: true
+
+# 归一化配置
+normalization:
+  normalization_method: min_max
+
+# 指标配置
+metrics:
+  image:
+    - F1Score
+    - AUROC
+    - AUPR
+  pixel:
+    - F1Score
+    - AUROC
+  threshold:
+    class_path: anomalib.metrics.F1AdaptiveThreshold
+    init_args:
+      default_value: 0.5
+
+# 可视化配置
+visualization:
+  show_images: false
+  save_images: false
+  log_images: false
+  image_save_path: null
+  mode: full
+
+# 项目配置
+project:
+  seed: 0
+  path: ./results
+  unique_dir: false
+
+# 日志配置
+logging:
+  logger: []
+  log_graph: false
+
+# 早停配置 (PaDiM 不需要训练，仅构建高斯模型)
+early_stopping:
+  enabled: false
+  monitor: image_AUROC
+  mode: max
+  patience: 5
+  min_delta: 0.001
+
+# 训练器配置 (Lightning 格式)
+trainer:
+  enable_checkpointing: true
+  default_root_dir: results/padim
+  gradient_clip_val: 0
+  gradient_clip_algorithm: norm
+  num_nodes: 1
+  devices: 1
+  enable_progress_bar: true
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 999
+  fast_dev_run: false
+  accumulate_grad_batches: 1
+  max_epochs: 1
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: 1.0
+  limit_val_batches: 0
+  limit_test_batches: 1.0
+  limit_predict_batches: 1.0
+  val_check_interval: 999
+  log_every_n_steps: 50
+  accelerator: auto
+  strategy: null
+  sync_batchnorm: false
+  num_sanity_val_steps: 0

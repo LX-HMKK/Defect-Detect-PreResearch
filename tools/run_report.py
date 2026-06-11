@@ -233,11 +233,11 @@ def generate_report(all_results: dict, output_path: Path):
                 if model in cat_data:
                     d = cat_data[model]
                     lines.append(
-                        f"| {model.upper()} | {format_metric(d.get('image_AUROC', 0) * 100)} | "
-                        f"{format_metric(d.get('image_AUPR', 0) * 100)} | "
-                        f"{format_metric(d.get('pixel_AUROC', 0) * 100)} | "
-                        f"{format_metric(d.get('pixel_PRO', 0) * 100)} | "
-                        f"{format_metric(d.get('optimal_threshold', '-'), 3)} |"
+                        f"| {model.upper()} | {format_metric(get_metric(d, 'image_AUROC') * 100)} | "
+                        f"{format_metric(get_metric(d, 'image_AUPR') * 100)} | "
+                        f"{format_metric(get_metric(d, 'pixel_AUROC') * 100)} | "
+                        f"{format_metric(get_metric(d, 'pixel_PRO') * 100)} | "
+                        f"{format_metric(get_metric(d, 'optimal_threshold'), 3)} |"
                     )
                 else:
                     lines.append(f"| {model.upper()} | - | - | - | - | - |")

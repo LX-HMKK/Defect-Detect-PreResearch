@@ -225,7 +225,7 @@ class AnomalyDetector:
             search_base = Path('./results')
             
             # 首先尝试查找对应数据集的权重
-            for subdir in ['Fre', 'Patchcore', 'Draem']:
+            for subdir in ['Fre', 'Patchcore', 'Draem', 'Padim']:
                 model_subdir = search_base / model_key / subdir / 'MVTec' / dataset
                 if model_subdir.exists():
                     ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
@@ -723,27 +723,54 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                     </div>"""
                 )
         
+        # ==================== 模型对比区域 ====================
+        gr.Markdown("### 四模型对比", elem_classes=["panel-title"])
+        with gr.Accordion("展开对比模式 — 一键运行四种算法，并排展示检测效果", open=False):
+            compare_button = gr.Button("🚀 四种算法同时推理", variant="primary", size="lg", elem_classes=["compare-btn"])
+
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("**PatchCore**  <small style='color:#34d399'>特征建模·首选</small>", elem_classes=["image-label"])
+                    compare_orig_pc = gr.Image(type="numpy", label="原图", height=200)
+                    compare_heat_pc = gr.Image(type="numpy", label="热力图", height=200)
+                    compare_result_pc = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                with gr.Column():
+                    gr.Markdown("**PaDiM**  <small style='color:#60a5fa'>概率建模·对照</small>", elem_classes=["image-label"])
+                    compare_orig_padim = gr.Image(type="numpy", label="原图", height=200)
+                    compare_heat_padim = gr.Image(type="numpy", label="热力图", height=200)
+                    compare_result_padim = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+            with gr.Row():
+                with gr.Column():
+                    gr.Markdown("**FRE**  <small style='color:#fbbf24'>重构法·备选</small>", elem_classes=["image-label"])
+                    compare_orig_fre = gr.Image(type="numpy", label="原图", height=200)
+                    compare_heat_fre = gr.Image(type="numpy", label="热力图", height=200)
+                    compare_result_fre = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                with gr.Column():
+                    gr.Markdown("**DRAEM**  <small style='color:#f87171'>自监督·备选</small>", elem_classes=["image-label"])
+                    compare_orig_draem = gr.Image(type="numpy", label="原图", height=200)
+                    compare_heat_draem = gr.Image(type="numpy", label="热力图", height=200)
+                    compare_result_draem = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+
         # ==================== 底部说明 ====================
         gr.Markdown("""
         <div class="footer-section">
             <div class="footer-title">使用说明</div>
             <div class="footer-content">
                 <div class="footer-item">
-                    <h5>操作流程</h5>
+                    <h5>单模型推理</h5>
                     <ul>
-                        <li>选择算法（顶部Tabs）</li>
+                        <li>选择算法（顶部Tabs或下拉菜单）</li>
                         <li>上传待检测图片</li>
-                        <li>点击推理按钮</li>
-                        <li>查看检测结果</li>
+                        <li>点击推理按钮查看结果</li>
                     </ul>
+                </div>
+                <div class="footer-item">
+                    <h5>四模型对比</h5>
+                    <p>展开下方「对比模式」区域，一键运行四种算法并排展示检测效果，直观对比各算法优劣。</p>
                 </div>
                 <div class="footer-item">
                     <h5>热力图解读</h5>
                     <p>颜色越偏红表示异常概率越高。右侧比例尺显示异常度范围（0-1）。</p>
-                </div>
-                <div class="footer-item">
-                    <h5>注意事项</h5>
-                    <p>首次切换算法需加载模型权重。请确保模型已训练完成。</p>
                 </div>
             </div>
         </div>
@@ -810,7 +837,26 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             if image is not None:
                 return format_status("图片已就绪，点击推理")
             return format_status("等待上传图片...")
-        
+
+        def on_compare_click(dataset, image):
+            """四模型对比 — 一键运行全部4种算法"""
+            if image is None:
+                empty = '<div class="compare-result-card"><div style="color:var(--status-anomaly-text);text-align:center;padding:10px;">请先上传图片</div></div>'
+                nope = [image, image, empty] * 4
+                return tuple(nope)
+
+            models = ['patchcore', 'padim', 'fre', 'draem']
+            results = []
+            for m in models:
+                success, msg = detector.load_model(m, dataset)
+                if success:
+                    orig, heat, result_text = detector.predict(image)
+                    results.extend([orig, heat, result_text])
+                else:
+                    results.extend([image, image,
+                        f'<div class="compare-result-card"><div style="color:var(--status-anomaly-text);text-align:center;padding:10px;">{m}: {msg}</div></div>'])
+            return tuple(results)
+
         # 绑定Tab选择事件 - 更新current_algo
         def on_tab_select(tab_name):
             """Tab选择事件"""
@@ -839,6 +885,16 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             fn=on_model_change,
             inputs=[algo_dropdown, dataset_dropdown],
             outputs=[load_status]  # 更新状态
+        )
+
+        # 绑定四模型对比事件
+        compare_button.click(
+            fn=on_compare_click,
+            inputs=[dataset_dropdown, image_input],
+            outputs=[compare_orig_pc, compare_heat_pc, compare_result_pc,
+                     compare_orig_padim, compare_heat_padim, compare_result_padim,
+                     compare_orig_fre, compare_heat_fre, compare_result_fre,
+                     compare_orig_draem, compare_heat_draem, compare_result_draem]
         )
     
     return demo

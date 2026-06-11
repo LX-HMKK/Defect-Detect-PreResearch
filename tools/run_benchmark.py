@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-推理性能基准测试脚本
+推理性能基准测试脚本（修复版）
 
-测量各算法在不同数据集上的推理速度、显存占用、参数量。
-这是任务书要求的多维度对比的一部分。
+使用 anomalib Engine.predict() 正确测量各算法的推理速度和资源占用。
 
 用法:
-    python tools/run_benchmark.py -m all -c all -d ./data
+    python tools/run_benchmark.py -m all -c bottle -d ./data
 """
 
 import io
@@ -15,12 +14,15 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 import tempfile
 import torch
+
+from anomalib.engine import Engine
+from anomalib.data import PredictDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,137 +32,36 @@ if sys.platform == 'win32':
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from modules.algorithm.trainer import AnomalyDetectionTrainer
+from modules.ui.demo import AnomalyDetector
 
-def get_all_categories(data_path: str) -> list[str]:
-    data_dir = Path(data_path)
-    if not data_dir.exists():
-        return []
-    categories: list[str] = []
-    for item in sorted(data_dir.iterdir()):
-        if item.is_file() or item.name.startswith('.'):
+SUPPORTED_MODELS = ['fre', 'patchcore', 'draem', 'padim']
+
+
+def get_test_image_path(data_path: str, dataset: str) -> Optional[Path]:
+    """从测试集中获取第一张图片路径"""
+    test_dir = Path(data_path) / dataset / 'test'
+    # 优先用 good 目录
+    for subdir in ['good'] + sorted([d.name for d in test_dir.iterdir()
+                                      if d.is_dir() and d.name != 'good']):
+        sd = test_dir / subdir
+        if not sd.exists():
             continue
-        if (item / 'train').exists():
-            categories.append(item.name)
-    return categories
+        for f in sorted(sd.glob('*')):
+            if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.bmp'):
+                return f
+    return None
 
 
-def count_parameters(model) -> int:
-    """统计模型参数量"""
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-def measure_inference_time(model, dataloader, device: str, warmup: int = 3, repeat: int = 10) -> dict:
-    """测量推理时间 — 使用 anomalib Engine.predict() 正确方式"""
-    from anomalib.engine import Engine
-    from anomalib.data import PredictDataset
-    import tempfile, cv2
-
-    # 从 dataloader 提取一张图片作为测试图片
-    test_img_path = None
-    for batch in dataloader:
-        if hasattr(batch, 'image'):
-            img = batch.image[0] if batch.image.dim() == 4 else batch.image
-        elif isinstance(batch, dict):
-            img = batch.get('image', None)
-            if img is not None:
-                img = img[0] if img.dim() == 4 else img
-        elif isinstance(batch, torch.Tensor):
-            img = batch[0] if batch.dim() == 4 else batch
-        else:
-            continue
-        if img is not None:
-            # 保存为临时文件用于 PredictDataset
-            img_np = (img.cpu().permute(1,2,0).numpy() * 255).astype('uint8')
-            if img_np.shape[-1] == 1:
-                img_np = img_np[:,:,0]
-            elif img_np.shape[-1] == 3:
-                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-            test_img_path = Path(tempfile.mkdtemp()) / 'test.png'
-            cv2.imwrite(str(test_img_path), img_np)
-            break
-
-    if test_img_path is None:
-        return {'mean_ms': 0, 'std_ms': 0, 'fps': 0, 'error': 'No test image found'}
-
-    engine = Engine(device=device, enable_progress_bar=False)
-    dataset = PredictDataset(path=test_img_path, image_size=(256, 256))
-    model.eval()
-
-    times = []
-    with torch.no_grad():
-        for i in range(warmup + repeat):
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-            t0 = time.perf_counter()
-            list(engine.predict(model=model, dataset=dataset))
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-            t1 = time.perf_counter()
-            if i >= warmup:
-                times.append((t1 - t0) * 1000)
-
-    # 清理临时文件
-    if test_img_path.parent.exists():
-        import shutil
-        shutil.rmtree(test_img_path.parent, ignore_errors=True)
-
-    if not times:
-        return {'avg_inference_ms': 0, 'std_inference_ms': 0, 'min_inference_ms': 0, 'max_inference_ms': 0}
-
-    return {
-        'avg_inference_ms': round(np.mean(times), 2),
-        'std_inference_ms': round(np.std(times), 2),
-        'min_inference_ms': round(np.min(times), 2),
-        'max_inference_ms': round(np.max(times), 2),
-    }
-
-
-def measure_gpu_memory(model, dataloader, device: str) -> dict:
-    """测量 GPU 显存占用"""
-    if not torch.cuda.is_available():
-        return {'peak_memory_mb': 0, 'note': 'CUDA not available'}
-
-    torch.cuda.reset_peak_memory_stats()
-    torch.cuda.empty_cache()
-
-    model.eval()
-    model.to(device)
-
-    with torch.no_grad():
-        for batch in dataloader:
-            if isinstance(batch, dict):
-                image = batch.get('image', batch.get('input', None))
-            elif isinstance(batch, (list, tuple)):
-                image = batch[0]
-            else:
-                image = batch
-
-            if image is None:
-                continue
-
-            image = image.to(device) if isinstance(image, torch.Tensor) else image
-            _ = model(image)
-            break
-
-    peak_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
-    torch.cuda.empty_cache()
-
-    return {'peak_memory_mb': round(peak_mb, 1)}
-
-
-def run_benchmark(
-    model_name: str,
-    category: str,
-    data_path: str,
-    device: str = 'auto',
-) -> dict:
+def run_benchmark(model_name: str, category: str, data_path: str,
+                  device: str = 'auto') -> Optional[dict]:
     """对单个模型+数据集组合运行基准测试"""
-    from modules.algorithm.trainer import AnomalyDetectionTrainer
 
-    resolved_device = device
-    if device == 'auto':
-        resolved_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    resolved_device = 'cuda' if (device == 'auto' and torch.cuda.is_available()) else device
 
+    print(f"\n  [{model_name.upper()}] 加载模型...")
+
+    # 使用 trainer 创建模型和数据模块
     trainer = AnomalyDetectionTrainer(
         model_name=model_name,
         data_path=data_path,
@@ -171,27 +72,84 @@ def run_benchmark(
     )
     trainer.setup()
     model = trainer.model
-
     if model is None:
-        # For PatchCore/PaDiM, model might be None until fit
         trainer.train()
         model = trainer.model
 
-    params = count_parameters(model)
+    if model is None:
+        print(f"  [FAIL] 无法创建模型")
+        return None
 
-    test_loader = trainer.datamodule.test_dataloader()
-    timing = measure_inference_time(model, test_loader, resolved_device)
-    memory = measure_gpu_memory(model, test_loader, resolved_device)
+    # 参数量
+    params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in model.parameters())
+
+    # GPU 显存 — 模型加载后
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+        model.to(resolved_device)
+
+    # 获取测试图片
+    img_path = get_test_image_path(data_path, category)
+    if img_path is None:
+        print(f"  [FAIL] 未找到测试图片")
+        return None
+
+    # 使用 detector 预测（通过 Engine.predict 正确方式）
+    detector = AnomalyDetector()
+    success, _ = detector.load_model(model_name, category)
+    if not success:
+        print(f"  [FAIL] 模型加载失败")
+        return None
+
+    img = cv2.imread(str(img_path))
+    if img is None:
+        print(f"  [FAIL] 无法读取图片: {img_path}")
+        return None
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # 预热
+    print(f"  [BENCH] 预热 (3次)...")
+    for _ in range(3):
+        detector.predict(img)
+
+    # 正式测量
+    print(f"  [BENCH] 计时 (10次)...")
+    times = []
+    for _ in range(10):
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        detector.predict(img)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        times.append((t1 - t0) * 1000)
+
+    # 显存峰值
+    mem_mb = 0
+    if torch.cuda.is_available():
+        mem_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+
+    avg_ms = np.mean(times)
+    std_ms = np.std(times)
+
+    print(f"  [OK] 平均: {avg_ms:.1f}ms, 峰值显存: {mem_mb:.0f}MB, 参数量: {params/1e6:.1f}M")
 
     return {
         'model': model_name.upper(),
         'category': category,
         'device': resolved_device,
         'trainable_params': params,
+        'total_params': total_params,
         'trainable_params_m': round(params / 1e6, 1),
-        'avg_inference_ms': timing['avg_inference_ms'],
-        'std_inference_ms': timing['std_inference_ms'],
-        'peak_gpu_memory_mb': memory.get('peak_memory_mb', 0),
+        'total_params_m': round(total_params / 1e6, 1),
+        'avg_inference_ms': round(avg_ms, 1),
+        'std_inference_ms': round(std_ms, 1),
+        'min_inference_ms': round(np.min(times), 1),
+        'max_inference_ms': round(np.max(times), 1),
+        'peak_gpu_memory_mb': round(mem_mb, 0),
     }
 
 
@@ -203,62 +161,53 @@ def main():
     parser.add_argument('--data_path', '-d', type=str, default='./data')
     parser.add_argument('--category', '-c', type=str, default='bottle')
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--output', '-o', type=str, default='./results/comparison/benchmark.json')
     args = parser.parse_args()
 
-    from modules.algorithm.trainer import SUPPORTED_MODELS
+    data_path = str(Path(args.data_path).resolve())
 
-    models_to_run = SUPPORTED_MODELS if args.model == 'all' else [args.model]
-    categories_to_run = (
-        get_all_categories(args.data_path) if args.category == 'all'
-        else [args.category]
-    )
+    if args.category == 'all':
+        data_dir = Path(data_path)
+        categories = [d.name for d in sorted(data_dir.iterdir())
+                      if d.is_dir() and (d / 'train').exists()]
+    else:
+        categories = args.category.split(',')
 
-    print()
+    models = SUPPORTED_MODELS if args.model == 'all' else [args.model]
+
     print("=" * 70)
     print("模型推理性能基准测试")
-    print("=" * 70)
-    print(f"  模型: {', '.join([m.upper() for m in models_to_run])}")
-    print(f"  类别: {', '.join(categories_to_run)}")
+    print(f"  模型: {[m.upper() for m in models]}")
+    print(f"  类别: {categories}")
     print(f"  设备: {args.device}")
     print("=" * 70)
 
     results = []
-
-    for cat_idx, category in enumerate(categories_to_run, 1):
-        for model_name in models_to_run:
-            label = f"{model_name.upper()} @ {category}"
-            print(f"\n[{len(results) + 1}/{len(models_to_run) * len(categories_to_run)}] {label}")
-            print("-" * 50)
-
+    for model_name in models:
+        print(f"\n[{model_name.upper()}]")
+        for category in categories:
             try:
-                result = run_benchmark(model_name, category, args.data_path, args.device)
-                results.append(result)
-                print(f"  参数: {result['trainable_params_m']}M | "
-                      f"推理: {result['avg_inference_ms']}ms | "
-                      f"显存: {result['peak_gpu_memory_mb']}MB")
+                result = run_benchmark(model_name, category, data_path, args.device)
+                if result:
+                    results.append(result)
             except Exception as e:
-                print(f"  [ERROR] {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"  [ERROR] {model_name}/{category}: {e}")
 
     # 保存结果
-    output_path = Path(args.output)
+    output_path = PROJECT_ROOT / 'results' / 'comparison' / 'benchmark.json'
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
+    output_path.write_text(json.dumps(results, indent=2, ensure_ascii=False),
+                           encoding='utf-8')
 
-    # 打印汇总表
+    # 打印汇总
     if results:
-        print(f"\n{'=' * 90}")
-        print("性能汇总表")
-        print(f"{'=' * 90}")
-        print(f"{'Model':<12} {'Category':<12} {'Params(M)':>10} {'Infer(ms)':>10} {'GPU Mem(MB)':>12}")
-        print("-" * 56)
+        print(f"\n{'=' * 70}")
+        print(f"推理速度汇总")
+        print(f"{'=' * 70}")
+        print(f"{'模型':<12} {'参数(M)':<10} {'平均(ms)':<10} {'显存(MB)':<10}")
+        print("-" * 42)
         for r in results:
-            print(f"{r['model']:<12} {r['category']:<12} "
-                  f"{r['trainable_params_m']:>10.1f} {r['avg_inference_ms']:>10.2f} "
-                  f"{r['peak_gpu_memory_mb']:>12.1f}")
+            print(f"{r['model']:<12} {r['trainable_params_m']:<10.1f} "
+                  f"{r['avg_inference_ms']:<10.1f} {r['peak_gpu_memory_mb']:<10.0f}")
 
     print(f"\n结果已保存: {output_path}")
 

@@ -183,22 +183,23 @@ def main():
             print(f"[{task_idx}/{total}] 准备: {category} @ N={n_samples}")
             print(f"{'=' * 70}")
 
-            # 清理之前的临时数据（Windows 兼容：重试 + 错误处理）
-            if temp_root.exists():
-                import time
-                for _ in range(3):
-                    try:
-                        shutil.rmtree(temp_root, ignore_errors=False)
-                        break
-                    except PermissionError:
-                        time.sleep(0.5)
-                else:
-                    shutil.rmtree(temp_root, ignore_errors=True)
-            temp_root.mkdir(parents=True, exist_ok=True)
+            # 每个样本量使用独立子目录，避免 Windows 文件锁冲突
+            n_temp_root = temp_root / f'N{n_samples}'
+            import time
+            for _ in range(3):
+                try:
+                    if n_temp_root.exists():
+                        shutil.rmtree(n_temp_root)
+                    break
+                except PermissionError:
+                    time.sleep(0.5)
+            else:
+                shutil.rmtree(n_temp_root, ignore_errors=True)
+            n_temp_root.mkdir(parents=True, exist_ok=True)
 
             try:
                 sample_training_data(
-                    Path(args.data_path), category, n_samples, temp_root, args.seed
+                    Path(args.data_path), category, n_samples, n_temp_root, args.seed
                 )
                 print(f"   已采样 {n_samples} 张训练图像")
             except Exception as e:
@@ -213,9 +214,9 @@ def main():
                     config_path = load_config_path(model_name)
                     result = run_experiment(
                         model_name=model_name,
-                        data_path=str(temp_root),
+                        data_path=str(n_temp_root),
                         category=category,
-                        output_dir=str(temp_root / '_results'),
+                        output_dir=str(n_temp_root / '_results'),
                         config_path=config_path,
                         device=args.device,
                         seed=args.seed,
@@ -246,7 +247,7 @@ def main():
 
     # 清理临时数据
     if temp_root.exists():
-        shutil.rmtree(temp_root)
+        shutil.rmtree(temp_root, ignore_errors=True)
 
     # 保存结果
     output_root.mkdir(parents=True, exist_ok=True)

@@ -63,6 +63,7 @@ def modify_yaml_and_run(model_name: str, category: str, data_path: str,
         )
         trainer.setup()
         trainer.train(max_epochs=1 if model_name in ('patchcore', 'padim') else None)
+        # patchcore/padim 仅构建记忆库/高斯模型，无需多轮训练，1 epoch 为占位值
         metrics = trainer.evaluate()
         # 添加消融元信息
         for key, val in overrides.items():

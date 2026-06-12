@@ -186,7 +186,7 @@ Defect-Detect-PreResearch/
 │   ├── 任务书.md
 │   ├── 需求.md
 │   └── 讲稿.md
-├── AGENTS.md               # AI Agent 开发指南
+├── CLAUDE.md               # AI Agent 开发指南
 ├── CHANGELOG.md
 └── README.md
 ```

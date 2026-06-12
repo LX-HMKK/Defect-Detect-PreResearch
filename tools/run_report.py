@@ -26,7 +26,7 @@ if sys.platform == 'win32':
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-SUPPORTED_MODELS = ['fre', 'patchcore', 'draem', 'padim']
+from modules.algorithm import SUPPORTED_MODELS
 
 
 def load_all_results(results_dir: Path) -> Dict[str, Dict[str, dict]]:

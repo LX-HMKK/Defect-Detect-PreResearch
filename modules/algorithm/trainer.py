@@ -66,9 +66,6 @@ warnings.filterwarnings('ignore')
 # 预训练模型缓存配置
 # ================================================================================
 
-import os
-from pathlib import Path
-
 # 预训练权重缓存目录
 PRETRAINED_CACHE_DIR = Path(__file__).parent.parent.parent / "pre_trained"
 PRETRAINED_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -410,7 +407,7 @@ class AnomalyDetectionTrainer:
         初始化训练器
         
         Args:
-            model_name: 模型名称 (efficientad/patchcore/draem)
+            model_name: 模型名称 (fre/patchcore/draem/padim)
             data_path: 数据集路径（MVTec AD 格式）
             category: 产品类别名称
             output_dir: 结果输出目录

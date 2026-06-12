@@ -33,9 +33,8 @@ if sys.platform == 'win32':
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.algorithm.trainer import AnomalyDetectionTrainer
+from modules.algorithm import SUPPORTED_MODELS
 from modules.ui.demo import AnomalyDetector
-
-SUPPORTED_MODELS = ['fre', 'patchcore', 'draem', 'padim']
 
 
 def get_test_image_path(data_path: str, dataset: str) -> Optional[Path]:

@@ -37,6 +37,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from modules.algorithm.trainer import (
     AnomalyDetectionTrainer, get_model_from_config, get_datamodule_from_config
 )
+from modules.algorithm import SUPPORTED_MODELS
 from modules.config import get_threshold, get_model_config, get_data_config
 from modules.ui.demo import AnomalyDetector
 
@@ -46,7 +47,6 @@ from modules.ui.demo import AnomalyDetector
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-SUPPORTED_MODELS = ['fre', 'patchcore', 'draem', 'padim']
 OUTPUT_DIR = PROJECT_ROOT / 'results' / 'confusion_matrices'
 
 
@@ -101,8 +101,11 @@ def collect_predictions(detector: AnomalyDetector, model_key: str, dataset: str,
 def _extract_score(result_html: str) -> Optional[float]:
     """从结果 HTML 中提取异常分数"""
     import re
-    # 匹配 "得分 <b ...>0.XXXX</b>" 模式
     match = re.search(r'得分\s*<b[^>]*>\s*([\d.]+)\s*</b>', result_html)
+    if match:
+        return float(match.group(1))
+    # 尝试备选模式：英文标签 "Score"
+    match = re.search(r'Score\s*<b[^>]*>\s*([\d.]+)\s*</b>', result_html)
     if match:
         return float(match.group(1))
     return None

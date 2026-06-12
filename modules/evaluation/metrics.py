@@ -39,7 +39,6 @@ from dataclasses import dataclass
 import argparse
 
 import numpy as np
-import torch
 from scipy import ndimage
 from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
 

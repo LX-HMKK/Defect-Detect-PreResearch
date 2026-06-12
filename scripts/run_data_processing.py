@@ -98,7 +98,7 @@ def main():
         return
     
     # 执行转换
-    from modules.data_processing.dataset_formatter import MVTecFormatter
+    from modules.data_processing import MVTecFormatter
     
     print("🚀 开始处理...")
     start_time = datetime.now()

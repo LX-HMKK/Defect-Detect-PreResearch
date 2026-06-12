@@ -111,7 +111,7 @@ def _resolve_checkpoint(
     output_dir: str,
     checkpoint_arg: str | None,
 ) -> Path:
-    from modules.algorithm.trainer import find_latest_checkpoint
+    from modules.algorithm import find_latest_checkpoint
 
     if checkpoint_arg:
         ckpt_path = Path(checkpoint_arg)
@@ -139,7 +139,7 @@ def compute_threshold(
     checkpoint_arg: str | None = None,
 ) -> float | None:
     from anomalib.engine import Engine
-    from modules.algorithm.trainer import AnomalyDetectionTrainer
+    from modules.algorithm import AnomalyDetectionTrainer
 
     print(f"\n{'=' * 70}")
     print(f"Compute threshold: {model_name.upper()} + {category}")

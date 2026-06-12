@@ -116,7 +116,7 @@ def main() -> None:
     print(f"  results_dir: {args.results_dir}")
     print("-" * 70)
 
-    from modules.evaluation.metrics import load_and_evaluate
+    from modules.evaluation import load_and_evaluate
 
     all_passed = []
     all_failed = []

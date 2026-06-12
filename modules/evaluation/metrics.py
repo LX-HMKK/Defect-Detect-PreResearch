@@ -269,7 +269,7 @@ class MetricsEvaluator:
         pro_interp = np.interp(fpr_grid, sorted_fpr, sorted_pro)
         
         # 计算积分 (梯形法则)
-        pro_score = np.trapz(pro_interp, fpr_grid) / self.pro_integration_limit
+        pro_score = np.trapezoid(pro_interp, fpr_grid) / self.pro_integration_limit
         
         return float(np.clip(pro_score, 0.0, 1.0))
     

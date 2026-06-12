@@ -182,7 +182,7 @@ class AnomalyDetector:
 
     def _resolve_weight_path(self, model_key: str, dataset: str) -> Optional[Path]:
         """Resolve checkpoint path with model/category priority."""
-        from modules.algorithm.trainer import find_latest_checkpoint
+        from modules.algorithm import find_latest_checkpoint
 
         latest_dataset = find_latest_checkpoint("./results", model_key, dataset)
         if latest_dataset and latest_dataset.exists():
@@ -245,7 +245,7 @@ class AnomalyDetector:
         
         try:
             # 创建模型实例（使用配置的自定义参数）
-            from modules.algorithm.trainer import get_model_from_config
+            from modules.algorithm import get_model_from_config
             model_config = get_model_config(model_key) or None
             self.model = get_model_from_config(model_key, model_config)
             

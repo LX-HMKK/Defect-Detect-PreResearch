@@ -204,13 +204,13 @@ mamba activate anomalib
 
 # 安装依赖（用 mamba/conda 安装 torch，再 pip 安装其他）
 mamba install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia -y
-pip install anomalib>=2.0.0
+pip install anomalib==2.3.0
 pip install opencv-python==4.8.1.78 timm
 ```
 
 ### 核心依赖
 
-- anomalib >= 2.0.0
+- anomalib == 2.3.0 (pinned: the monkey-patch compatibility layer in trainer.py depends on this version. Update patches before upgrading anomalib.)
 - pytorch >= 2.0 (CUDA 11.8)
 - opencv-python == 4.8.1.78
 - timm

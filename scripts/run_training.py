@@ -136,12 +136,12 @@ def main():
     print()
 
     # 执行训练
-    from modules.algorithm.trainer import (
+    from modules.algorithm import (
         AnomalyDetectionTrainer,
         SUPPORTED_MODELS,
-        compare_models,
         find_latest_checkpoint,
     )
+    from modules.algorithm.trainer import compare_models
 
     total_tasks = len(models_to_run) * len(categories_to_run)
     task_idx = 0

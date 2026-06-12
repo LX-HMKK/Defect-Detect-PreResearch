@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2026-06-12 — Phase 1: Stop the Bleeding
+
+- **test:** Added test suite — config manager unit tests, metrics unit tests, trainer smoke tests (C1)
+- **feat:** Added data validation script `tools/validate_data.py` — detects BMP-as-PNG, directory structure, class distribution (C2)
+- **docs:** Added `data/DATASET_REGISTRY.md` dataset registry, documenting region4 absence and per-dataset known issues (C3)
+- **refactor:** Added public API exports for `modules/algorithm`, `modules/evaluation`, `modules/data_processing` (H3)
+- **refactor:** Updated consumer import paths to module-level API (H3)
+- **build:** Added `requirements.txt` with pinned dependency versions (M1)
+- **docs:** README fixes — anomalib version `>=2.0.0` → `==2.3.0` (M1)
+
 ## [Unreleased] - 2026-06-11
 
 ### Added

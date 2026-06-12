@@ -1,0 +1,11 @@
+anomalib==2.3.0
+pytorch-lightning==1.9.5
+lightning==2.3.0
+torch>=2.0.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
+pandas>=1.5.0
+tqdm>=4.65.0
+PyYAML>=6.0

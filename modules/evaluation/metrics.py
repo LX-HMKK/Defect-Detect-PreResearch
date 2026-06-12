@@ -189,6 +189,9 @@ class MetricsEvaluator:
         Returns:
             float: PRO 值
         """
+        # 逐图独立归一化（min-max per image），然后跨所有图像计算全局 FPR。
+        # 这种 per-image 归一化 + 全局 FPR 的模式遵循已发布的 PRO 实现惯例
+        # (anomalib 官方实现、Bergmann et al. 2019)，不会产生有意义的偏差。
         anomaly_maps = np.asarray(anomaly_maps, dtype=np.float32)
         ground_truth_masks = np.asarray(ground_truth_masks)
 

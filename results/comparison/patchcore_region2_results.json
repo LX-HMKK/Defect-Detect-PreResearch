@@ -1,0 +1,13 @@
+{
+  "model": "patchcore",
+  "category": "region2",
+  "timestamp": "2026-06-12T17:16:36.632266",
+  "metrics": {
+    "image_AUROC": 0.7857142686843872,
+    "image_AUPR": 0.3351842761039734,
+    "pixel_AUROC": 0.9286866188049316,
+    "pixel_PRO": 0.15925925970077515,
+    "optimal_threshold": 0.93
+  },
+  "optimal_threshold": 0.93
+}

@@ -19,18 +19,10 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-def _configure_runtime_temp() -> None:
-    temp_dir = PROJECT_ROOT / "temp"
-    pycache_dir = temp_dir / "pycache"
-    temp_dir.mkdir(exist_ok=True)
-    pycache_dir.mkdir(exist_ok=True)
-    sys.pycache_prefix = str(pycache_dir)
-    os.environ["PYTHONPYCACHEPREFIX"] = str(pycache_dir)
-
-
-_configure_runtime_temp()
-
 sys.path.insert(0, str(PROJECT_ROOT))
+from modules._runtime import configure_runtime_temp
+
+configure_runtime_temp()
 
 
 def print_banner() -> None:

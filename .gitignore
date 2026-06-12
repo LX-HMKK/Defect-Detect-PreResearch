@@ -46,13 +46,18 @@ Thumbs.db
 
 # Project specific
 !results/.gitkeep
+results/*
 results/
 weights/
 !weights/.gitkeep
 data/my_dataset/
 data/dtd_images/
 !data/.gitkeep
-data/
+!data/README.md
+!data/DATASET_REGISTRY.md
+data/*/
+data/*
+
 datasets/
 results_test/
 
@@ -67,5 +72,12 @@ temp/
 *.tmp
 pre_trained/
 nul
+
+# Large binary directories (do NOT upload)
+assets/
+docs/
+.remember/
+.pytest_cache/
+.playwright-mcp/
 
 *.pptx

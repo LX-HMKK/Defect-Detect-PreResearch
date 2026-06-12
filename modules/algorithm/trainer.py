@@ -3,12 +3,13 @@
 模块 2: 核心算法复现模块 (Algorithm Implementation Module) - Anomalib 2.x
 ================================================================================
 
-功能: 调用 anomalib 2.x 训练和测试 3 种异常检测算法
+功能: 调用 anomalib 2.x 训练和测试 4 种异常检测算法
 
-复现的算法（3个）:
-    1. Ganomaly (基于重构/GAN)
-    2. PatchCore (基于特征建模) - 工业界效果最好
-    3. DRAEM (基于自监督学习) - 无需真实异常样本训练
+复现的算法（4个）:
+    1. PatchCore (基于特征建模) - 工业界效果最好
+    2. PaDiM (基于特征建模) - 概率建模，无需训练
+    3. FRE (基于特征重构) - 重构法改进版
+    4. DRAEM (基于自监督学习) - 无需真实异常样本训练
 
 约束条件:
     - 只用正常样本训练（无监督设定）
@@ -16,11 +17,11 @@
 
 使用示例:
     from modules.algorithm.trainer import AnomalyDetectionTrainer
-    
+
     trainer = AnomalyDetectionTrainer(
         model_name='patchcore',
-        data_path='./data/processed/my_product',
-        category='my_product'
+        data_path='./data',
+        category='bottle'
     )
     results = trainer.train()  # 训练
     metrics = trainer.evaluate()  # 测试并输出4个硬性指标
@@ -34,8 +35,6 @@ import warnings
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union, Any, Mapping
-import argparse
-from io import StringIO
 
 import torch
 import numpy as np
@@ -52,9 +51,10 @@ from anomalib.models import (
     Fre,
     Padim,
 )
+from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
 
 # monkey-patch 兼容层 — anomalib 2.3.0 与 PyTorch Lightning 1.9.5
-from . import _anomalib_compat  # noqa: F401 — 导入时自动应用补丁
+from . import _anomalib_compat
 
 # 配置管理
 from modules.config import get_model_config, get_data_config, get
@@ -298,7 +298,6 @@ def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = No
         ValueError: 配置缺失时抛出
     """
     # 创建 evaluator，启用 AUPR 和 PRO 指标（PatchCore 和 Draem 支持像素级指标）
-    from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
     evaluator = Evaluator(
         test_metrics=[
             AUROC(fields=["pred_score", "gt_label"]),
@@ -886,7 +885,7 @@ def compare_models(results_dir: str, category: str):
     
     # 打印表格
     print("\n" + "="*70)
-    print("[STAT] 三算法对比结果（4个硬性指标）")
+    print("[STAT] 四算法对比结果（4个硬性指标）")
     print("="*70)
     print("\n" + df.to_string(index=False))
     

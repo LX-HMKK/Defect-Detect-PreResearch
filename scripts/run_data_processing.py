@@ -21,6 +21,7 @@ if sys.platform == 'win32':
 
 sys.path.insert(0, str(PROJECT_ROOT))
 from modules._runtime import configure_runtime_temp
+import torch
 
 configure_runtime_temp()
 

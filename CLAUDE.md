@@ -250,6 +250,7 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 - 主题行不超过 72 字符
 - 使用命令式语气（add, fix, update）
 - **禁止添加 `Co-authored-by`** 到提交信息
+- **多行提交信息必须使用 `-F` 从文件读取**。禁止使用 `git commit -m @'...'@`（PowerShell here-string 语法）或直接内联多行消息——本项目中 Bash 和 PowerShell 两套 shell 并存，here-string/here-doc 语法在交叉环境下极容易误用，导致 `@` 等无关字符混入提交信息。正确做法：先将消息写入临时文件（如 `.git-msg`），然后执行 `git commit -F .git-msg`，完成后删除。
 
 ## 算法推荐
 

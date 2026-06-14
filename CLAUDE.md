@@ -103,7 +103,7 @@ configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
 tests/                          # 测试套件（config 单例、metrics 指标、trainer 烟雾测试）
-tools/                          # 分析工具（小样本/消融/基准/混淆矩阵/数据验证/报告）
+tools/                          # 分析工具（小样本/消融/基准/混淆矩阵/数据验证/统计/报告/后处理）
 results/                        # 训练结果
 docs/                           # 演示材料 (讲稿.html/md)
 .cache/                         # 运行时缓存 (pycache, logs, pretrained)
@@ -126,6 +126,8 @@ docs/                           # 演示材料 (讲稿.html/md)
 - **`MetricsEvaluator`** (`modules/evaluation/metrics.py`) — 从零实现的指标计算（scikit-learn + scipy）。包含 `AnomalyMetrics` dataclass（4 个字段 + `to_dict()`/`to_percent_dict()`）。`load_and_evaluate()` 从已有 JSON 加载并打印。训练器端改为委托 anomalib 内置评估器进行在线计算，此模块用于离线评估和单元测试。
 
 - **`MVTecFormatter`** (`modules/data_processing/dataset_formatter.py`) — 将企业原始图像转换为 MVTec AD 目录布局，使用 letterbox 缩放。训练样本上限由 `max_train_samples` 控制。
+
+- **`AnomalyMapProcessor`** (`modules/evaluation/post_processor.py`) — 异常热力图后处理管线。提供 4 种基础算子（高斯滤波/中值滤波/形态学开闭/双线性上采样）及 7 种组合配方，通过 `PRESET_CONFIGS` 字典调用。`process_anomaly_maps()` 为批量处理入口。
 
 - **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层，并在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框，与分类阈值无关。
 

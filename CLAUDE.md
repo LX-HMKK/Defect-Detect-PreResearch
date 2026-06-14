@@ -52,6 +52,9 @@ python tools/run_confusion_matrix.py -m all -c all
 # 数据验证
 python tools/validate_data.py -d ./data
 
+# PRO 后处理配方评估
+python tools/run_post_process_eval.py -m all -c all
+
 # 启动 Gradio UI
 python scripts/run_ui.py
 # → http://127.0.0.1:7860
@@ -87,13 +90,14 @@ pip install opencv-python==4.8.1.78 timm
 ```
 scripts/run_*.py              # 入口脚本（CLI 轻量封装）
 modules/
-  _runtime.py                  # 共享运行时工具（pycache 重定向、项目根路径）
+  _runtime.py                  # 共享运行时（pycache 重定向、resolve_project_path、get_runtime_cache_dir）
   algorithm/
     trainer.py                 # 核心：AnomalyDetectionTrainer + 模型/数据模块工厂函数
     _anomalib_compat.py        # anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 猴子补丁兼容层
   config/manager.py            # ConfigManager 单例，管理 configs/config.yaml
   data_processing/dataset_formatter.py  # MVTecFormatter：原始数据 → MVTec AD 结构
   evaluation/metrics.py        # MetricsEvaluator（从零实现 AUROC/AUPR/PRO）
+  evaluation/post_processor.py # AnomalyMapProcessor: 异常热力图后处理（7 种配方）
   ui/demo.py                   # Gradio UI：AnomalyDetector + create_interface
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
@@ -113,7 +117,7 @@ docs/                           # 演示材料 (讲稿.html/md)
 
 - **`get_datamodule_from_config(data_path, category, model_name, config)`** — 自动检测 MVTec AD 与通用 Folder 格式。Folder 格式始终设置 `task='segmentation'`。train_batch_size/eval_batch_size/num_workers 严格从配置读取。
 
-- **`modules/algorithm/_anomalib_compat.py`** — 导入时自动应用的猴子补丁兼容层，修复 anomalib 2.3.0 与 PyTorch Lightning 1.9.5 之间的回调签名不匹配（TimerCallback、validation/test/predict batch 回调的 dataloader_idx 参数，on_predict_epoch_end 的 outputs 参数）。升级 anomalib 或 pytorch-lightning 前需先确认是否需要更新或移除。
+- **`modules/algorithm/_anomalib_compat.py`** — 猴子补丁兼容层，修复 anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 回调签名不匹配。详见[Trainer 兼容性补丁](#trainer-兼容性补丁)。
 
 - **`modules/_runtime.py`** → `configure_runtime_temp()` — 将 `sys.pycache_prefix` 和 `PYTHONPYCACHEPREFIX` 重定向到 `./.cache/pycache/`。所有 `scripts/run_*.py` 和 `tools/run_*.py` 开头均调用此函数。
 
@@ -254,14 +258,15 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 
 ## 算法推荐
 
-| 算法 | 原理 | image_AUROC | 推荐度 |
-|------|------|-------------|--------|
-| **PatchCore** | 特征记忆库 + 最近邻搜索 | 100% | 首选 |
-| **PaDiM** | patch 高斯分布 + 马氏距离 | - | 特征建模对照 |
-| **FRE** | 特征重构误差 | 95% | 备选 |
-| **DRAEM** | 合成异常 + 判别网络 | 99% | 备选 |
+| 算法 | 技术路线 | image_AUROC | pixel_AUROC | PRO | 参数量 | 推荐 |
+|------|----------|:---:|:---:|:---:|:---:|:---:|
+| **PatchCore** | 特征建模（检索） | 100% | 98.6% | 80.1% | 24.9M | ✅ 首选 |
+| **PaDiM** | 特征建模（概率） | 100% | 98.2% | 80.2% | **2.8M** | ✅ 轻量 |
+| **DRAEM** | 自监督判别 | 97.7% | 86.2% | 48.3% | 97.4M | 🔬 备选 |
+| **FRE** | 特征重构 | 99.4% | 97.5% | 69.1% | 23.0M | 🔬 备选 |
 
-**核心约束**：只有正常样本可用，无监督设定。
+> bottle 数据集代表性结果。完整数据见 `results/comparison/`。
+> **核心约束**：只有正常样本可用，无监督设定。
 
 ## 关键注意事项
 

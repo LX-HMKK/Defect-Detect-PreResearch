@@ -16,12 +16,17 @@
 
 ## 算法对比
 
-| 算法 | 原理 | image_AUROC | pixel_AUROC | 推荐 |
-|:---|:---|:---:|:---:|:---:|
-| **PatchCore** | 特征记忆库 + 最近邻搜索 | 100% | 98.6% | ✅ 首选 |
-| **PaDiM** | patch 高斯分布建模 + 马氏距离 | - | - | 🔬 对照 |
-| **FRE** | 特征重构误差 | 95% | - | ✅ 备选 |
-| **DRAEM** | 合成异常 + 判别网络 | 99.2% | 93.9% | ✅ 备选 |
+> 以下为 bottle 数据集代表性结果（完整 6 数据集数据见 `results/comparison/`）。
+> 支持 4 种算法：PatchCore、PaDiM、FRE、DRAEM。
+
+| 算法 | 技术路线 | image_AUROC | pixel_AUROC | PRO | 参数量 | 推荐 |
+|:---|:---|:---:|:---:|:---:|:---:|:---:|
+| **PatchCore** | 特征建模（检索） | 100% | 98.6% | 80.1% | 24.9M | ✅ 首选 |
+| **PaDiM** | 特征建模（概率） | 100% | 98.2% | 80.2% | **2.8M** | ✅ 轻量 |
+| **DRAEM** | 自监督判别 | 97.7% | 86.2% | 48.3% | 97.4M | 🔬 备选 |
+| **FRE** | 特征重构 | 99.4% | 97.5% | 69.1% | 23.0M | 🔬 备选 |
+
+评测维度：图像级 AUROC/AUPR + 像素级 Pixel AUROC/PRO，共 4 项指标。详见 [最终汇报文档](docs/最终汇报文档.md)。
 
 
 ---
@@ -39,8 +44,11 @@ python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/bottle -
 #### 单数据集训练
 
 ```bash
-# PatchCore（推荐，最快效果最好）
+# PatchCore（推荐，精度最高、无需训练）
 python scripts/run_training.py -m patchcore -c bottle -d ./data
+
+# PaDiM（轻量级，2.8M 参数，适合边缘部署）
+python scripts/run_training.py -m padim -c bottle -d ./data
 
 # FRE 重构法
 python scripts/run_training.py -m fre -c bottle -d ./data
@@ -55,7 +63,7 @@ python scripts/run_training.py -m all -c bottle -d ./data
 #### 多数据集训练
 
 ```bash
-# 训练所有算法到所有数据集（bottle, carpet, region1）
+# 训练所有算法到所有数据集（bottle, carpet, region1, region2, region3, region5）
 python scripts/run_training.py -m all -c all -d ./data
 ```
 
@@ -63,15 +71,13 @@ python scripts/run_training.py -m all -c all -d ./data
 
 | 参数 | 说明 | 示例 |
 |:---|:---|:---|
-| `-m, --model` | 模型名称 | `patchcore`, `fre`, `draem`, `all` |
-| `-c, --category` | 数据类别 | `bottle`, `carpet`, `region1`, `all` |
+| `-m, --model` | 模型名称 | `patchcore`, `padim`, `fre`, `draem`, `all` |
+| `-c, --category` | 数据类别 | `bottle`, `carpet`, `region1`, `region2`, `region3`, `region5`, `all` |
 | `-d, --data_path` | 数据根目录 | `./data` |
 
 #### 训练特性
 
-- **早停机制**：5 轮无改善则停止训练（基于 train_loss）
-- **DRAEM/FRE**：使用验证集 `val_image_AUROC` 监控
-- **PatchCore**：使用 `image_AUROC` 监控
+- **早停机制**：DRAEM/FRE 监控 `val_image_AUROC`，PatchCore 监控 `image_AUROC`。patience=10，在各模型 YAML 的 `early_stopping` 字段中配置
 
 ### 3. 评估
 
@@ -104,11 +110,36 @@ python scripts/run_threshold.py -m patchcore -c bottle
 # 计算所有模型的阈值
 python scripts/run_threshold.py -m all -c bottle
 
-# 导出结果为 JSON
-python scripts/run_threshold.py -m patchcore -c bottle --export results/thresholds.json
+# 计算所有模型+所有类别并持久化结果
+python scripts/run_threshold.py -m all -c all --save
 ```
 
-阈值搜索结果保存至 `results/thresholds/`，包含各模型在各数据集上的最佳 F1 阈值。支持 `--export` 参数导出汇总 JSON。
+阈值搜索结果通过 Youden's J 统计量在 [0,1] 全域搜索，并自动回写至 `results/comparison/{model}_{category}_results.json`。
+
+### 6. 分析工具
+
+```bash
+# 小样本鲁棒性分析（N=30/60/100/150）
+python tools/run_small_sample.py -m all -c all -d ./data
+
+# 参数消融实验（coreset 采样率/backbone/潜在维度）
+python tools/run_ablation.py -m all -c bottle -d ./data
+
+# 推理性能基准测试（速度/显存/参数量）
+python tools/run_benchmark.py -m all -c bottle -d ./data
+
+# 混淆矩阵生成（静态图片 + CSV）
+python tools/run_confusion_matrix.py -m all -c all
+
+# 数据验证（BMP 伪装 PNG 检测/目录结构/类别分布）
+python tools/validate_data.py -d ./data
+
+# 数据集统计分析
+python tools/run_data_stats.py -d ./data
+
+# 生成综合实验报告（Markdown）
+python tools/run_report.py
+```
 
 ---
 
@@ -146,10 +177,9 @@ python scripts/run_threshold.py -m patchcore -c bottle --export results/threshol
 |:---|:---|
 | `configs/config.yaml` | 主配置：数据集路径、输出目录、加速器设置 |
 | `configs/patchcore.yaml` | PatchCore：backbone、coreset 采样率、特征层 |
-| `configs/padim.yaml` | PaDiM：backbone、特征层、预训练开关 |
-| `configs/draem.yaml` | DRAEM：学习率、早停参数、合成异常强度 |
-| `configs/padim.yaml` | PaDiM：特征 backbone、特征层、预训练开关 |
-| `configs/fre.yaml` | FRE：重构损失权重、早停轮数、特征维度 |
+| `configs/padim.yaml` | PaDiM：backbone、特征层、协方差正则化 |
+| `configs/draem.yaml` | DRAEM：学习率、早停参数、合成异常尺度 |
+| `configs/fre.yaml` | FRE：潜在维度、早停轮数、特征层 |
 
 早停机制在各算法 YAML 的 `early_stopping` 字段中配置，支持 `patience`、`min_delta` 和 `monitor_metric` 三个参数。
 
@@ -160,34 +190,23 @@ python scripts/run_threshold.py -m patchcore -c bottle --export results/threshol
 ```
 Defect-Detect-PreResearch/
 ├── modules/
-│   ├── data_processing/    # 数据集处理
-│   ├── algorithm/          # 模型训练
-│   ├── config/             # 配置管理
-│   ├── evaluation/         # 指标计算
-│   └── ui/                 # Web 界面 (Gradio)
-│       ├── demo.py         # 界面逻辑
-│       └── styles.css      # 工业暗色主题样式
-├── configs/                # 算法 YAML 配置
-│   ├── config.yaml         # 主配置
-│   ├── patchcore.yaml
-│   ├── draem.yaml
-│   └── fre.yaml
-├── scripts/                # 核心工作流脚本（训练、评估、UI）
-├── tools/                  # 汇报分析工具（报告、统计、基准）
-├── assets/                 # 环境配置与依赖
-│   ├── requirements.txt
-│   ├── setup_miniforge.bat
-│   └── pyrightconfig.json
-├── data/                   # 数据集
-├── datasets/               # 外部数据集 (DTD)
-├── results/                # 训练结果
-├── pre_trained/            # 预训练权重缓存
-├── docs/                   # 项目文档
-│   ├── 任务书.md
-│   ├── 需求.md
-│   └── 讲稿.md
-├── CLAUDE.md               # AI Agent 开发指南
-├── CHANGELOG.md
+│   ├── _runtime.py            # 共享运行时工具（pycache 重定向、项目根路径）
+│   ├── algorithm/             # 模型训练与调度
+│   │   ├── trainer.py         # AnomalyDetectionTrainer 核心类 + 工厂函数
+│   │   └── _anomalib_compat.py  # anomalib 2.3 ↔ PyTorch Lightning 1.9.5 兼容层
+│   ├── config/                # 配置管理
+│   ├── data_processing/       # 数据集处理（MVTecFormatter）
+│   ├── evaluation/            # 指标计算（AUROC/AUPR/PRO）
+│   └── ui/                    # Gradio Web 可视化平台
+├── configs/                   # 算法 YAML 配置（5 个文件）
+├── scripts/                   # 核心工作流脚本（训练/评估/阈值/UI/数据处理）
+├── tools/                     # 分析工具（7 个：小样本/消融/基准/混淆矩阵/数据验证/统计/报告）
+├── tests/                     # 测试套件（config 单例/metrics 指标/trainer 烟雾测试，无 GPU 依赖）
+├── results/                   # 实验输出（comparison/confusion_matrices/等）
+├── data/                      # 数据集
+├── .cache/                    # 运行时缓存（pycache、日志、预训练权重）
+├── docs/                      # 项目文档（任务书/需求/综述/汇报）
+├── CLAUDE.md                  # AI Agent 开发指南
 └── README.md
 ```
 
@@ -210,10 +229,13 @@ pip install opencv-python==4.8.1.78 timm
 
 ### 核心依赖
 
-- anomalib == 2.3.0 (pinned: the monkey-patch compatibility layer in trainer.py depends on this version. Update patches before upgrading anomalib.)
+- anomalib == 2.3.0（固定版本：`trainer.py` 中的 monkey-patch 兼容层依赖此版本。升级 anomalib 前需先更新这些补丁。）
 - pytorch >= 2.0 (CUDA 11.8)
+- pytorch-lightning == 1.9.5
 - opencv-python == 4.8.1.78
 - timm
+
+> 完整依赖清单及固定版本见 `requirements.txt`。
 
 ---
 
@@ -222,6 +244,7 @@ pip install opencv-python==4.8.1.78 timm
 | 算法 | 论文 |
 |:---|:---|
 | **PatchCore** | Roth et al. "Towards Total Recall in Industrial Anomaly Detection" (CVPR 2022) |
+| **PaDiM** | Defard et al. "PaDiM: A Patch Distribution Modeling Framework for Anomaly Detection and Localization" (ICPR 2021) |
 | **DRAEM** | Zavrtanik et al. "DRAEM — A Discriminatively Trained Reconstruction Embedding for Surface Anomaly Detection" (ICCV 2021) |
 | **FRE** | Batzner et al. "Feature Reconstruction Error for Anomaly Detection" (2024) |
 

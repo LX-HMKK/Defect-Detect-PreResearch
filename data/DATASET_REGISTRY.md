@@ -1,28 +1,40 @@
-# Dataset Registry
+# 数据集注册表
 
-Canonical inventory of all datasets, present and referenced. Last updated: 2026-06-12.
+所有已存在及引用的数据集清单。最后更新：2026-06-14。
 
-| Dataset | Source | Status | Train | Test (good) | Test (defect) | Known Issues |
-|---------|--------|--------|-------|-------------|---------------|--------------|
-| bottle | MVTec AD | complete | 209 | 20 | 63 | none |
-| carpet | MVTec AD | complete | 280 | 28 | 89 | none |
-| region1 | Enterprise | partial | TBD | 91 | 7 (lb=1, ps=4, py=1, tl=1) | BMP files masquerading as .png; severe class imbalance (3 classes with 1 sample each) |
-| region2 | Enterprise | partial | TBD | 91 | 15 (lb=2, ps=9, py=3, tl=1) | BMP files masquerading as .png; severe class imbalance (tl has 1 sample) |
-| region3 | Enterprise | mostly complete | TBD | 150 | 17 (lb=9, ps=2, py=1, tl=5) | minor imbalance (ps has 2 samples) |
-| region4 | — | **MISSING** | — | — | — | Never existed on disk. README originally referenced region1-5; only 4 custom datasets exist. |
-| region5 | Enterprise | partial | TBD | 91 | 23 (lb=9, ps=4, py=8, tl=2) | BMP files masquerading as .png; moderate class imbalance |
+| 数据集 | 来源 | 状态 | 训练集 | 测试集(正常) | 测试集(缺陷) | 已知问题 |
+|--------|------|------|--------|-------------|-------------|----------|
+| bottle | MVTec AD | 完整 | 209 | 20 | 63 | 无 |
+| carpet | MVTec AD | 完整 | 280 | 28 | 89 | 无 |
+| region1 | 企业数据 | 不完整 | 待统计 | 91 | 7 (lb=1, ps=4, py=1, tl=1) | BMP 文件伪装为 .png 后缀；严重类别不平衡（3 个类别仅 1 个样本） |
+| region2 | 企业数据 | 不完整 | 待统计 | 91 | 15 (lb=2, ps=9, py=3, tl=1) | BMP 文件伪装为 .png 后缀；严重类别不平衡（tl 仅 1 个样本） |
+| region3 | 企业数据 | 基本完整 | 待统计 | 150 | 17 (lb=9, ps=2, py=1, tl=5) | 轻微类别不平衡（ps 仅 2 个样本） |
+| region4 | — | **缺失** | — | — | — | 磁盘上从未存在此目录。README 原引用 region1-5，实际仅有 4 个自定义数据集。 |
+| region5 | 企业数据 | 不完整 | 待统计 | 91 | 23 (lb=9, ps=4, py=8, tl=2) | BMP 文件伪装为 .png 后缀；中度类别不平衡 |
 
-## Format Notes
+## 数据格式说明
 
-- All datasets follow MVTec AD standard directory layout:
-  - `train/good/` — training set (normal samples only)
-  - `test/good/` — test set (normal samples)
-  - `test/<defect>/` — test set (defect samples, by type)
-  - `ground_truth/<defect>/` — pixel-level annotation masks
-- Images in region1/2/5 have `.png` extensions but are actually BMP format. OpenCV reads them correctly via content-based format detection; current training is unaffected. If switching to an extension-based loader, convert to true PNG first.
+- 所有数据集遵循 MVTec AD 标准目录布局：
+  - `train/good/` — 训练集（仅正常样本）
+  - `test/good/` — 测试集（正常样本）
+  - `test/<defect>/` — 测试集（异常样本，按缺陷类型分目录）
+  - `ground_truth/<defect>/` — 像素级标注掩码
+- region1/2/5 中的图片文件虽然扩展名为 `.png`，但实际格式为 BMP（Windows 位图）。
+  OpenCV 可通过内容检测自动识别格式，因此不会影响当前训练流程。
+  若将来切换到依赖扩展名的加载器，需先转换为真正的 PNG 格式。
+- 训练集样本数待重新统计（当前为空或需用 `tools/validate_data.py` 扫描）。
 
-## External Datasets
+## 缺陷类型缩写说明
 
-| Directory | Description |
-|-----------|-------------|
-| `datasets/dtd/` | Describable Textures Dataset — used by DRAEM to generate synthetic anomaly textures. Manual download required. |
+| 缩写 | 完整含义 |
+|------|----------|
+| lb | 亮斑 (light blob) |
+| ps | 点状缺陷 (point scratch) |
+| py | 凹坑微粒 (pit/particle) |
+| tl | 淡线 (thin line) |
+
+## 外部数据集
+
+| 目录 | 说明 |
+|------|------|
+| `datasets/dtd/` | Describable Textures Dataset — DRAEM 算法用于生成合成异常纹理。需手动下载。 |

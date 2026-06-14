@@ -32,8 +32,10 @@ if sys.platform == 'win32':
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from modules._runtime import resolve_project_path
 from modules.algorithm.trainer import AnomalyDetectionTrainer
 from modules.algorithm import SUPPORTED_MODELS
+from modules.config import get
 from modules.ui.demo import AnomalyDetector
 
 
@@ -65,7 +67,7 @@ def run_benchmark(model_name: str, category: str, data_path: str,
         model_name=model_name,
         data_path=data_path,
         category=category,
-        output_dir='./temp',
+        output_dir=str(resolve_project_path(get('paths.temp_dir', './.cache'))),
         device=resolved_device,
         seed=42,
     )

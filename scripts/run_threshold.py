@@ -18,7 +18,8 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(PROJECT_ROOT))
-from modules._runtime import configure_runtime_temp
+from modules._runtime import configure_runtime_temp, resolve_project_path
+from modules.config import get
 
 configure_runtime_temp()
 
@@ -149,10 +150,11 @@ def compute_threshold(
 
         ckpt_path = _resolve_checkpoint(model_name, category, output_dir, checkpoint_arg)
         trainer.setup()
+        temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
         trainer.engine = Engine(
             accelerator=device,
             devices=1,
-            default_root_dir=str(PROJECT_ROOT / "temp" / "lightning_logs" / model_name),
+            default_root_dir=str(temp_dir / "lightning_logs" / model_name),
             logger=False,
             enable_progress_bar=False,
         )

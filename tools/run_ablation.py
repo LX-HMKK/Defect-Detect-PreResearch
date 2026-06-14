@@ -30,7 +30,9 @@ if sys.platform == 'win32':
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from modules._runtime import resolve_project_path
 from modules.algorithm.trainer import AnomalyDetectionTrainer
+from modules.config import get
 
 
 def modify_yaml_and_run(model_name: str, category: str, data_path: str,
@@ -52,11 +54,12 @@ def modify_yaml_and_run(model_name: str, category: str, data_path: str,
     temp_path.write_text(yaml.dump(modified, allow_unicode=True), encoding='utf-8')
 
     try:
+        temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
         trainer = AnomalyDetectionTrainer(
             model_name=model_name,
             data_path=data_path,
             category=category,
-            output_dir=f'./temp/ablation/{model_name}',
+            output_dir=str(temp_dir / 'ablation' / model_name),
             device='auto',
             seed=42,
             config_path=temp_path,

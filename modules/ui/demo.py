@@ -42,6 +42,7 @@ from anomalib.models import (
 )
 
 # 配置管理
+from modules._runtime import resolve_project_path
 from modules.config import get, get_threshold, get_model_config, get_data_config
 
 # 忽略警告
@@ -249,9 +250,7 @@ class AnomalyDetector:
             model_config = get_model_config(model_key) or None
             self.model = get_model_from_config(model_key, model_config)
             
-            temp_dir = Path(get('paths.temp_dir', './temp'))
-            if not temp_dir.is_absolute():
-                temp_dir = Path(__file__).resolve().parents[2] / temp_dir
+            temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
             self.engine = Engine(
                 default_root_dir=str(temp_dir / "lightning_logs"),
                 logger=False,
@@ -293,9 +292,7 @@ class AnomalyDetector:
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
             
             # 保存临时文件用于 PredictDataset（传入文件路径而不是目录）
-            temp_dir = Path(get('paths.temp_dir', './temp'))
-            if not temp_dir.is_absolute():
-                temp_dir = Path(__file__).resolve().parents[2] / temp_dir
+            temp_dir = resolve_project_path(get('paths.temp_dir', './.cache')) / "predict"
             temp_dir.mkdir(parents=True, exist_ok=True)
             temp_path = temp_dir / f'predict_{uuid.uuid4().hex}.png'
             cv2.imwrite(str(temp_path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))

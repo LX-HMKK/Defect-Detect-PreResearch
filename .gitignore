@@ -1,83 +1,116 @@
-# Python
+# ============================================================
+# OS 生成文件（Windows / macOS / Linux）
+# ============================================================
+.DS_Store
+Thumbs.db
+*~
+
+# ============================================================
+# IDE 和编辑器
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================================
+# Python 通用
+# ============================================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+dist/
+build/
+eggs/
+sdist/
+wheels/
+*.log
 
-# PyTorch
+# 虚拟环境（始终在项目外）
+env/
+venv/
+ENV/
+
+# ============================================================
+# PyTorch / 模型权重
+# ============================================================
 *.pth
 *.pt
-*.ckpt
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# ============================================================
+# Jupyter
+# ============================================================
+.ipynb_checkpoints/
 
-# IDEs
-.vscode/
-.idea/
+# ============================================================
+# 项目特性 — 大数据、大模型、运行时产物
+# ============================================================
+
+# 实验输出 (17GB): 模型权重 .ckpt + 逐数据集 JSON
+# 仅追踪汇总结论性文件：汇总报告、消融/基准/小样本 总结 JSON
+results/*
+# 汇总报告
+!results/comparison/report.md
+!results/comparison/report_bottle.md
+!results/comparison/post_process_report.md
+!results/comparison/data_stats.md
+# 汇总 JSON（消融/基准/小样本 总结）
+!results/comparison/ablation_results.json
+!results/comparison/benchmark.json
+!results/comparison/comparison_bottle.csv
+# 数据验证报告
+!results/data_validation_*.md
+
+# 外部数据集（DTD — DRAEM 合成异常纹理依赖，需手动下载）
+datasets/
+!datasets/.gitkeep
+
+# 统一运行时缓存目录
+#   pycache       → modules/_runtime.py (sys.pycache_prefix 重定向)
+#   pretrained    → HuggingFace / TorchHub 权重缓存
+#   lightning_logs / ablation / predict → 运行时临时产物
+.cache/
+
+# ============================================================
+# Claude Code / AI 工具
+# ============================================================
 .claude/
-*.swp
-*.swo
-*~
+!.claude/settings.json
+!.claude/settings.local.json
+
+.playwright-mcp/
+.remember/
 .sisyphus/
 
-# OS
-.DS_Store
-Thumbs.db
+# ============================================================
+# 测试
+# ============================================================
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
 
-# Project specific
-!results/.gitkeep
-results/*
-results/
-weights/
-!weights/.gitkeep
-data/my_dataset/
-data/dtd_images/
+# ============================================================
+# 数据集目录 — 仅追踪注册表和占位文件
+# ============================================================
+datasets/
+data/*
 !data/.gitkeep
 !data/README.md
 !data/DATASET_REGISTRY.md
-data/*/
-data/*
 
-datasets/
-results_test/
+# ============================================================
+# 文档 — 排除二进制 pptx
+# ============================================================
+docs/*.pptx
+docs/superpowers/
+docs/images/report/drawio/
 
-# Logs
-*.log
-logs/
-tensorboard_logs/
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-pre_trained/
-nul
-
-# Large binary directories (do NOT upload)
-assets/
-docs/
-.remember/
-.pytest_cache/
-.playwright-mcp/
-
-*.pptx
+# ============================================================
+# Agent 指令文件（AGENTS.md 为 Copilot/Gemini 专用，CLAUDE.md 已追踪）
+# ============================================================
+AGENTS.md

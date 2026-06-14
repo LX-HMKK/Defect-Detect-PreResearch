@@ -57,6 +57,7 @@ from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
 from . import _anomalib_compat
 
 # 配置管理
+from modules._runtime import resolve_project_path
 from modules.config import get_model_config, get_data_config, get
 
 # 忽略警告
@@ -67,15 +68,25 @@ warnings.filterwarnings('ignore')
 # ================================================================================
 
 # 预训练权重缓存目录
-PRETRAINED_CACHE_DIR = Path(__file__).parent.parent.parent / "pre_trained"
+PRETRAINED_CACHE_DIR = resolve_project_path(
+    get('paths.pre_trained_dir', './.cache/pretrained')
+)
 PRETRAINED_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 设置 Torch Hub 缓存目录
-torch.hub.set_dir(str(PRETRAINED_CACHE_DIR / "torch_hub"))
+TORCH_HUB_CACHE_DIR = resolve_project_path(
+    get('paths.cache.torch_hub', './.cache/pretrained/torch_hub')
+)
+TORCH_HUB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+torch.hub.set_dir(str(TORCH_HUB_CACHE_DIR))
 
 # 设置 HuggingFace 缓存目录
-os.environ["HF_HOME"] = str(PRETRAINED_CACHE_DIR / "huggingface")
-os.environ["HF_HUB_CACHE"] = str(PRETRAINED_CACHE_DIR / "huggingface" / "hub")
+HF_CACHE_DIR = resolve_project_path(
+    get('paths.cache.huggingface', './.cache/pretrained/huggingface')
+)
+HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"] = str(HF_CACHE_DIR)
+os.environ["HF_HUB_CACHE"] = str(HF_CACHE_DIR / "hub")
 
 
 # ================================================================================

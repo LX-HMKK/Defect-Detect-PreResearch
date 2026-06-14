@@ -152,13 +152,13 @@ ui:
 paths:
   data_root: "./data"
   results_root: "./results"
-  temp_dir: "./temp"
-  pre_trained_dir: "./pre_trained"
+  temp_dir: "./.cache"
+  pre_trained_dir: "./.cache/pretrained"
   
   # 预训练权重缓存
   cache:
-    torch_hub: "./pre_trained/torch_hub"
-    huggingface: "./pre_trained/huggingface"
+    torch_hub: "./.cache/pretrained/torch_hub"
+    huggingface: "./.cache/pretrained/huggingface"
 
 # ================================================================================
 # 8. 日志配置
@@ -166,4 +166,4 @@ paths:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  log_dir: "./temp/logs"
+  log_dir: "./.cache/logs"

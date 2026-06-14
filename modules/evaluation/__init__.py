@@ -11,19 +11,26 @@ from .metrics import (
     AnomalyMetrics,
     load_and_evaluate,
 )
-from .post_processor import (
-    AnomalyMapProcessor,
-    PostProcessConfig,
-    PRESET_CONFIGS,
-    process_anomaly_maps,
-)
 
 __all__ = [
     'MetricsEvaluator',
     'AnomalyMetrics',
     'load_and_evaluate',
-    'AnomalyMapProcessor',
-    'PostProcessConfig',
-    'PRESET_CONFIGS',
-    'process_anomaly_maps',
 ]
+
+# 后处理模块依赖 cv2，CI 环境可能不提供，做惰性导入
+try:
+    from .post_processor import (  # noqa: F401
+        AnomalyMapProcessor,
+        PostProcessConfig,
+        PRESET_CONFIGS,
+        process_anomaly_maps,
+    )
+    __all__.extend([
+        'AnomalyMapProcessor',
+        'PostProcessConfig',
+        'PRESET_CONFIGS',
+        'process_anomaly_maps',
+    ])
+except ImportError:
+    pass

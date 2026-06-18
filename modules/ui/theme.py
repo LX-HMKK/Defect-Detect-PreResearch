@@ -53,6 +53,8 @@ DARK = {
         '0 2px 8px rgba(0, 0, 0, 0.3), '
         '0 0 32px var(--accent-glow)'
     ),
+    # ── 骨架屏 shimmer 色 ──
+    'shimmer_color': 'rgba(255, 255, 255, 0.06)',
     # ── Gradio 系统变量覆盖 ──
     'body_background_fill': 'var(--bg-root)',
     'background_fill_primary': 'var(--bg-system)',
@@ -95,6 +97,8 @@ LIGHT = {
         '0 2px 8px rgba(0, 0, 0, 0.08), '
         '0 0 32px rgba(41, 151, 255, 0.20)'
     ),
+    # ── 骨架屏 shimmer 色 ──
+    'shimmer_color': 'rgba(0, 0, 0, 0.06)',
     # ── Gradio 系统变量覆盖 ──
     'body_background_fill': 'var(--bg-root)',
     'background_fill_primary': 'var(--bg-system)',

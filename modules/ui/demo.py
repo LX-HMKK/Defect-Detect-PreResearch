@@ -636,12 +636,13 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         # 内部有重试机制，即使按钮延迟渲染也能正确初始化
         gr.HTML(theme.get_theme_js())
 
-        # 数据集选择
-        dataset_dropdown = gr.Dropdown(
-            choices=get_available_datasets(),
-            value=default_dataset,
-            label="数据集"
-        )
+        # 数据集选择（用 Row 包裹消除 .block.padded 默认 padding 错位）
+        with gr.Row():
+            dataset_dropdown = gr.Dropdown(
+                choices=get_available_datasets(),
+                value=default_dataset,
+                label="数据集"
+            )
         
         # ==================== 算法选择 Tabs ====================
         with gr.Tabs(elem_classes=["reveal", "reveal-2"]) as tabs:
@@ -682,13 +683,14 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             
             # -------- 左侧：控制面板 --------
             with gr.Column(scale=1, min_width=300):
-                # 算法选择下拉菜单
-                algo_dropdown = gr.Dropdown(
-                    choices=[('FRE', 'fre'), ('PatchCore', 'patchcore'), ('DRAEM', 'draem'), ('PaDiM', 'padim')],
-                    value='patchcore',
-                    label="算法选择"
-                )
-                
+                # 算法选择下拉菜单（用 Row 包裹以消除 Gradio .block.padded 默认 padding 导致的错位）
+                with gr.Row():
+                    algo_dropdown = gr.Dropdown(
+                        choices=[('FRE', 'fre'), ('PatchCore', 'patchcore'), ('DRAEM', 'draem'), ('PaDiM', 'padim')],
+                        value='patchcore',
+                        label="算法选择"
+                    )
+
                 # 操作区域：图片左侧，按钮和状态右侧垂直排列
                 with gr.Row():
                     # 左侧：图片上传
@@ -744,7 +746,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                     # 垂直颜色比例尺
                     with gr.Column(scale=0):
                         gr.HTML("""
-                        <div class="heatmap-legend">
+                        <div class="heatmap-legend reveal-child-4">
                             <div style="font-family:var(--font-body);font-size:11px;font-weight:500;color:var(--text-tertiary);margin-bottom:8px;letter-spacing:0.02em;">得分</div>
                             <div style="display: flex; flex-direction: row; height: 260px; align-items: stretch;">
                                 <div class="heatmap-legend-bar"></div>
@@ -825,6 +827,19 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         
         # ==================== 事件绑定 ====================
         
+        # ── 骨架屏模板（模型加载 / 推理进行中）──
+        SKELETON_HTML = '''<div class="skeleton-card reveal-child-1">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;">
+                <div><div class="skeleton-row w-60 h-12"></div><div class="skeleton-row w-40 h-36" style="margin-top:8px;"></div></div>
+                <div class="skeleton-row h-36" style="width:64px;border-radius:100px;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+                <div class="skeleton-row h-36" style="height:120px;"></div>
+                <div class="skeleton-row h-36" style="height:120px;"></div>
+            </div>
+            <div class="skeleton-row w-80 h-36" style="height:56px;border-radius:var(--r-md);"></div>
+        </div>'''
+
         def format_status(message, is_loading=False):
             """格式化状态消息 — Apple 极简状态指示"""
             if is_loading:
@@ -842,23 +857,30 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
             """算法切换事件"""
             config = MODEL_CONFIGS[model_key]
 
-            yield format_status(f"正在加载 {config.name}...", is_loading=True)
+            yield format_status(f"正在加载 {config.name}...", is_loading=True), SKELETON_HTML
             success, message = detector.load_model(model_key, dataset)
-            yield format_status(message)
+            # 完成后恢复为占位卡片
+            placeholder = '<div class="result-card" style="text-align: center; padding: 48px 28px;"><div style="font-size:15px;color:var(--text-tertiary);">等待推理…</div></div>'
+            yield format_status(message), placeholder
         
         def on_run_click(model_key, dataset, image):
             """推理按钮点击事件"""
             if image is None:
-                return None, None, "<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:15px;color:var(--text-tertiary);'>请先上传图片</div></div>", format_status("请先上传测试图片")
-            
+                yield None, None, "<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:15px;color:var(--text-tertiary);'>请先上传图片</div></div>", format_status("请先上传测试图片")
+                return
+
+            # 先显示骨架屏（保持图片不变）
+            yield gr.skip(), gr.skip(), SKELETON_HTML, format_status("正在加载模型...", is_loading=True)
+
             # 确保模型已加载
             success, message = detector.load_model(model_key, dataset)
             if not success:
-                return image, image, f"<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:14px;color:var(--bad);'>{message}</div></div>", format_status(message)
-            
+                yield image, image, f"<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:14px;color:var(--bad);'>{message}</div></div>", format_status(message)
+                return
+
             # 执行推理
             original, heatmap, result = detector.predict(image)
-            return original, heatmap, result, format_status("推理完成")
+            yield original, heatmap, result, format_status("推理完成")
         
         def on_image_upload(image):
             """图片上传事件"""
@@ -912,7 +934,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         algo_dropdown.change(
             fn=on_model_change,
             inputs=[algo_dropdown, dataset_dropdown],
-            outputs=[load_status]  # 更新状态
+            outputs=[load_status, result_output]  # 更新状态 + 骨架屏
         )
 
         # 绑定四模型对比事件

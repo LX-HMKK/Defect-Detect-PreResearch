@@ -61,6 +61,9 @@
     --dur-slow: 500ms;
     --dur-glacial: 800ms;
 
+    /* ── 骨架屏 shimmer ── */
+    --shimmer-color: rgba(255, 255, 255, 0.06);
+
     /* ── 多层阴影 ── */
     --shadow-sm:
         0 0 0 0.5px rgba(255, 255, 255, 0.04),
@@ -104,8 +107,8 @@
    ========================================================================== */
 html {
     scroll-behavior: smooth;
+    transition: color 300ms var(--ease-out);
 }
-
 html, body {
     background: var(--bg-root) !important;
     color: var(--text);
@@ -116,6 +119,27 @@ html, body {
     -moz-osx-font-smoothing: grayscale;
     margin: 0 !important;
     padding: 0 !important;
+    /* ── 主题切换平滑过渡 ── */
+    transition: background-color 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* !important 必要性：Gradio 6 对诸多组件注入了自己的 !important transition，
+   不提升优先级则主题过渡效果会被覆盖。 */
+.gradio-container,
+.tabs > .tab-nav,
+.status-panel,
+.result-card,
+.core-metric,
+.heatmap-legend,
+.compare-result-card,
+.footer-section,
+.accordion,
+.algo-card,
+.status-badge,
+.heatmap-tooltip {
+    transition: background-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
+                color 300ms var(--ease-out),
+                box-shadow 400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 /* 极淡环境光 — 顶部中央微弱的蓝色辉光（暗色模式） */
@@ -190,8 +214,15 @@ gradio-app div.wrap {
    与 Apple 官网产品页一致的入场动画序列
    ========================================================================== */
 .reveal {
-    opacity: 0;
-    animation: revealUp var(--dur-glacial) var(--ease-out-expo) forwards;
+    /* 默认终态（动画结束后回弹到这些值）：
+       transform/filter 必须为 none，否则会为 position:fixed 后代创建包含块，
+       导致下拉弹出框随滚动偏移（CSS Transform / Filter Effects spec §Containing Block） */
+    opacity: 1;
+    transform: none;
+    filter: none;
+    animation: revealUp var(--dur-glacial) var(--ease-out-expo);
+    /* ⚠️ 不使用 forwards：to 关键帧的 transform:translateY(0) 和 filter:blur(0)
+       虽为 identity 值但仍非 none，会污染 fixed 定位的包含块链 */
 }
 
 @keyframes revealUp {
@@ -471,6 +502,52 @@ button.primary:active {
     to { transform: rotate(360deg); }
 }
 
+/* ── 骨架屏 — 模型加载 shimmer 动画 ── */
+.skeleton-card {
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-lg);
+    padding: 28px;
+    overflow: hidden;
+    position: relative;
+}
+.skeleton-row {
+    height: 16px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+}
+.skeleton-row:last-child { margin-bottom: 0; }
+.skeleton-row.w-60 { width: 60%; }
+.skeleton-row.w-40 { width: 40%; }
+.skeleton-row.w-80 { width: 80%; }
+.skeleton-row.h-12 { height: 12px; }
+.skeleton-row.h-36 { height: 36px; border-radius: var(--r-sm); }
+.skeleton-row::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--shimmer-color) 50%,
+        transparent 100%
+    );
+    animation: shimmer 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-row::after {
+        background: var(--shimmer-color);
+        animation: none;
+    }
+}
+@keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
 /* ==========================================================================
    结果卡片 — 玻璃质感 + 悬停浮起
    ========================================================================== */
@@ -501,8 +578,10 @@ button.primary:active {
 .reveal-child-2,
 .reveal-child-3,
 .reveal-child-4 {
-    opacity: 0;
-    animation: cardChildReveal 500ms var(--ease-out-expo) forwards;
+    opacity: 1;
+    transform: none;
+    animation: cardChildReveal 500ms var(--ease-out-expo);
+    /* ⚠️ 同理不使用 forwards，防止 transform:translateY(0) 残留为非 none */
 }
 .reveal-child-1 { animation-delay: 0ms; }
 .reveal-child-2 { animation-delay: 100ms; }
@@ -995,6 +1074,21 @@ input[role="listbox"]:focus {
 .gradio-dropdown button,
 button[aria-label*="dropdown"] {
     color: var(--text-secondary) !important;
+}
+
+/* ── 修复 Gradio 6 Svelte 组件注入的多层内边距导致下拉框 INPUT 错位 ── */
+/* 下拉框的 Svelte Block (svelte-1plpy97) 自带 12px padding，
+   内部 wrap-inner (svelte-1xfsv4t) 又叠加 12px。
+   之前仅清零 padding-left，但 padding-right 仍为 12px，
+   在窄列（~340px）中导致 INPUT 左右不对称（左 0px / 右 24px 累计内缩），
+   视觉上 INPUT 比同列 Image 组件右侧内缩明显。用 !important 覆盖组件级 CSS。 */
+.block:has(.wrap-inner) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+.wrap-inner {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
 /* ==========================================================================

@@ -91,6 +91,14 @@
     --input-background-fill: var(--bg-secondary);
 }
 
+/*
+ * 亮色模式变量由 modules/ui/theme.py 动态生成，通过 gr.HTML 注入：
+ *   html[data-theme="light"] { ... }          ← 手动切换（JS 设置 data-theme 属性）
+ *   @media (prefers-color-scheme: light) { ... } ← JS 禁用时的降级兜底
+ * 暗色变量（本文件 :root 块）为默认值。
+ * 不变量（accent/ok/bad/warn/圆角/字体/动效）两模式共用，定义在本文件。
+ */
+
 /* ==========================================================================
    基底 & 氛围
    ========================================================================== */
@@ -487,6 +495,30 @@ button.primary:active {
 }
 
 .result-card::after { display: none; }
+
+/* ── 卡片子元素逐层入场 (staggered card reveal) ── */
+.reveal-child-1,
+.reveal-child-2,
+.reveal-child-3,
+.reveal-child-4 {
+    opacity: 0;
+    animation: cardChildReveal 500ms var(--ease-out-expo) forwards;
+}
+.reveal-child-1 { animation-delay: 0ms; }
+.reveal-child-2 { animation-delay: 100ms; }
+.reveal-child-3 { animation-delay: 200ms; }
+.reveal-child-4 { animation-delay: 300ms; }
+
+@keyframes cardChildReveal {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 /* ── 状态徽章 ── */
 .status-badge {
@@ -963,4 +995,53 @@ input[role="listbox"]:focus {
 .gradio-dropdown button,
 button[aria-label*="dropdown"] {
     color: var(--text-secondary) !important;
+}
+
+/* ==========================================================================
+   推理交互 — tooltip + bbox overlay
+   ========================================================================== */
+.heatmap-tooltip {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    background: var(--bg-system);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--sep-default);
+    border-radius: var(--r-sm);
+    padding: 8px 14px;
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-body);
+    transition: opacity 150ms var(--ease-out);
+}
+.heatmap-tooltip .tt-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.heatmap-tooltip .tt-value {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+}
+
+/* ── bbox overlay ── */
+.bbox-overlay {
+    border: 2px solid transparent;
+    border-radius: 4px;
+    transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+    z-index: 10;
+}
+.bbox-overlay:hover {
+    border-color: var(--accent) !important;
+    box-shadow:
+        0 0 0 2px var(--accent-dim),
+        0 0 20px var(--accent-glow) !important;
 }

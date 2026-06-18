@@ -27,6 +27,10 @@ from typing import Tuple, Optional, List
 from dataclasses import dataclass
 
 import numpy as np
+import base64
+import io
+import json
+
 import cv2
 import gradio as gr
 import torch
@@ -44,6 +48,9 @@ from anomalib.models import (
 # 配置管理
 from modules._runtime import resolve_project_path
 from modules.config import get, get_threshold, get_model_config, get_data_config
+
+# 主题管理器
+from modules.ui import theme
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -333,11 +340,23 @@ class AnomalyDetector:
                     # 原因：anomaly_map.max() 通常为 0.3-0.6，远低于 classification threshold (0.8-0.9)
                     orig_h, orig_w = image.shape[:2]
                     bboxes = self._apply_nms_to_map(anomaly_map, NMS_BBOX_THRESHOLD, orig_h, orig_w) if anomaly_map is not None else []
-                    # 生成热力图，同时在热力图上绘制 bbox（红色边框）
-                    heatmap = self._generate_heatmap(image, anomaly_map, bboxes=bboxes)
+                    # 生成热力图和原始灰度图（供前端 hover 交互读取像素值）
+                    heatmap, anomaly_gray = self._generate_heatmap(image, anomaly_map, bboxes=bboxes)
                     
-                    # 生成结果文本
-                    result_text = self._format_result(pred_score, pred_label)
+                    # 将灰度图编码为 base64 PNG
+                    from PIL import Image as PILImage
+                    gray_img = PILImage.fromarray(anomaly_gray, mode='L')
+                    buf = io.BytesIO()
+                    gray_img.save(buf, format='PNG')
+                    anomaly_map_b64 = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+                    
+                    # bbox 坐标编码为 JSON
+                    bboxes_json = json.dumps(bboxes, ensure_ascii=False) if bboxes else '[]'
+                    
+                    # 生成结果文本（含隐藏数据）
+                    result_text = self._format_result(pred_score, pred_label,
+                                                      anomaly_map_b64=anomaly_map_b64,
+                                                      bboxes_json=bboxes_json)
                     
                     return image, heatmap, result_text
             
@@ -384,10 +403,12 @@ class AnomalyDetector:
         if bboxes:
             overlay = self._draw_bboxes(overlay, bboxes, color=(255, 0, 0))
         
-        return overlay
+        return overlay, anomaly_resized
     
-    def _format_result(self, score: float, label: int) -> str:
-        """格式化结果 — Apple 极简面板"""
+    def _format_result(self, score: float, label: int,
+                        anomaly_map_b64: str = "",
+                        bboxes_json: str = "") -> str:
+        """格式化结果 — Apple 极简面板，逐层入场动画"""
         model_config = MODEL_CONFIGS[self.current_model]
 
         dataset = self.current_dataset or "bottle"
@@ -408,7 +429,7 @@ class AnomalyDetector:
         return f"""
 <div class="result-card fade-in">
     <!-- 标题 + 状态 -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
+    <div class="reveal-child-1" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
         <div>
             <div style="font-size:12px;font-weight:500;color:var(--text-tertiary);letter-spacing:0.02em;margin-bottom:4px;">检测模型</div>
             <div style="font-size:20px;font-weight:600;color:var(--text);letter-spacing:-0.01em;">{model_config.name}</div>
@@ -417,7 +438,7 @@ class AnomalyDetector:
     </div>
 
     <!-- 双列数字 -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+    <div class="reveal-child-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
         <div class="core-metric">
             <div class="label">异常得分</div>
             <div class="value {'anomaly' if is_anomaly else 'normal'}">{score:.4f}</div>
@@ -443,7 +464,7 @@ class AnomalyDetector:
     </div>
 
     <!-- 判决 -->
-    <div style="background: {status_bg}; border-radius: var(--r-md); padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px;">
+    <div class="reveal-child-3" style="background: {status_bg}; border-radius: var(--r-md); padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px;">
         <div style="font-size:18px;color:{status_color};line-height:1;">{'●' if is_anomaly else '●'}</div>
         <div>
             <div style="font-size:11px;font-weight:500;color:var(--text-tertiary);margin-bottom:4px;letter-spacing:0.02em;">判决</div>
@@ -452,6 +473,11 @@ class AnomalyDetector:
             </div>
         </div>
     </div>
+
+    <!-- 隐藏数据：异常灰度图 + bbox 坐标（供 inference-interact.js 读取） -->
+    """ + (f"""<img id="anomaly-map-data" src="{anomaly_map_b64}" style="display:none" onerror="this.style.display='none'">
+    <div id="bbox-data" data-bboxes='{bboxes_json}' style="display:none"></div>
+    <div id="heatmap-tooltip" class="heatmap-tooltip"></div>""" if anomaly_map_b64 else "") + """
 </div>
 """
 
@@ -575,64 +601,40 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
     with gr.Blocks(css=css, title="工业异常检测系统") as demo:
 
         # ═══════════════════════════════════════════════════════════
-        # 亮色模式 — 通过 <style> 标签注入，绕过 Gradio CSS 作用域
-        # Gradio 6 会对 css= 参数做选择器作用域处理，导致 @media 内
-        # 的 :root 被变成 .contain :root 无法匹配文档根。gr.HTML 中
-        # 的 <style> 不会被作用域处理，可以正确设置亮色变量。
+        # 主题系统注入 — 通过 gr.HTML 绕过 Gradio 6 CSS 作用域
+        # Gradio 6 会对 css= 参数做选择器作用域处理，导致 :root 在
+        # @media 内失效。gr.HTML 中的 <style>/<script>/<link> 标签
+        # 不会被作用域处理，可以正确设置 CSS 变量和图标。
         # ═══════════════════════════════════════════════════════════
-        gr.HTML("""
-        <style>
-        @media (prefers-color-scheme: light) {
-            :root {
-                --bg-root: #f0f0f0;
-                --bg-system: #ffffff;
-                --bg-secondary: #f5f5f7;
-                --bg-tertiary: #e8e8ed;
 
-                --sep-subtle: rgba(0, 0, 0, 0.06);
-                --sep-default: rgba(0, 0, 0, 0.10);
-                --sep-strong: rgba(0, 0, 0, 0.16);
+        # Favicon（SVG 菱形图标，theme.js 在主题切换时动态更新 href）
+        gr.HTML(theme.get_favicon_html())
 
-                --text: rgba(0, 0, 0, 0.88);
-                --text-secondary: rgba(0, 0, 0, 0.55);
-                --text-tertiary: rgba(0, 0, 0, 0.30);
-
-                --shadow-sm:
-                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
-                    0 1px 4px rgba(0, 0, 0, 0.06);
-                --shadow-md:
-                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
-                    0 1px 4px rgba(0, 0, 0, 0.06),
-                    0 8px 24px rgba(0, 0, 0, 0.08);
-                --shadow-lg:
-                    0 0 0 0.5px rgba(0, 0, 0, 0.06),
-                    0 4px 12px rgba(0, 0, 0, 0.08),
-                    0 16px 40px rgba(0, 0, 0, 0.12);
-                --shadow-glow:
-                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
-                    0 2px 8px rgba(0, 0, 0, 0.08),
-                    0 0 32px rgba(41, 151, 255, 0.20);
-
-                --body-background-fill: var(--bg-root);
-                --background-fill-primary: var(--bg-system);
-                --background-fill-secondary: var(--bg-secondary);
-                --border-color-primary: var(--sep-subtle);
-                --input-background-fill: var(--bg-secondary);
-            }
-            body::before {
-                background: radial-gradient(ellipse, rgba(41, 151, 255, 0.02) 0%, transparent 70%);
-            }
-        }
-        </style>
-        """)
+        # 亮色模式 CSS 变量
+        # - html[data-theme="light"]：手动切换时启用（高优先级）
+        # - @media (prefers-color-scheme: light)：JS 禁用时的降级兜底
+        gr.HTML(f"<style>{theme.get_light_css()}</style>")
 
         # ==================== 标题区域 ====================
-        gr.Markdown("""
+        # 使用 gr.HTML 而非 gr.Markdown，原因：
+        # 1. 标题区域包含 <button>/<svg> 交互元素（主题切换按钮）
+        # 2. gr.Markdown 默认 sanitize=True 会剥离这些元素
+        # 3. 内容为纯 HTML，无 Markdown 格式需求
+        gr.HTML(f"""
         <div class="reveal reveal-1" style="padding: 48px 0 8px 0;">
-            <div class="title">缺陷检测</div>
-            <div class="subtitle">无监督异常检测系统 · Anomalib 2.3</div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div class="title">缺陷检测</div>
+                    <div class="subtitle">无监督异常检测系统 · Anomalib 2.3</div>
+                </div>
+                {theme.get_theme_switch_html()}
+            </div>
         </div>
         """)
+
+        # 主题切换 JavaScript（放在标题区之后，确保按钮 DOM 已就绪）
+        # 内部有重试机制，即使按钮延迟渲染也能正确初始化
+        gr.HTML(theme.get_theme_js())
 
         # 数据集选择
         dataset_dropdown = gr.Dropdown(
@@ -764,6 +766,9 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                         <div style="font-family:var(--font-body);font-size:15px;color:var(--text-tertiary);">等待推理…</div>
                     </div>"""
                 )
+
+        # 推理交互增强 JS（热力图 hover tooltip + bbox 高亮）
+        gr.HTML(theme.get_inference_js())
         
         # ==================== 模型对比区域 ====================
         gr.Markdown("## 四模型对比", elem_classes=["panel-title", "reveal", "reveal-4"])

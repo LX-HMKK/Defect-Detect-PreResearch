@@ -100,9 +100,10 @@ modules/
   evaluation/post_processor.py # AnomalyMapProcessor: 异常热力图后处理（7 种配方）
   ui/
     demo.py                   # Gradio UI：AnomalyDetector + create_interface
-    styles.css                # Apple 风格设计系统（亮/暗双模式，800+ 行）
+    styles.css                # Apple 风格设计系统（亮/暗双模式，1050+ 行）
     theme.py                  # 主题管理器：色板定义 + CSS 生成 + 切换按钮 + Favicon
     static/theme.js           # 主题切换交互（localStorage + data-theme）
+	    static/inference-interact.js  # 推理结果交互增强（热力图 hover tooltip + bbox 高亮）
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
@@ -136,9 +137,9 @@ docs/
 
 - **`AnomalyMapProcessor`** (`modules/evaluation/post_processor.py`) — 异常热力图后处理管线。提供 4 种基础算子（高斯滤波/中值滤波/形态学开闭/双线性上采样）及 7 种组合配方，通过 `PRESET_CONFIGS` 字典调用。`process_anomaly_maps()` 为批量处理入口。
 
-- **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层，并在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框，与分类阈值无关。
+- **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层与 base64 编码的原始灰度图（供前端 hover 交互），在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框并编码为 JSON 嵌入结果 HTML。`_format_result()` 返回带逐层入场动画（`.reveal-child-*`）的 Apple 风格结果卡片。
 
-- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）、`get_favicon_svg()`（32×32 菱形图标）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
+- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）`n`n- **`modules/ui/static/inference-interact.js`** — 推理结果交互增强。MutationObserver 监听 DOM 变化，从隐藏的 base64 灰度图读取像素值创建离屏 canvas，在热力图 `<img>` 上 mousemove 显示 tooltip（Apple 风格异常得分）；bbox JSON → 绝对定位透明 overlay，hover 高亮 `var(--accent)` 边框。、`get_favicon_svg()`（32×32 菱形图标）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
 
 - **`modules/ui/styles.css`** — Apple 风格设计系统（~850 行）。亮/暗双模式通过 CSS 自定义属性实现，使用 `html[data-theme="light"]` 选择器控制亮色覆盖。包含 12 个组件的完整规范（标题区、标签页、算法卡片、输入控件、按钮、状态面板、结果卡片、度量数字、进度条、热力图图例、对比模式、底部说明），以及交错入场动画（`.reveal-1` ~ `.reveal-6`）、磨砂玻璃效果（`backdrop-filter: blur(20px)`）、弹簧缓动（`cubic-bezier(0.22,0.8,0.3,1.15)`）。设计规范详见 `docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md`。
 

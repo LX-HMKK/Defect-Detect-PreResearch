@@ -25,6 +25,31 @@
 - **构建:** 新增 `requirements.txt` 固定依赖版本 (M1)
 - **文档:** README 修正 anomalib 版本 `>=2.0.0` → `==2.3.0` (M1)
 
+## 2026-06-18 — Phase 1-2：前端增强
+
+### Phase 1 — 主题系统 + 手动切换 + 图标
+- **新增:** `modules/ui/theme.py` — 主题管理器（DARK/LIGHT 色板字典、`build_css_variables()` CSS 编译、`get_light_css()`/`get_theme_switch_html()`/`get_theme_js()`/`get_favicon_html()` 注入函数）
+- **新增:** `modules/ui/static/theme.js` — 主题切换逻辑（localStorage 持久化、`matchMedia` 系统检测、点击切换、双击清除偏好、`.dark` 类同步、favicon 联动）
+- **新增:** 手动亮/暗切换按钮 — 标题栏右侧太阳/月亮 SVG 按钮，`html[data-theme="light"]` 选择器控制覆盖
+- **新增:** Favicon — SVG 内联菱形图标（深色圆底 + 蓝色菱形），`theme.js` 按主题动态切换
+- **修改:** `modules/ui/demo.py` — 集成 theme 模块（favicon/亮色 CSS/JS 注入、标题栏 switch 按钮嵌入）
+- **修改:** `modules/ui/styles.css` — 亮色变量来源注释
+
+### Phase 2 — 推理结果交互增强
+- **新增:** `modules/ui/static/inference-interact.js` — 热力图 hover tooltip（离屏 canvas 读灰度值 → 像素级异常分数）+ NMS bbox overlay（hover 高亮 `var(--accent)` 边框）
+- **新增:** 结果卡片逐层入场动画 — `.reveal-child-1/2/3` 类名，500ms `ease-out-expo`，100ms 间隔级联
+- **新增:** `.heatmap-tooltip` / `.bbox-overlay` CSS — Apple 风格浮动 tooltip（磨砂玻璃 + mono 字体）+ bbox 叠加层 hover 效果
+- **修改:** `modules/ui/demo.py:_generate_heatmap()` — 多返回原始灰度图 numpy（供 JS 读取像素值）
+- **修改:** `modules/ui/demo.py:predict()` — base64 编码灰度图 + bbox JSON，传递至 `_format_result()` 嵌入结果 HTML
+- **修改:** `modules/ui/demo.py:_format_result()` — 新参数 `anomaly_map_b64`/`bboxes_json`，隐藏数据元素 + 逐层动画类名
+
+### 修复
+- **修复:** 亮色模式下 Gradio 组件（`.form`/`.block`）背景仍为暗色 — 根因 `body.dark` 类未移除，`theme.js` 改为 `querySelectorAll('.dark')` 全局清除
+- **修复:** LIGHT 色板补充 Gradio 中性色阶（`neutral_700~950`）和组件级变量（`block_background_fill` 等 12 个）
+- **修复:** Favicon `<link>` 的 SVG 双引号与 HTML `href="..."` 冲突导致文本泄露 — SVG 属性改用单引号
+- **修复:** 标题栏 `gr.Markdown` 净化器剥离 `<button>`/`<svg>` — 改为 `gr.HTML`
+- **修复:** Gradio Svelte 不执行 `innerHTML` 注入的 `<script>` — 改用 `<img onerror>` bootstrapper 动态创建 `<script>` 注入 `<head>`
+
 ## [未发布] - 2026-06-11
 
 ### 新增

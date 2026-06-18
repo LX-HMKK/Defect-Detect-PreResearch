@@ -85,6 +85,12 @@ datasets/
 .playwright-mcp/
 .remember/
 .sisyphus/
+.agents/
+
+# UI 开发过程产物（截图、快照）— 仅项目根目录
+/*.png
+/*_snapshot*.md
+/page-snap*.md
 
 # ============================================================
 # 测试
@@ -107,7 +113,9 @@ data/*
 # 文档 — 排除二进制 pptx
 # ============================================================
 docs/*.pptx
-docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/plans/
 docs/images/report/drawio/
 
 # ============================================================

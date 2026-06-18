@@ -1,406 +1,668 @@
 /* ==========================================================================
-   工业级仪表盘 - 专业暗色模式 (Pixel-Perfect Refined)
+   工业异常检测系统 — Apple 官网风格
+   设计方向: 极致简约 · 玻璃质感 · 流畅动效 · 克制色彩
    ========================================================================== */
 
-/* 全局基础设置 */
+/* ==========================================================================
+   CSS 自定义属性
+   ========================================================================== */
 :root {
-    --bg-primary: #121212;
-    --bg-secondary: #1e1e1e;
-    --bg-tertiary: #252525;
-    --bg-card: #1a1a1a;
-    
-    --border-color: #333333;
-    --border-subtle: #2a2a2a;
-    --border-inner: rgba(255, 255, 255, 0.08);
-    
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --text-muted: #666666;
-    
-    /* 莫兰迪色系 - 专业配色 (收敛后) */
-    --accent-primary: #1e40af;      /* 深邃科技蓝 - 主按钮 */
-    --accent-hover: #2563eb;
-    --accent-subtle: #1e3a8a;
-    
-    --status-normal: #1e4d3e;      /* 深翠绿 (调暗) */
-    --status-normal-text: #34d399;
-    
-    --status-anomaly: #7f1d1d;      /* 暗红色 - 异常 (收敛) */
-    --status-anomaly-text: #f87171;
-    
-    --status-warning: #78350f;     /* 深金色 - 警告 */
-    --status-warning-text: #fbbf24;
-    
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    
-    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+    /* ── 基底色阶（纯黑 + iOS 暗色层级）── */
+    --bg-root: #000000;
+    --bg-system: #1c1c1e;
+    --bg-secondary: #2c2c2e;
+    --bg-tertiary: #3a3a3c;
+    /* ── 分隔（Apple 用透明表达层级）── */
+    --sep-subtle: rgba(255, 255, 255, 0.06);
+    --sep-default: rgba(255, 255, 255, 0.10);
+    --sep-strong: rgba(255, 255, 255, 0.16);
+
+    /* ── 强调色 ── */
+    --accent: #2997ff;
+    --accent-hover: #47a9ff;
+    --accent-pressed: #0070d6;
+    --accent-dim: rgba(41, 151, 255, 0.12);
+    --accent-glow: rgba(41, 151, 255, 0.25);
+
+    /* ── 状态色 ── */
+    --ok: #30d158;
+    --ok-bg: rgba(48, 209, 88, 0.10);
+    --bad: #ff453a;
+    --bad-bg: rgba(255, 69, 58, 0.10);
+    --warn: #ff9f0a;
+    --warn-bg: rgba(255, 159, 10, 0.08);
+
+    /* ── 文字层级 ── */
+    --text: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.60);
+    --text-tertiary: rgba(255, 255, 255, 0.36);
+
+    /* ── 圆角 ── */
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 20px;
+
+    /* ── 字体栈（跨平台 SF 近似）── */
+    --font-display: -apple-system, 'SF Pro Display', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+    --font-body: -apple-system, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Cascadia Code', 'Menlo', 'Consolas', monospace;
+
+    /* ── 缓动曲线 ── */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.22, 0.8, 0.3, 1.15);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ── 动效时长 ── */
+    --dur-instant: 100ms;
+    --dur-fast: 180ms;
+    --dur-normal: 300ms;
+    --dur-slow: 500ms;
+    --dur-glacial: 800ms;
+
+    /* ── 多层阴影 ── */
+    --shadow-sm:
+        0 0 0 0.5px rgba(255, 255, 255, 0.04),
+        0 1px 4px rgba(0, 0, 0, 0.2);
+    --shadow-md:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-lg:
+        0 0 0 0.5px rgba(255, 255, 255, 0.08),
+        0 4px 16px rgba(0, 0, 0, 0.35),
+        0 16px 48px rgba(0, 0, 0, 0.5);
+    --shadow-glow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 32px var(--accent-glow);
 }
 
-html, body {
-    background: var(--bg-primary) !important;
-    color: var(--text-primary);
-    font-family: var(--font-family) !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    min-height: 100vh;
-}
-
-/* 主容器 */
-.gradio-container {
-    background: var(--bg-primary) !important;
-    padding: 24px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 100vh !important;
-    margin: 0 !important;
-}
-
-/* 标题 */
-.title {
-    font-size: 28px !important;
-    font-weight: 600 !important;
-    color: var(--text-primary) !important;
-    letter-spacing: -0.5px !important;
-    margin-bottom: 8px !important;
-    background: none !important;
-    -webkit-text-fill-color: var(--text-primary) !important;
-}
-
-/* 副标题 */
-.subtitle {
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin-bottom: 24px;
+/* ── 覆盖 Gradio CSS 变量 ── */
+:root {
+    --body-background-fill: var(--bg-root);
+    --background-fill-primary: var(--bg-system);
+    --background-fill-secondary: var(--bg-secondary);
+    --border-color-primary: var(--sep-subtle);
+    --color-accent: var(--accent);
+    --button-primary-background-fill: var(--accent);
+    --button-primary-text-color: #ffffff;
+    --input-background-fill: var(--bg-secondary);
 }
 
 /* ==========================================================================
-   算法选择 Tabs 标签页样式
+   基底 & 氛围
    ========================================================================== */
-
-.algorithm-tabs {
-    display: flex !important;
-    gap: 0 !important;
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    padding: 4px;
-    margin-bottom: 24px;
-    border: 1px solid var(--border-subtle);
+html {
+    scroll-behavior: smooth;
 }
 
-.algorithm-tab {
-    flex: 1;
-    padding: 12px 16px !important;
-    text-align: center;
-    cursor: pointer;
-    border-radius: 0 !important;
-    transition: all 0.2s ease;
-    border: none !important;
-    background: transparent !important;
-    color: var(--text-secondary) !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    position: relative;
+html, body {
+    background: var(--bg-root) !important;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.47059;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-.algorithm-tab:hover {
-    background: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-}
-
-.algorithm-tab.selected {
-    background: transparent !important;
-    color: var(--text-primary) !important;
-}
-
-.algorithm-tab.selected::after {
+/* 极淡环境光 — 顶部中央微弱的蓝色辉光（暗色模式） */
+body::before {
     content: '';
-    position: absolute;
-    bottom: 0;
+    position: fixed;
+    top: -40%;
     left: 50%;
     transform: translateX(-50%);
-    width: 60%;
-    height: 2px;
-    background: var(--accent-primary);
-    border-radius: 2px;
+    width: 800px;
+    height: 600px;
+    background: radial-gradient(ellipse, rgba(41, 151, 255, 0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
 }
 
-/* 算法介绍卡片 - 提亮背景 */
-.algo-card {
-    background: #2a2a2a;
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    margin-bottom: 16px;
+/* ── 根除 Gradio 白色背景 ── */
+gradio-app,
+gradio-app div.wrap {
+    background: transparent !important;
+    background-color: transparent !important;
 }
+
+.gradio-container {
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 48px 64px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    position: relative;
+    z-index: 1;
+}
+
+/* ==========================================================================
+   排版 — 大号、清晰、克制
+   ========================================================================== */
+.title {
+    font-family: var(--font-display);
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    line-height: 1.05;
+    margin: 0;
+}
+
+.subtitle {
+    font-family: var(--font-body);
+    font-size: 19px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    letter-spacing: -0.01em;
+    margin: 8px 0 56px 0;
+}
+
+.panel-title {
+    font-size: 24px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.015em !important;
+    color: var(--text) !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+    display: block !important;
+}
+
+.panel-title::before { display: none !important; }
+
+/* ==========================================================================
+   页面加载 — 逐层淡入 (staggered reveal)
+   与 Apple 官网产品页一致的入场动画序列
+   ========================================================================== */
+.reveal {
+    opacity: 0;
+    animation: revealUp var(--dur-glacial) var(--ease-out-expo) forwards;
+}
+
+@keyframes revealUp {
+    from {
+        opacity: 0;
+        transform: translateY(28px);
+        filter: blur(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+/* 延迟级联 — 逐层显现 */
+.reveal-1 { animation-delay: 0.00s; }
+.reveal-2 { animation-delay: 0.08s; }
+.reveal-3 { animation-delay: 0.16s; }
+.reveal-4 { animation-delay: 0.24s; }
+.reveal-5 { animation-delay: 0.32s; }
+.reveal-6 { animation-delay: 0.40s; }
+
+/* ==========================================================================
+   Scroll Reveal — 滚动触发露出
+   Chrome/Edge 115+ 支持 animation-timeline: view()
+   ========================================================================== */
+@supports (animation-timeline: view()) {
+    .scroll-reveal {
+        animation: scrollReveal linear forwards;
+        animation-timeline: view();
+        animation-range: entry 5% entry 100%;
+    }
+
+    @keyframes scrollReveal {
+        from { opacity: 0; translate: 0 36px; }
+        to   { opacity: 1; translate: 0 0; }
+    }
+}
+
+/* ==========================================================================
+   Tab 标签页 — iOS 分段控制器 + 切换涟漪
+   ========================================================================== */
+.tabs {
+    border: none !important;
+    background: transparent !important;
+    gap: 0 !important;
+    margin-bottom: 36px !important;
+}
+
+.tabs > .tab-nav {
+    background: var(--bg-system) !important;
+    border: none !important;
+    border-radius: var(--r-md) !important;
+    padding: 3px !important;
+    gap: 1px !important;
+    display: inline-flex !important;
+}
+
+.tabs > .tab-nav button,
+button[role="tab"] {
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 7px 20px !important;
+    cursor: pointer !important;
+    letter-spacing: -0.01em !important;
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.tabs > .tab-nav button:hover,
+button[role="tab"]:hover {
+    color: var(--text) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.tabs > .tab-nav button.selected,
+button[role="tab"][aria-selected="true"] {
+    color: var(--text) !important;
+    background: var(--bg-secondary) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.3) !important;
+    animation: tabPop var(--dur-normal) var(--ease-spring);
+}
+
+@keyframes tabPop {
+    0%   { transform: scale(0.94); }
+    100% { transform: scale(1); }
+}
+
+/* ==========================================================================
+   算法卡片
+   ========================================================================== */
+.algo-card {
+    background: transparent;
+    border: none;
+    padding: 4px 0 16px 0;
+    margin-bottom: 0;
+}
+
+.algo-card::before { display: none; }
 
 .algo-card h4 {
-    margin: 0 0 8px 0;
-    font-size: 15px;
+    font-family: var(--font-display);
+    margin: 0 0 6px 0;
+    font-size: 18px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text);
+    letter-spacing: -0.01em;
 }
 
-.algo-card h4.recommended {
-    color: var(--accent-primary);
+.algo-card h4.recommended { color: var(--accent); }
+
+.algo-card h4.recommended::after {
+    content: '推荐';
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 10px;
+    vertical-align: middle;
+    letter-spacing: 0;
 }
 
 .algo-card p {
     margin: 0;
-    font-size: 12px;
+    font-family: var(--font-body);
+    font-size: 14px;
     color: var(--text-secondary);
     line-height: 1.6;
 }
 
 /* ==========================================================================
-   左侧控制面板
+   输入控件 — 干净 + 聚焦动画
    ========================================================================== */
-
-.control-panel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    box-shadow: inset 0 0 0 1px var(--border-inner);
+.gradio-dropdown, select, .gradio-dropdown > div {
+    background: var(--bg-system) !important;
+    border: 1px solid var(--sep-default) !important;
+    border-radius: var(--r-sm) !important;
+    color: var(--text) !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    transition:
+        border-color var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out) !important;
 }
 
-
-.panel-title {
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    color: var(--text-primary) !important;
-    margin-bottom: 12px !important;
-    padding-bottom: 10px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+.gradio-dropdown:focus-within, select:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px var(--accent-dim) !important;
+    background: var(--bg-secondary) !important;
 }
 
-/* 下拉菜单 */
-.gradio-dropdown {
-    background: var(--bg-tertiary) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: var(--radius-sm) !important;
-    color: var(--text-primary) !important;
-}
-
-/* 输入框 */
 input, textarea, .gradio-input {
-    background: var(--bg-tertiary) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: var(--radius-sm) !important;
-    color: var(--text-primary) !important;
+    background: var(--bg-system) !important;
+    border: 1px solid var(--sep-default) !important;
+    border-radius: var(--r-sm) !important;
+    color: var(--text) !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    transition:
+        border-color var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out) !important;
 }
 
-/* 图片上传区 - 精简高度 */
+input:focus, textarea:focus, .gradio-input:focus-within {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px var(--accent-dim) !important;
+}
+
+/* ── 图片上传区 — 微光吸引 ── */
 .gradio-image, .gradio-image > div {
-    background: var(--bg-tertiary) !important;
-    border: 1px dashed var(--border-color) !important;
-    border-radius: var(--radius-sm) !important;
-    min-height: 180px !important;
+    background: var(--bg-system) !important;
+    border: 1px dashed var(--sep-default) !important;
+    border-radius: var(--r-md) !important;
+    min-height: 200px !important;
+    transition:
+        border-color var(--dur-normal) var(--ease-out),
+        background var(--dur-normal) var(--ease-out),
+        box-shadow var(--dur-normal) var(--ease-out) !important;
+}
+
+.gradio-image:hover {
+    border-color: var(--accent) !important;
+    border-style: solid !important;
+    background: rgba(41, 151, 255, 0.03) !important;
+    box-shadow: 0 0 0 4px var(--accent-dim) !important;
 }
 
 /* ==========================================================================
-   核心按钮 - 深蓝色科技感 (收敛后)
+   按钮 — 弹性弹簧反馈
    ========================================================================== */
-
 button.primary {
-    background: var(--accent-primary) !important;
+    font-family: var(--font-body) !important;
+    background: var(--accent) !important;
     border: none !important;
-    border-radius: var(--radius-sm) !important;
+    border-radius: 100px !important;
     font-weight: 500 !important;
-    letter-spacing: 0.3px !important;
-    transition: all 0.15s ease !important;
-    color: #fff !important;
-    padding: 10px 20px !important;
+    font-size: 15px !important;
+    letter-spacing: -0.01em !important;
+    color: #ffffff !important;
+    padding: 12px 30px !important;
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        transform 0.35s var(--ease-spring),
+        box-shadow var(--dur-fast) var(--ease-out) !important;
+    transform-origin: center center;
 }
 
 button.primary:hover {
     background: var(--accent-hover) !important;
+    transform: scale(1.03);
+    box-shadow:
+        0 0 20px var(--accent-glow),
+        0 4px 12px rgba(41, 151, 255, 0.25) !important;
 }
 
 button.primary:active {
-    transform: translateY(1px);
+    background: var(--accent-pressed) !important;
+    transform: scale(0.95);
+    transition: transform 0.1s var(--ease-out),
+                background 0.1s var(--ease-out) !important;
 }
 
-/* 推理按钮特殊样式 - 紧凑扁平 */
 .inference-btn {
-    min-height: 48px !important;
-    font-size: 13px !important;
-    padding: 8px 16px !important;
-    line-height: 1.4 !important;
+    min-height: 50px !important;
+    font-size: 16px !important;
 }
 
 /* ==========================================================================
-   右侧结果区 - 数据可视化
+   状态面板
    ========================================================================== */
-
-.result-panel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 20px;
-    box-shadow: inset 0 0 0 1px var(--border-inner);
+.status-panel {
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-md);
+    padding: 16px;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background var(--dur-normal) var(--ease-out),
+        border-color var(--dur-normal) var(--ease-out);
 }
 
-/* 结果卡片 - 内描边 */
+.status-panel::before { display: none; }
+
+/* ── 加载指示器 — 极细圆环旋转 ── */
+.loading-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--sep-default);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spinnerRotate 0.55s linear infinite;
+}
+
+.loading-spinner::after { display: none; }
+
+@keyframes spinnerRotate {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   结果卡片 — 玻璃质感 + 悬停浮起
+   ========================================================================== */
 .result-card {
-    background: var(--bg-card);
-    border-radius: var(--radius-md);
-    padding: 20px;
-    border: 1px solid var(--border-subtle);
-    box-shadow: inset 0 0 0 1px var(--border-inner);
+    background: var(--bg-system);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    border-radius: var(--r-lg);
+    padding: 28px;
+    border: 1px solid var(--sep-subtle);
+    box-shadow: var(--shadow-md);
+    transition:
+        transform 0.4s var(--ease-spring),
+        box-shadow 0.4s var(--ease-out),
+        border-color var(--dur-normal) var(--ease-out);
 }
 
-/* 状态指示器 - 融合式设计 */
+.result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--sep-default);
+}
+
+.result-card::after { display: none; }
+
+/* ── 状态徽章 ── */
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    font-size: 14px;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 100px;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    transition: transform var(--dur-fast) var(--ease-spring);
 }
 
+.status-badge:hover { transform: scale(1.04); }
+
 .status-badge.normal {
-    background: rgba(30, 77, 62, 0.25);
-    border: 1px solid var(--status-normal);
-    color: var(--status-normal-text);
+    background: var(--ok-bg);
+    color: var(--ok);
 }
 
 .status-badge.anomaly {
-    background: rgba(127, 29, 29, 0.25);
-    border: 1px solid var(--status-anomaly);
-    color: var(--status-anomaly-text);
+    background: var(--bad-bg);
+    color: var(--bad);
+    animation: pulseWarn 2.5s ease-in-out infinite;
 }
 
-/* 核心数据展示 - 内描边 */
-.core-metric {
-    text-align: center;
-    padding: 16px;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-subtle);
-    box-shadow: inset 0 0 0 1px var(--border-inner);
-}
-
-.core-metric .label {
-    font-size: 10px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-}
-
-/* 数值排版优化 */
-.core-metric .value {
-    font-size: 36px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -1px;
-}
-
-.core-metric .value.anomaly {
-    color: var(--status-anomaly-text);
-}
-
-.core-metric .value.normal {
-    color: var(--status-normal-text);
+@keyframes pulseWarn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
 }
 
 /* ==========================================================================
-   现代化进度条组件 (Track + Fill)
+   度量数字 — 大号、清晰
    ========================================================================== */
-
-.progress-container {
-    margin-top: 12px;
+.core-metric {
+    text-align: center;
+    padding: 22px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--r-md);
+    border: 1px solid var(--sep-subtle);
+    transition:
+        background var(--dur-normal) var(--ease-out),
+        border-color var(--dur-normal) var(--ease-out),
+        transform 0.35s var(--ease-spring);
 }
 
-/* 进度条轨道 */
+.core-metric:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--sep-default);
+    transform: translateY(-1px);
+}
+
+.core-metric .label {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+}
+
+.core-metric .value {
+    font-family: var(--font-mono);
+    font-size: 42px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    transition: color var(--dur-normal) var(--ease-out);
+}
+
+.core-metric .value.anomaly { color: var(--bad); }
+.core-metric .value.normal  { color: var(--ok); }
+
+/* ==========================================================================
+   进度条 — 流畅伸缩
+   ========================================================================== */
+.progress-container { margin-top: 14px; }
+
 .progress-bar-mini {
-    height: 8px;
+    height: 4px;
     background: rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
+    border-radius: 2px;
+    overflow: visible;
 }
-
-/* 进度条填充 - 圆角 + 渐变 + 动画 */
 
 .progress-fill {
     height: 100%;
-    border-radius: 4px;
-    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+    border-radius: 2px;
+    transition: width 0.7s var(--ease-out-expo);
 }
 
 .progress-fill::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
     right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-    transform: translateX(-100%);
-    animation: shimmer 2s infinite;
+    top: 50%;
+    transform: translate(50%, -50%);
+    width: 7px;
+    height: 7px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+    transition: box-shadow var(--dur-normal) var(--ease-out);
 }
 
-@keyframes shimmer {
-    100% { transform: translateX(100%); }
-}
-
-.progress-fill.anomaly {
-    background: linear-gradient(90deg, #991b1b, #dc2626);
-}
-
-.progress-fill.normal {
-    background: linear-gradient(90deg, #065f46, #10b981);
-}
-
-.progress-fill.confidence {
-    background: linear-gradient(90deg, var(--accent-subtle), var(--accent-primary));
-}
+.progress-fill.anomaly { background: var(--bad); }
+.progress-fill.normal  { background: var(--ok); }
 
 .threshold-line {
     position: relative;
-    height: 16px;
-    margin-top: 6px;
+    height: 18px;
+    margin-top: 4px;
 }
 
 .threshold-marker {
     position: absolute;
-    width: 2px;
+    width: 1px;
     height: 100%;
-    background: rgba(255, 255, 255, 0.3);
-    left: 50%;
+    background: var(--text-tertiary);
+    --marker-left: 50%;
+    left: var(--marker-left);
+}
+
+.threshold-marker::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    background: var(--text-tertiary);
+    border-radius: 50%;
 }
 
 .threshold-label {
     position: absolute;
-    font-size: 9px;
-    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
     top: -16px;
     transform: translateX(-50%);
+    white-space: nowrap;
 }
 
+/* ==========================================================================
+   热力图图例
+   ========================================================================== */
 .heatmap-legend {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
+    padding: 14px 10px;
+    background: var(--bg-system);
+    border-radius: var(--r-md);
+    border: 1px solid var(--sep-subtle);
     height: 100%;
+    transition: border-color var(--dur-fast) var(--ease-out);
 }
 
+.heatmap-legend:hover { border-color: var(--sep-default); }
+
 .heatmap-legend-bar {
-    width: 14px;
+    width: 8px;
     height: 200px;
-    background: linear-gradient(to bottom, #4a3030 0%, #6b4040 15%, #8b5050 30%, #a06060 45%, #b08080 60%, #9090a0 75%, #6060a0 100%);
-    border-radius: 2px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(
+        to bottom,
+        #ff3b30 0%,
+        #ff6b3d 20%,
+        #ff9f0a 40%,
+        #ffd60a 60%,
+        #30d158 80%,
+        #0a84ff 100%
+    );
+    border-radius: 4px;
 }
 
 .heatmap-legend-labels {
@@ -408,162 +670,297 @@ button.primary:active {
     flex-direction: column;
     justify-content: space-between;
     height: 200px;
-    margin-left: 6px;
+    margin-left: 8px;
+    font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 
-.footer-section {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+/* ==========================================================================
+   图片展示区
+   ========================================================================== */
+.image-display {
+    border-radius: var(--r-md) !important;
+    overflow: hidden;
+    border: 1px solid var(--sep-subtle) !important;
+    transition: border-color var(--dur-fast) var(--ease-out) !important;
+}
+
+.image-display:hover { border-color: var(--sep-default) !important; }
+
+.image-display img { border-radius: var(--r-md) !important; }
+
+.image-label {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 10px 0 4px;
+    letter-spacing: 0;
+}
+
+/* ==========================================================================
+   对比模式 — 悬停浮起
+   ========================================================================== */
+.compare-result-card {
+    background: var(--bg-system);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-md);
     padding: 16px;
-    margin-top: 20px;
-    box-shadow: inset 0 0 0 1px var(--border-inner);
+    min-height: 60px;
+    margin-top: 8px;
+    transition:
+        border-color var(--dur-fast) var(--ease-out),
+        transform 0.35s var(--ease-spring),
+        box-shadow 0.35s var(--ease-out);
+}
+
+.compare-result-card:hover {
+    border-color: var(--sep-default);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.compare-btn {
+    font-family: var(--font-body) !important;
+    background: var(--bg-system) !important;
+    border: 1px solid var(--sep-default) !important;
+    color: var(--accent) !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    padding: 12px 30px !important;
+    border-radius: 100px !important;
+    letter-spacing: -0.01em !important;
+    transition:
+        all var(--dur-fast) var(--ease-out),
+        transform 0.35s var(--ease-spring) !important;
+}
+
+.compare-btn:hover {
+    border-color: var(--accent) !important;
+    background: var(--accent-dim) !important;
+    transform: scale(1.02);
+    box-shadow: 0 0 16px var(--accent-glow) !important;
+}
+
+.compare-btn:active {
+    transform: scale(0.95) !important;
+}
+
+/* ==========================================================================
+   底部说明区 — 玻璃面板
+   ========================================================================== */
+.footer-section {
+    background: var(--bg-system);
+    backdrop-filter: blur(20px) saturate(120%);
+    -webkit-backdrop-filter: blur(20px) saturate(120%);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-lg);
+    padding: 28px 32px;
+    margin-top: 48px;
+    transition:
+        border-color var(--dur-normal) var(--ease-out),
+        box-shadow var(--dur-normal) var(--ease-out);
+}
+
+.footer-section:hover {
+    border-color: var(--sep-default);
+    box-shadow: var(--shadow-md);
 }
 
 .footer-title {
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    color: var(--text-primary) !important;
-    margin-bottom: 12px !important;
-    padding-bottom: 8px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--sep-subtle);
 }
 
 .footer-content {
     display: flex;
-    gap: 32px;
+    gap: 56px;
     flex-wrap: wrap;
 }
 
-.footer-item {
-    flex: 1;
-    min-width: 180px;
-}
+.footer-item { flex: 1; min-width: 180px; }
 
 .footer-item h5 {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin: 0 0 6px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 8px 0;
+    letter-spacing: -0.01em;
 }
 
 .footer-item p, .footer-item ul {
-    font-size: 11px;
-    color: var(--text-muted);
-    line-height: 1.6;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
     margin: 0;
 }
 
-.footer-item ul {
-    padding-left: 14px;
+.footer-item ul { padding-left: 18px; }
+.footer-item ul li { margin-bottom: 3px; }
+
+/* ==========================================================================
+   Accordion — 展开面板
+   ========================================================================== */
+.accordion {
+    background: var(--bg-system) !important;
+    border: 1px solid var(--sep-subtle) !important;
+    border-radius: var(--r-lg) !important;
+    transition:
+        border-color var(--dur-normal) var(--ease-out),
+        box-shadow var(--dur-normal) var(--ease-out) !important;
 }
 
-.status-panel {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    min-height: 48px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: inset 0 0 0 1px var(--border-inner);
+.accordion:hover {
+    border-color: var(--sep-default) !important;
 }
 
-.loading-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-top-color: var(--accent-primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.image-display {
-    border-radius: var(--radius-sm) !important;
-    overflow: hidden;
-}
-
-.image-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 8px 0;
-}
-
-table {
-    background: transparent !important;
-    border: none !important;
-}
-
-th, td {
-    background: transparent !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+.accordion > .label-wrap {
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
     color: var(--text-secondary) !important;
-    font-size: 12px !important;
+    transition: color var(--dur-fast) var(--ease-out) !important;
 }
 
-th {
-    color: var(--text-muted) !important;
-    text-transform: uppercase;
-    font-size: 10px !important;
-    letter-spacing: 0.5px !important;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-in {
-    animation: fadeIn 0.3s ease;
+.accordion:hover > .label-wrap {
+    color: var(--text) !important;
 }
 
 /* ==========================================================================
-   模型对比区域样式
+   表格
    ========================================================================== */
+table { background: transparent !important; border: none !important; }
 
-.compare-result-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    min-height: 60px;
-    box-shadow: inset 0 0 0 1px var(--border-inner);
-    margin-top: 8px;
+th, td {
+    background: transparent !important;
+    border-bottom: 1px solid var(--sep-subtle) !important;
+    color: var(--text-secondary) !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
 }
 
-.compare-result-card:hover {
-    border-color: var(--accent-primary);
-    transition: border-color 0.2s ease;
+th {
+    font-family: var(--font-body) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: var(--text-tertiary) !important;
+    letter-spacing: 0.04em !important;
 }
 
-.compare-btn {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover)) !important;
-    border: none !important;
-    color: #fff !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    padding: 14px 28px !important;
-    border-radius: var(--radius-md) !important;
-    letter-spacing: 0.5px !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 2px 8px rgba(30, 64, 175, 0.3) !important;
+/* ==========================================================================
+   Gradio 系统覆写
+   ========================================================================== */
+label {
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: var(--text) !important;
+    letter-spacing: -0.01em !important;
 }
 
-.compare-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(30, 64, 175, 0.5) !important;
+label span {
+    font-weight: 400 !important;
+    color: var(--text-secondary) !important;
 }
 
-.compare-btn:active {
-    transform: translateY(0);
+/* ── 键盘聚焦环 ── */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="tab"]:focus-visible,
+[role="listbox"]:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* ── 滚动条 — 极细 ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+/* ── 选中文字 ── */
+::selection {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
+/* ==========================================================================
+   下拉框弹出层 — 玻璃面板
+   ========================================================================== */
+ul[role="listbox"],
+ul.options,
+.dropdown-options,
+[class*="dropdown-options"] {
+    background: var(--bg-secondary) !important;
+    backdrop-filter: blur(24px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+    border: 1px solid var(--sep-default) !important;
+    border-radius: var(--r-sm) !important;
+    box-shadow: var(--shadow-lg) !important;
+    animation: dropdownReveal 0.2s var(--ease-out);
+}
+
+@keyframes dropdownReveal {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+ul[role="listbox"] li,
+ul.options li,
+[role="option"] {
+    color: var(--text) !important;
+    background: transparent !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    padding: 10px 16px !important;
+    transition: background var(--dur-instant) var(--ease-out) !important;
+}
+
+ul[role="listbox"] li:hover,
+[role="option"]:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: var(--text) !important;
+}
+
+ul[role="listbox"] li[aria-selected="true"],
+[role="option"][aria-selected="true"] {
+    background: var(--accent-dim) !important;
+    color: var(--accent) !important;
+    font-weight: 500 !important;
+}
+
+input[role="listbox"] {
+    color: var(--text) !important;
+    background: var(--bg-system) !important;
+    border: 1px solid var(--sep-default) !important;
+    border-radius: var(--r-sm) !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    padding: 9px 14px !important;
+    caret-color: var(--accent) !important;
+}
+
+input[role="listbox"]:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 4px var(--accent-dim) !important;
+}
+
+.gradio-dropdown button,
+button[aria-label*="dropdown"] {
+    color: var(--text-secondary) !important;
 }

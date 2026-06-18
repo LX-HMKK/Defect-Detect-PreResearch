@@ -387,43 +387,37 @@ class AnomalyDetector:
         return overlay
     
     def _format_result(self, score: float, label: int) -> str:
-        """格式化结果文本 - 工业仪表盘风格"""
+        """格式化结果 — Apple 极简面板"""
         model_config = MODEL_CONFIGS[self.current_model]
-        
-        # 从配置系统读取最优阈值（优先从训练结果，其次配置文件默认值）
+
         dataset = self.current_dataset or "bottle"
         threshold = get_threshold(self.current_model, dataset)
-        
-        # 根据阈值判断是否为异常
+
         is_anomaly = score > threshold
         confidence = score if is_anomaly else 1 - score
         score_width = float(np.clip(score, 0.0, 1.0) * 100)
         threshold_width = float(np.clip(threshold, 0.0, 1.0) * 100)
         confidence_display = float(np.clip(confidence, 0.0, 1.0))
         confidence_width = confidence_display * 100
-        
-        # 莫兰迪色系
-        status_normal = "var(--status-normal-text)"
-        status_anomaly = "var(--status-anomaly-text)"
-        status_color = status_anomaly if is_anomaly else status_normal
-        
+
+        status_color = "var(--bad)" if is_anomaly else "var(--ok)"
+        status_bg = "var(--bad-bg)" if is_anomaly else "var(--ok-bg)"
+        status_label = "异常" if is_anomaly else "正常"
+        operator = ">" if is_anomaly else "<"
+
         return f"""
 <div class="result-card fade-in">
-    <!-- 状态标题 -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <!-- 标题 + 状态 -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
         <div>
-            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">检测算法</div>
-            <div style="font-size: 18px; font-weight: 600; color: var(--accent-primary);">{model_config.name}</div>
+            <div style="font-size:12px;font-weight:500;color:var(--text-tertiary);letter-spacing:0.02em;margin-bottom:4px;">检测模型</div>
+            <div style="font-size:20px;font-weight:600;color:var(--text);letter-spacing:-0.01em;">{model_config.name}</div>
         </div>
-        <div class="status-badge {'anomaly' if is_anomaly else 'normal'}">
-            <span>{'⚠' if is_anomaly else '✓'}</span>
-            <span>{'异常' if is_anomaly else '正常'}</span>
-        </div>
+        <div class="status-badge {'anomaly' if is_anomaly else 'normal'}">{status_label}</div>
     </div>
-    
-    <!-- 核心数据展示 -->
+
+    <!-- 双列数字 -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-        <!-- 异常得分 -->
         <div class="core-metric">
             <div class="label">异常得分</div>
             <div class="value {'anomaly' if is_anomaly else 'normal'}">{score:.4f}</div>
@@ -431,31 +425,31 @@ class AnomalyDetector:
                 <div class="progress-bar-mini">
                     <div class="progress-fill {'anomaly' if is_anomaly else 'normal'}" style="width: {score_width}%;"></div>
                 </div>
-                    <div class="threshold-line">
+                <div class="threshold-line">
                     <div class="threshold-marker" style="left: {threshold_width}%;"></div>
-                    <div class="threshold-label" style="left: {threshold_width}%;">{threshold}</div>
+                    <div class="threshold-label" style="left: {threshold_width}%;">τ {threshold:.3f}</div>
                 </div>
             </div>
         </div>
-        
-        <!-- 置信度 -->
         <div class="core-metric">
             <div class="label">置信度</div>
-            <div class="value" style="color: var(--accent-primary);">{confidence_display:.1%}</div>
+            <div class="value" style="color: var(--accent);">{confidence_display:.1%}</div>
             <div class="progress-container">
                 <div class="progress-bar-mini">
-                    <div class="progress-fill" style="width: {confidence_width}%; background: linear-gradient(90deg, var(--accent-subtle), var(--accent-primary));"></div>
+                    <div class="progress-fill" style="width: {confidence_width}%; background: var(--accent);"></div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- 结果解读 -->
-    <div style="background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: 16px; border-left: 2px solid {status_color};">
-        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">结果解读</div>
-            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
-            <div>得分 <b style="color: {status_color};">{score:.4f}</b> {'>' if is_anomaly else '<'} 阈值 <b>{threshold}</b>，判定为 <b style="color: {status_color};">{'异常' if is_anomaly else '正常'}</b></div>
-            <div style="margin-top: 8px; color: var(--text-muted);">热力图中偏红区域表示异常概率较高</div>
+
+    <!-- 判决 -->
+    <div style="background: {status_bg}; border-radius: var(--r-md); padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px;">
+        <div style="font-size:18px;color:{status_color};line-height:1;">{'●' if is_anomaly else '●'}</div>
+        <div>
+            <div style="font-size:11px;font-weight:500;color:var(--text-tertiary);margin-bottom:4px;letter-spacing:0.02em;">判决</div>
+            <div style="font-size:14px;color:var(--text-secondary);line-height:1.6;">
+                得分 <b style="color:{status_color};">{score:.4f}</b> {operator} 阈值 <b>τ = {threshold:.3f}</b> → <b style="color:{status_color};">{status_label}</b>
+            </div>
         </div>
     </div>
 </div>
@@ -579,15 +573,68 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         """
     
     with gr.Blocks(css=css, title="工业异常检测系统") as demo:
-        
+
+        # ═══════════════════════════════════════════════════════════
+        # 亮色模式 — 通过 <style> 标签注入，绕过 Gradio CSS 作用域
+        # Gradio 6 会对 css= 参数做选择器作用域处理，导致 @media 内
+        # 的 :root 被变成 .contain :root 无法匹配文档根。gr.HTML 中
+        # 的 <style> 不会被作用域处理，可以正确设置亮色变量。
+        # ═══════════════════════════════════════════════════════════
+        gr.HTML("""
+        <style>
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-root: #f0f0f0;
+                --bg-system: #ffffff;
+                --bg-secondary: #f5f5f7;
+                --bg-tertiary: #e8e8ed;
+
+                --sep-subtle: rgba(0, 0, 0, 0.06);
+                --sep-default: rgba(0, 0, 0, 0.10);
+                --sep-strong: rgba(0, 0, 0, 0.16);
+
+                --text: rgba(0, 0, 0, 0.88);
+                --text-secondary: rgba(0, 0, 0, 0.55);
+                --text-tertiary: rgba(0, 0, 0, 0.30);
+
+                --shadow-sm:
+                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+                    0 1px 4px rgba(0, 0, 0, 0.06);
+                --shadow-md:
+                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+                    0 1px 4px rgba(0, 0, 0, 0.06),
+                    0 8px 24px rgba(0, 0, 0, 0.08);
+                --shadow-lg:
+                    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+                    0 4px 12px rgba(0, 0, 0, 0.08),
+                    0 16px 40px rgba(0, 0, 0, 0.12);
+                --shadow-glow:
+                    0 0 0 0.5px rgba(0, 0, 0, 0.04),
+                    0 2px 8px rgba(0, 0, 0, 0.08),
+                    0 0 32px rgba(41, 151, 255, 0.20);
+
+                --body-background-fill: var(--bg-root);
+                --background-fill-primary: var(--bg-system);
+                --background-fill-secondary: var(--bg-secondary);
+                --border-color-primary: var(--sep-subtle);
+                --input-background-fill: var(--bg-secondary);
+            }
+            body::before {
+                background: radial-gradient(ellipse, rgba(41, 151, 255, 0.02) 0%, transparent 70%);
+            }
+        }
+        </style>
+        """)
+
         # ==================== 标题区域 ====================
         gr.Markdown("""
-        <div class="title">工业图像异常检测系统</div>
-        <div class="subtitle">基于 anomalib 2.x 的无监督异常检测 | 实时推理 | 精准定位</div>
+        <div class="reveal reveal-1" style="padding: 48px 0 8px 0;">
+            <div class="title">缺陷检测</div>
+            <div class="subtitle">无监督异常检测系统 · Anomalib 2.3</div>
+        </div>
         """)
-        
+
         # 数据集选择
-        gr.Markdown("### 选择数据集")
         dataset_dropdown = gr.Dropdown(
             choices=get_available_datasets(),
             value=default_dataset,
@@ -595,33 +642,33 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         )
         
         # ==================== 算法选择 Tabs ====================
-        with gr.Tabs() as tabs:
+        with gr.Tabs(elem_classes=["reveal", "reveal-2"]) as tabs:
             with gr.Tab("PatchCore", elem_classes=["algorithm-tab"]) as tab_patchcore:
                 gr.HTML("""
                 <div class="algo-card">
-                    <h4 class="recommended">PatchCore — 特征建模法</h4>
-                    <p>使用预训练CNN提取局部特征，构建记忆库存储正常样本特征。测试时通过计算测试样本特征与记忆库的最近邻距离来判断异常。无需训练，推理速度最快，工业界最佳方案。</p>
+                    <h4 class="recommended">PatchCore <span style="font-weight:400;font-size:13px;color:var(--text-tertiary);">— 特征建模</span></h4>
+                    <p>CNN 提取局部特征 → 记忆库存储正常样本 → 最近邻距离判别。零训练、推理最快、工业首选。</p>
                 </div>
                 """)
             with gr.Tab("FRE", elem_classes=["algorithm-tab"]) as tab_fre:
                 gr.HTML("""
                 <div class="algo-card">
-                    <h4>FRE — 特征重构法</h4>
-                    <p>使用预训练ResNet提取特征，通过线性自编码器重构特征。重构误差即异常分数。效果优秀，适合需要解释性的场景。</p>
+                    <h4>FRE <span style="font-weight:400;font-size:13px;color:var(--text-tertiary);">— 特征重构</span></h4>
+                    <p>ResNet50 提取特征 → 自编码器重构 → 重构误差定位异常。高解释性，适合质量追溯。</p>
                 </div>
                 """)
             with gr.Tab("DRAEM", elem_classes=["algorithm-tab"]) as tab_draem:
                 gr.HTML("""
                 <div class="algo-card">
-                    <h4>DRAEM — 自监督学习</h4>
-                    <p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>
+                    <h4>DRAEM <span style="font-weight:400;font-size:13px;color:var(--text-tertiary);">— 自监督判别</span></h4>
+                    <p>数据增强合成缺陷 → 训练判别网络。无需真实异常样本，微小缺陷检测灵敏。</p>
                 </div>
                 """)
             with gr.Tab("PaDiM", elem_classes=["algorithm-tab"]) as tab_padim:
                 gr.HTML("""
                 <div class="algo-card">
-                    <h4>PaDiM — 特征概率建模</h4>
-                    <p>对每个 patch 位置建立多元高斯分布，通过马氏距离度量异常程度。与 PatchCore 同属特征建模类，使用概率建模替代记忆库检索。</p>
+                    <h4>PaDiM <span style="font-weight:400;font-size:13px;color:var(--text-tertiary);">— 概率建模</span></h4>
+                    <p>Patch 级高斯分布 → 马氏距离度量偏离。与 PatchCore 互补，内存小、速度快。</p>
                 </div>
                 """)
         
@@ -629,7 +676,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         current_algo = gr.State(value="patchcore")
         
         # ==================== 主体区域 ====================
-        with gr.Row():
+        with gr.Row(elem_classes=["reveal", "reveal-3"]):
             
             # -------- 左侧：控制面板 --------
             with gr.Column(scale=1, min_width=300):
@@ -664,16 +711,13 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                         
                         # 模型加载状态 - 带动态效果
                         load_status = gr.HTML(
-                            value='''<div class="status-panel">
-                                <div class="loading-spinner"></div>
-                                <div style="color: #666; font-size: 12px; margin-top: 8px;">等待上传图片</div>
-                            </div>''',
+                            value='<div class="status-panel"><div class="loading-spinner" style="opacity:0.3;"></div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-tertiary);margin-top:10px;">等待上传图片</div></div>',
                             scale=2
                         )
             
             # -------- 右侧：结果展示 --------
             with gr.Column(scale=2, min_width=500):
-                gr.Markdown("### 检测结果", elem_classes=["panel-title"])
+                gr.Markdown("## 检测结果", elem_classes=["panel-title"])
                 
                 # 图片展示区 + 热力图比例尺
                 with gr.Row():
@@ -699,14 +743,15 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                     with gr.Column(scale=0):
                         gr.HTML("""
                         <div class="heatmap-legend">
-                            <div style="font-size: 10px; color: #666; text-align: center; margin-bottom: 8px;">异常度</div>
+                            <div style="font-family:var(--font-body);font-size:11px;font-weight:500;color:var(--text-tertiary);margin-bottom:8px;letter-spacing:0.02em;">得分</div>
                             <div style="display: flex; flex-direction: row; height: 260px; align-items: stretch;">
                                 <div class="heatmap-legend-bar"></div>
                                 <div class="heatmap-legend-labels">
                                     <span>1.0</span>
-                                    <span>0.75</span>
-                                    <span>0.50</span>
-                                    <span>0.25</span>
+                                    <span>0.8</span>
+                                    <span>0.6</span>
+                                    <span>0.4</span>
+                                    <span>0.2</span>
                                     <span>0.0</span>
                                 </div>
                             </div>
@@ -715,59 +760,59 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                 
                 # 结果数据展示区
                 result_output = gr.HTML(
-                    """<div class="result-card" style="text-align: center; color: #666;">
-                        <div style="padding: 40px;">等待推理...</div>
+                    """<div class="result-card" style="text-align: center; padding: 48px 28px;">
+                        <div style="font-family:var(--font-body);font-size:15px;color:var(--text-tertiary);">等待推理…</div>
                     </div>"""
                 )
         
         # ==================== 模型对比区域 ====================
-        gr.Markdown("### 四模型对比", elem_classes=["panel-title"])
+        gr.Markdown("## 四模型对比", elem_classes=["panel-title", "reveal", "reveal-4"])
         with gr.Accordion("展开对比模式 — 一键运行四种算法，并排展示检测效果", open=False):
-            compare_button = gr.Button("🚀 四种算法同时推理", variant="primary", size="lg", elem_classes=["compare-btn"])
+            compare_button = gr.Button("四种算法同时推理", variant="primary", size="lg", elem_classes=["compare-btn"])
 
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown("**PatchCore**  <small style='color:#34d399'>特征建模·首选</small>", elem_classes=["image-label"])
+                    gr.Markdown("**PatchCore**  <small style='color:var(--ok);font-weight:400;font-size:11px;'>特征建模·首选</small>", elem_classes=["image-label"])
                     compare_orig_pc = gr.Image(type="numpy", label="原图", height=200)
                     compare_heat_pc = gr.Image(type="numpy", label="热力图", height=200)
-                    compare_result_pc = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                    compare_result_pc = gr.HTML("""<div class="compare-result-card"><div style="font-size:13px;color:var(--text-tertiary);text-align:center;padding:12px;">等待推理…</div></div>""")
                 with gr.Column():
-                    gr.Markdown("**PaDiM**  <small style='color:#60a5fa'>概率建模·对照</small>", elem_classes=["image-label"])
+                    gr.Markdown("**PaDiM**  <small style='color:var(--accent);font-weight:400;font-size:11px;'>概率建模·对照</small>", elem_classes=["image-label"])
                     compare_orig_padim = gr.Image(type="numpy", label="原图", height=200)
                     compare_heat_padim = gr.Image(type="numpy", label="热力图", height=200)
-                    compare_result_padim = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                    compare_result_padim = gr.HTML("""<div class="compare-result-card"><div style="font-size:13px;color:var(--text-tertiary);text-align:center;padding:12px;">等待推理…</div></div>""")
             with gr.Row():
                 with gr.Column():
-                    gr.Markdown("**FRE**  <small style='color:#fbbf24'>重构法·备选</small>", elem_classes=["image-label"])
+                    gr.Markdown("**FRE**  <small style='color:var(--warn);font-weight:400;font-size:11px;'>重构法·备选</small>", elem_classes=["image-label"])
                     compare_orig_fre = gr.Image(type="numpy", label="原图", height=200)
                     compare_heat_fre = gr.Image(type="numpy", label="热力图", height=200)
-                    compare_result_fre = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                    compare_result_fre = gr.HTML("""<div class="compare-result-card"><div style="font-size:13px;color:var(--text-tertiary);text-align:center;padding:12px;">等待推理…</div></div>""")
                 with gr.Column():
-                    gr.Markdown("**DRAEM**  <small style='color:#f87171'>自监督·备选</small>", elem_classes=["image-label"])
+                    gr.Markdown("**DRAEM**  <small style='color:var(--bad);font-weight:400;font-size:11px;'>自监督·备选</small>", elem_classes=["image-label"])
                     compare_orig_draem = gr.Image(type="numpy", label="原图", height=200)
                     compare_heat_draem = gr.Image(type="numpy", label="热力图", height=200)
-                    compare_result_draem = gr.HTML("""<div class="compare-result-card"><div style="color:var(--text-muted);text-align:center;padding:10px;">等待推理...</div></div>""")
+                    compare_result_draem = gr.HTML("""<div class="compare-result-card"><div style="font-size:13px;color:var(--text-tertiary);text-align:center;padding:12px;">等待推理…</div></div>""")
 
         # ==================== 底部说明 ====================
         gr.Markdown("""
-        <div class="footer-section">
+        <div class="footer-section reveal reveal-5">
             <div class="footer-title">使用说明</div>
             <div class="footer-content">
                 <div class="footer-item">
                     <h5>单模型推理</h5>
                     <ul>
-                        <li>选择算法（顶部Tabs或下拉菜单）</li>
+                        <li>选择算法（顶部标签页或下拉菜单）</li>
                         <li>上传待检测图片</li>
-                        <li>点击推理按钮查看结果</li>
+                        <li>点击「开始推理」查看结果</li>
                     </ul>
                 </div>
                 <div class="footer-item">
                     <h5>四模型对比</h5>
-                    <p>展开下方「对比模式」区域，一键运行四种算法并排展示检测效果，直观对比各算法优劣。</p>
+                    <p>展开「对比模式」，一键运行四种算法并排展示检测效果，直观对比各算法优劣。</p>
                 </div>
                 <div class="footer-item">
                     <h5>热力图解读</h5>
-                    <p>颜色越偏红表示异常概率越高。右侧比例尺显示异常度范围（0-1）。</p>
+                    <p>颜色偏红 = 异常置信度高。右侧比例尺标注异常得分范围。</p>
                 </div>
             </div>
         </div>
@@ -776,41 +821,22 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         # ==================== 事件绑定 ====================
         
         def format_status(message, is_loading=False):
-            """格式化状态消息为HTML - 工业暗色风格"""
+            """格式化状态消息 — Apple 极简状态指示"""
             if is_loading:
-                return f'''<div class="status-panel">
-                    <div class="loading-spinner"></div>
-                    <div style="color: var(--accent-primary); font-size: 12px; margin-top: 8px;">{message}</div>
-                </div>'''
+                return f'<div class="status-panel"><div class="loading-spinner"></div><div style="font-family:var(--font-body);font-size:14px;color:var(--accent);margin-top:10px;">{message}</div></div>'
             elif "[OK]" in message or "成功" in message or "完成" in message:
-                return f'''<div class="status-panel" style="background: rgba(45, 106, 79, 0.15); border-color: var(--status-normal);">
-                    <div style="color: var(--status-normal-text); font-size: 12px;">{message.replace("[OK]", "").strip()}</div>
-                </div>'''
+                return f'<div class="status-panel" style="background:var(--ok-bg);"><div style="font-size:14px;color:var(--ok);">{message.replace("[OK]", "").strip()}</div></div>'
             elif "[FAIL]" in message or "失败" in message or "错误" in message:
-                return f'''<div class="status-panel" style="background: rgba(155, 34, 38, 0.15); border-color: var(--status-anomaly);">
-                    <div style="color: var(--status-anomaly-text); font-size: 12px;">{message.replace("[FAIL]", "").strip()}</div>
-                </div>'''
+                return f'<div class="status-panel" style="background:var(--bad-bg);"><div style="font-size:14px;color:var(--bad);">{message.replace("[FAIL]", "").strip()}</div></div>'
             elif "[WARN]" in message or "警告" in message or "请先" in message:
-                return f'''<div class="status-panel" style="background: rgba(184, 134, 11, 0.15); border-color: var(--status-warning);">
-                    <div style="color: var(--status-warning-text); font-size: 12px;">{message.replace("[WARN]", "").strip()}</div>
-                </div>'''
+                return f'<div class="status-panel" style="background:var(--warn-bg);"><div style="font-size:14px;color:var(--warn);">{message.replace("[WARN]", "").strip()}</div></div>'
             else:
-                return f'''<div class="status-panel">
-                    <div class="loading-spinner" style="opacity: 0.3;"></div>
-                    <div style="color: #666; font-size: 12px; margin-top: 8px;">{message}</div>
-                </div>'''
+                return f'<div class="status-panel"><div class="loading-spinner" style="opacity:0.3;"></div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-tertiary);margin-top:10px;">{message}</div></div>'
         
         def on_model_change(model_key, dataset):
             """算法切换事件"""
             config = MODEL_CONFIGS[model_key]
-            
-            algo_descriptions = {
-                'patchcore': '<h4 class="recommended">PatchCore — 特征建模法</h4><p>使用预训练CNN提取局部特征，构建记忆库存储正常样本特征。测试时通过计算测试样本特征与记忆库的最近邻距离来判断异常。无需训练，推理速度最快，工业界最佳方案。</p>',
-                'fre': '<h4>FRE — 特征重构法</h4><p>使用预训练ResNet提取特征，通过线性自编码器重构特征。重构误差即异常分数。效果优秀，适合需要解释性的场景。</p>',
-                'draem': '<h4>DRAEM — 自监督学习</h4><p>通过数据增强合成异常样本，训练判别网络区分正常和异常区域。无需真实异常样本，对小缺陷检测效果好。</p>',
-                'padim': '<h4>PaDiM — 特征概率建模</h4><p>对每个 patch 建立多元高斯分布，通过马氏距离度量异常。与 PatchCore 同属特征建模类，概率建模内存占用更小。</p>'
-            }
-            
+
             yield format_status(f"正在加载 {config.name}...", is_loading=True)
             success, message = detector.load_model(model_key, dataset)
             yield format_status(message)
@@ -818,12 +844,12 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         def on_run_click(model_key, dataset, image):
             """推理按钮点击事件"""
             if image is None:
-                return None, None, "<div class='result-card' style='text-align: center; color: #666;'><div style='padding: 40px;'>请先上传图片</div></div>", format_status("请先上传测试图片")
+                return None, None, "<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:15px;color:var(--text-tertiary);'>请先上传图片</div></div>", format_status("请先上传测试图片")
             
             # 确保模型已加载
             success, message = detector.load_model(model_key, dataset)
             if not success:
-                return image, image, f"<div class='result-card' style='color: var(--status-anomaly-text); padding: 20px;'>{message}</div>", format_status(message)
+                return image, image, f"<div class='result-card' style='text-align:center;padding:48px 28px;'><div style='font-size:14px;color:var(--bad);'>{message}</div></div>", format_status(message)
             
             # 执行推理
             original, heatmap, result = detector.predict(image)
@@ -838,7 +864,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         def on_compare_click(dataset, image):
             """四模型对比 — 一键运行全部4种算法"""
             if image is None:
-                empty = '<div class="compare-result-card"><div style="color:var(--status-anomaly-text);text-align:center;padding:10px;">请先上传图片</div></div>'
+                empty = '<div class="compare-result-card"><div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">请先上传图片</div></div>'
                 nope = [image, image, empty] * 4
                 return tuple(nope)
 
@@ -851,7 +877,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                     results.extend([orig, heat, result_text])
                 else:
                     results.extend([image, image,
-                        f'<div class="compare-result-card"><div style="color:var(--status-anomaly-text);text-align:center;padding:10px;">{m}: {msg}</div></div>'])
+                        f'<div class="compare-result-card"><div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">{m}: {msg}</div></div>'])
             return tuple(results)
 
         # 绑定Tab选择事件 - 更新current_algo
@@ -893,7 +919,7 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                      compare_orig_fre, compare_heat_fre, compare_result_fre,
                      compare_orig_draem, compare_heat_draem, compare_result_draem]
         )
-    
+
     return demo
 
 

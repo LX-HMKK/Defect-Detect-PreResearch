@@ -98,14 +98,21 @@ modules/
   data_processing/dataset_formatter.py  # MVTecFormatter：原始数据 → MVTec AD 结构
   evaluation/metrics.py        # MetricsEvaluator（从零实现 AUROC/AUPR/PRO）
   evaluation/post_processor.py # AnomalyMapProcessor: 异常热力图后处理（7 种配方）
-  ui/demo.py                   # Gradio UI：AnomalyDetector + create_interface
+  ui/
+    demo.py                   # Gradio UI：AnomalyDetector + create_interface
+    styles.css                # Apple 风格设计系统（亮/暗双模式，800+ 行）
+    theme.py                  # 主题管理器：色板定义 + CSS 生成 + 切换按钮 + Favicon
+    static/theme.js           # 主题切换交互（localStorage + data-theme）
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
 tests/                          # 测试套件（config 单例、metrics 指标、trainer 烟雾测试）
 tools/                          # 分析工具（小样本/消融/基准/混淆矩阵/数据验证/统计/报告/后处理）
 results/                        # 训练结果
-docs/                           # 演示材料 (讲稿.html/md)
+docs/
+  # 演示材料 (讲稿.html/md)、需求/任务书
+  superpowers/specs/            # 设计规范（Apple UI 设计规范、Phase 1 前端增强）
+  superpowers/plans/            # 实现计划
 .cache/                         # 运行时缓存 (pycache, logs, pretrained)
 ```
 
@@ -130,6 +137,10 @@ docs/                           # 演示材料 (讲稿.html/md)
 - **`AnomalyMapProcessor`** (`modules/evaluation/post_processor.py`) — 异常热力图后处理管线。提供 4 种基础算子（高斯滤波/中值滤波/形态学开闭/双线性上采样）及 7 种组合配方，通过 `PRESET_CONFIGS` 字典调用。`process_anomaly_maps()` 为批量处理入口。
 
 - **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层，并在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框，与分类阈值无关。
+
+- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）、`get_favicon_svg()`（32×32 菱形图标）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
+
+- **`modules/ui/styles.css`** — Apple 风格设计系统（~850 行）。亮/暗双模式通过 CSS 自定义属性实现，使用 `html[data-theme="light"]` 选择器控制亮色覆盖。包含 12 个组件的完整规范（标题区、标签页、算法卡片、输入控件、按钮、状态面板、结果卡片、度量数字、进度条、热力图图例、对比模式、底部说明），以及交错入场动画（`.reveal-1` ~ `.reveal-6`）、磨砂玻璃效果（`backdrop-filter: blur(20px)`）、弹簧缓动（`cubic-bezier(0.22,0.8,0.3,1.15)`）。设计规范详见 `docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md`。
 
 ### 数据流
 
@@ -310,6 +321,16 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 
 UI 模块 (`modules/ui/demo.py`) 使用 `inbrowser=True` 自动打开浏览器。使用 `python scripts/run_ui.py` 启动（该脚本仅一行：导入并调用 `demo.main()`）。UI 不预加载模型——模型在首次使用时按需加载。对比模式一键运行四种算法。
 
+**Gradio 6 CSS 作用域问题：** `gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
+
+**亮/暗双模式：** 系统通过 `prefers-color-scheme` 自动检测，并支持手动切换。手动选择存储在 `localStorage.theme`，优先级高于系统设定。CSS 通过 `html[data-theme="light"]` 选择器覆盖变量。切换逻辑在 `modules/ui/static/theme.js`。
+
+**主题开发命令：**
+```bash
+# 独立测试主题模块
+python modules/ui/theme.py    # 输出完整 CSS 到 stdout
+```
+
 ## 相关文件
 
 - [README.md](README.md) — 完整项目文档，含算法对比表、环境搭建
@@ -317,3 +338,6 @@ UI 模块 (`modules/ui/demo.py`) 使用 `inbrowser=True` 自动打开浏览器�
 - [data/DATASET_REGISTRY.md](data/DATASET_REGISTRY.md) — 所有数据集清单、已知问题、defect-type 缩写表
 - [requirements.txt](requirements.txt) — 固定版本依赖清单
 - [configs/config.yaml](configs/config.yaml) — 主配置（所有可调参数集中管理）
+- [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
+- [docs/superpowers/specs/2026-06-18-phase1-frontend-enhancement-design.md](docs/superpowers/specs/2026-06-18-phase1-frontend-enhancement-design.md) — Phase 1 前端增强设计
+- [docs/superpowers/plans/2026-06-18-phase1-implementation-plan.md](docs/superpowers/plans/2026-06-18-phase1-implementation-plan.md) — Phase 1 实现计划

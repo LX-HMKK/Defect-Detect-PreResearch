@@ -43,10 +43,10 @@
     --r-lg: 16px;
     --r-xl: 20px;
 
-    /* ── 字体栈（跨平台 SF 近似）── */
-    --font-display: -apple-system, 'SF Pro Display', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
-    --font-body: -apple-system, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', system-ui, sans-serif;
-    --font-mono: 'SF Mono', 'Cascadia Code', 'Menlo', 'Consolas', monospace;
+    /* ── 字体栈（跨平台 SF 近似 + 中文优先）── */
+    --font-display: 'Inter Variable', -apple-system, 'SF Pro Display', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-body: 'Inter Variable', -apple-system, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Menlo', 'Consolas', 'Courier New', monospace;
 
     /* ── 缓动曲线 ── */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -108,6 +108,9 @@
 html {
     scroll-behavior: smooth;
     transition: color 300ms var(--ease-out);
+    /* ── 字体渲染优化 ── */
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
 }
 html, body {
     background: var(--bg-root) !important;
@@ -115,6 +118,8 @@ html, body {
     font-family: var(--font-body);
     font-size: 15px;
     line-height: 1.47059;
+    font-weight: 400;
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     margin: 0 !important;
@@ -502,6 +507,73 @@ button.primary:active {
     to { transform: rotate(360deg); }
 }
 
+/* ── C2: 进度条 — 不确定型 shimmer 动画 ── */
+.progress-bar {
+    height: 3px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 10px;
+}
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--accent) 50%,
+        transparent 100%
+    );
+    animation: progressSlide 1.4s var(--ease-in-out) infinite;
+    border-radius: 2px;
+}
+@keyframes progressSlide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+}
+
+/* ── V2: 全页加载遮罩 — 首次访问时淡出 ── */
+.page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--bg-root);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: loaderFadeOut 0.5s var(--ease-out-expo) 1.2s forwards;
+    pointer-events: none;
+}
+@keyframes loaderFadeOut {
+    to { opacity: 0; visibility: hidden; }
+}
+.page-loader-core {
+    width: 48px;
+    height: 48px;
+    position: relative;
+}
+.page-loader-core::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid var(--sep-default);
+    border-top-color: var(--accent);
+    animation: spinnerRotate 0.7s linear infinite;
+}
+.page-loader-core::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-dim);
+    border-top-color: transparent;
+    animation: spinnerRotate 0.9s linear infinite reverse;
+}
+
 /* ── 骨架屏 — 模型加载 shimmer 动画 ── */
 .skeleton-card {
     background: var(--bg-system);
@@ -835,6 +907,33 @@ button.primary:active {
     box-shadow: var(--shadow-md);
 }
 
+/* ── 对比模式 — 加载/处理状态 ── */
+.compare-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 16px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+.compare-active .compare-loading {
+    color: var(--accent);
+}
+.compare-active {
+    border-color: var(--accent-dim);
+    box-shadow: var(--shadow-glow);
+}
+.compare-pending .loading-spinner.muted {
+    opacity: 0.2;
+}
+/* 对比完成标记 — 淡入绿色描边 */
+.compare-result-card.compare-done {
+    border-color: var(--ok);
+    transition: border-color 0.5s var(--ease-out-expo);
+}
+
 .compare-btn {
     font-family: var(--font-body) !important;
     background: var(--bg-system) !important;
@@ -920,6 +1019,25 @@ button.primary:active {
 
 .footer-item ul { padding-left: 18px; }
 .footer-item ul li { margin-bottom: 3px; }
+
+/* ── V4: 页脚入场动画 — 从底部滑入 + 淡入 ── */
+@keyframes footerRise {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.footer-item {
+    opacity: 0;
+    animation: footerRise 600ms var(--ease-out-expo) forwards;
+}
+.footer-item:nth-child(1) { animation-delay: 100ms; }
+.footer-item:nth-child(2) { animation-delay: 250ms; }
+.footer-item:nth-child(3) { animation-delay: 400ms; }
 
 /* ==========================================================================
    Accordion — 展开面板

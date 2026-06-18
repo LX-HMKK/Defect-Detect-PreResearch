@@ -10,6 +10,7 @@
 
     var observer = null;
     var initialized = false;
+    var _bboxCleanups = [];  // 事件监听器清理函数列表，防止内存泄漏
 
     // ── 初始化入口 ──────────────────────────────────────
     function initOnce() {
@@ -28,8 +29,12 @@
         // 每次推理结果更新时，anomaly-map-data 会重新出现
         observer = new MutationObserver(function () {
             initialized = false;
+            observer.disconnect();           // 防止自身 DOM 操作触发递归
             cleanupOverlays();
             setTimeout(initOnce, 200);
+            setTimeout(function () {         // 操作完成后重新监听
+                observer.observe(document.body, { childList: true, subtree: true });
+            }, 300);
         });
         observer.observe(document.body, { childList: true, subtree: true });
     }
@@ -167,12 +172,18 @@
             // 延迟更新位置（等图片加载完成）
             updateOverlayPosition(overlay, heatmapImg, x, y, w, h);
 
-            // 图片加载或窗口 resize 时更新位置
-            heatmapImg.addEventListener('load', function () {
+            // 图片加载或窗口 resize 时更新位置（保存引用以便清理）
+            var onLoad = function () {
                 updateOverlayPosition(overlay, heatmapImg, x, y, w, h);
-            });
-            window.addEventListener('resize', function () {
+            };
+            var onResize = function () {
                 updateOverlayPosition(overlay, heatmapImg, x, y, w, h);
+            };
+            heatmapImg.addEventListener('load', onLoad);
+            window.addEventListener('resize', onResize);
+            _bboxCleanups.push(function () {
+                heatmapImg.removeEventListener('load', onLoad);
+                window.removeEventListener('resize', onResize);
             });
         });
     }
@@ -191,6 +202,10 @@
     }
 
     function cleanupOverlays() {
+        // 先移除事件监听器（防止内存泄漏）
+        _bboxCleanups.forEach(function (fn) { fn(); });
+        _bboxCleanups = [];
+        // 再移除 DOM 元素
         document.querySelectorAll('.bbox-overlay').forEach(function (el) { el.remove(); });
     }
 

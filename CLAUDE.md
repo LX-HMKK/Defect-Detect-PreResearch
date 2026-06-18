@@ -137,11 +137,13 @@ docs/
 
 - **`AnomalyMapProcessor`** (`modules/evaluation/post_processor.py`) — 异常热力图后处理管线。提供 4 种基础算子（高斯滤波/中值滤波/形态学开闭/双线性上采样）及 7 种组合配方，通过 `PRESET_CONFIGS` 字典调用。`process_anomaly_maps()` 为批量处理入口。
 
-- **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层与 base64 编码的原始灰度图（供前端 hover 交互），在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框并编码为 JSON 嵌入结果 HTML。`_format_result()` 返回带逐层入场动画（`.reveal-child-*`）的 Apple 风格结果卡片。
+- **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层与 base64 编码的原始灰度图（供前端 hover 交互），在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框并编码为 JSON 嵌入结果 HTML。`_format_result()` 返回带逐层入场动画（`.reveal-child-*`）的 Apple 风格结果卡片。单模型推理 (`on_run_click`) 和四模型对比 (`on_compare_click`) 均使用 generator `yield` 实现流式渐进渲染（骨架屏 → 加载态 → 结果）。页面加载时通过 `gr.Blocks(head=...)` 注入阻塞式反 FOUC 脚本。
 
-- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）`n`n- **`modules/ui/static/inference-interact.js`** — 推理结果交互增强。MutationObserver 监听 DOM 变化，从隐藏的 base64 灰度图读取像素值创建离屏 canvas，在热力图 `<img>` 上 mousemove 显示 tooltip（Apple 风格异常得分）；bbox JSON → 绝对定位透明 overlay，hover 高亮 `var(--accent)` 边框。、`get_favicon_svg()`（32×32 菱形图标）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
+- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）、`get_favicon_html()`（SVG 菱形图标，亮/暗双模式自适应）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
 
-- **`modules/ui/styles.css`** — Apple 风格设计系统（~850 行）。亮/暗双模式通过 CSS 自定义属性实现，使用 `html[data-theme="light"]` 选择器控制亮色覆盖。包含 12 个组件的完整规范（标题区、标签页、算法卡片、输入控件、按钮、状态面板、结果卡片、度量数字、进度条、热力图图例、对比模式、底部说明），以及交错入场动画（`.reveal-1` ~ `.reveal-6`）、磨砂玻璃效果（`backdrop-filter: blur(20px)`）、弹簧缓动（`cubic-bezier(0.22,0.8,0.3,1.15)`）。设计规范详见 `docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md`。
+- **`modules/ui/static/inference-interact.js`** — 推理结果交互增强。MutationObserver 监听 DOM 变化（回调中先 disconnect 防递归），从隐藏的 base64 灰度图读取像素值创建离屏 canvas，在热力图 `<img>` 上 mousemove 显示 tooltip（Apple 风格异常得分）；bbox JSON → 绝对定位透明 overlay，hover 高亮 `var(--accent)` 边框。`_bboxCleanups[]` 追踪所有 resize/load 监听器，`cleanupOverlays()` 统一释放防内存泄漏。
+
+- **`modules/ui/styles.css`** — Apple 风格设计系统（~1350 行）。亮/暗双模式通过 CSS 自定义属性实现，`html[data-theme="light"]` 选择器控制亮色覆盖。包含 15 组件的完整规范（标题区+Logo、标签页、算法卡片、输入控件、按钮、状态面板+进度条、骨架屏、结果卡片、度量数字、热力图图例+tooltip、bbox overlay、对比模式、底部说明+页脚动画、全页加载遮罩、下拉框修复），以及交错入场动画（`.reveal-1` ~ `.reveal-6` + `.footerRise`）、磨砂玻璃效果（`backdrop-filter: blur(20px)`）、弹簧缓动（`cubic-bezier(0.22,0.8,0.3,1.15)`）。`.reveal`/`.reveal-child-*` 不使用 `animation-fill-mode: forwards`（防止 `transform:translateY(0)`/`filter:blur(0)` 为非 none 值创建包含块导致 `position:fixed` 弹出框随滚动偏移）。设计规范详见 `docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md`。
 
 ### 数据流
 

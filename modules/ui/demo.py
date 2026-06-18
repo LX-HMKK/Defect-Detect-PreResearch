@@ -20,16 +20,16 @@
 ================================================================================
 """
 
-import uuid
-import warnings
-from pathlib import Path
-from typing import Tuple, Optional, List
-from dataclasses import dataclass
-
-import numpy as np
 import base64
 import io
 import json
+import uuid
+import warnings
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple, Optional, List
+
+import numpy as np
 
 import cv2
 import gradio as gr
@@ -409,6 +409,8 @@ class AnomalyDetector:
                         anomaly_map_b64: str = "",
                         bboxes_json: str = "") -> str:
         """格式化结果 — Apple 极简面板，逐层入场动画"""
+        if self.current_model is None or self.current_model not in MODEL_CONFIGS:
+            return '<div class="result-card" style="text-align:center;padding:48px 28px;"><div style="font-size:15px;color:var(--text-tertiary);">模型未加载</div></div>'
         model_config = MODEL_CONFIGS[self.current_model]
 
         dataset = self.current_dataset or "bottle"
@@ -598,7 +600,16 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         .center { text-align: center; }
         """
     
-    with gr.Blocks(css=css, title="工业异常检测系统") as demo:
+    # ── FOUC 反闪烁：head 内阻塞式设置 data-theme + CSS 兜底 ──
+    _anti_fouc = (
+        '<script>!function(){'
+        'var t=localStorage.getItem("theme");'
+        'if(!t){t=window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"};'
+        'document.documentElement.setAttribute("data-theme",t)'
+        '}()</script>'
+        '<style>html:not([data-theme]){visibility:hidden}</style>'
+    )
+    with gr.Blocks(css=css, title="工业异常检测系统", head=_anti_fouc) as demo:
 
         # ═══════════════════════════════════════════════════════════
         # 主题系统注入 — 通过 gr.HTML 绕过 Gradio 6 CSS 作用域
@@ -606,6 +617,9 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         # @media 内失效。gr.HTML 中的 <style>/<script>/<link> 标签
         # 不会被作用域处理，可以正确设置 CSS 变量和图标。
         # ═══════════════════════════════════════════════════════════
+
+        # V2: 全页加载遮罩 — 首次访问时自动淡出
+        gr.HTML("""<div class="page-loader"><div class="page-loader-core"></div></div>""")
 
         # Favicon（SVG 菱形图标，theme.js 在主题切换时动态更新 href）
         gr.HTML(theme.get_favicon_html())
@@ -623,9 +637,24 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         gr.HTML(f"""
         <div class="reveal reveal-1" style="padding: 48px 0 8px 0;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <div class="title">缺陷检测</div>
-                    <div class="subtitle">无监督异常检测系统 · Anomalib 2.3</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <!-- V3: Logo — 深色菱形 + 蓝色核心，与 Favicon 同源 -->
+                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="18" y1="2" x2="18" y2="34" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#2997ff"/>
+                                <stop offset="100%" stop-color="#0070d6"/>
+                            </linearGradient>
+                        </defs>
+                        <rect x="2" y="18" width="22.63" height="22.63" rx="3" transform="rotate(-45 2 18)" fill="url(#logoGrad)" opacity="0.15"/>
+                        <rect x="6" y="18" width="16.97" height="16.97" rx="2" transform="rotate(-45 6 18)" fill="url(#logoGrad)" opacity="0.35"/>
+                        <rect x="9.5" y="18" width="12.02" height="12.02" rx="2" transform="rotate(-45 9.5 18)" fill="url(#logoGrad)"/>
+                        <circle cx="18" cy="18" r="2.5" fill="#ffffff" opacity="0.9"/>
+                    </svg>
+                    <div>
+                        <div class="title">缺陷检测</div>
+                        <div class="subtitle">无监督异常检测系统 · Anomalib 2.3</div>
+                    </div>
                 </div>
                 {theme.get_theme_switch_html()}
             </div>
@@ -841,9 +870,15 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
         </div>'''
 
         def format_status(message, is_loading=False):
-            """格式化状态消息 — Apple 极简状态指示"""
+            """格式化状态消息 — Apple 极简状态指示 + 进度条"""
             if is_loading:
-                return f'<div class="status-panel"><div class="loading-spinner"></div><div style="font-family:var(--font-body);font-size:14px;color:var(--accent);margin-top:10px;">{message}</div></div>'
+                return (
+                    f'<div class="status-panel">'
+                    f'<div class="loading-spinner"></div>'
+                    f'<div style="font-family:var(--font-body);font-size:14px;color:var(--accent);margin-top:10px;">{message}</div>'
+                    f'<div class="progress-bar"></div>'
+                    f'</div>'
+                )
             elif "[OK]" in message or "成功" in message or "完成" in message:
                 return f'<div class="status-panel" style="background:var(--ok-bg);"><div style="font-size:14px;color:var(--ok);">{message.replace("[OK]", "").strip()}</div></div>'
             elif "[FAIL]" in message or "失败" in message or "错误" in message:
@@ -888,24 +923,50 @@ def create_interface(default_dataset: str = None) -> gr.Blocks:
                 return format_status("图片已就绪，点击推理")
             return format_status("等待上传图片...")
 
+        # ── 对比模式状态 HTML 片段 ──
+        COMPARE_PENDING = '''<div class="compare-result-card compare-pending">
+            <div class="compare-loading"><div class="loading-spinner muted"></div><span>等待处理…</span></div>
+        </div>'''
+        COMPARE_ACTIVE = '''<div class="compare-result-card compare-active">
+            <div class="compare-loading"><div class="loading-spinner"></div><span>正在推理…</span></div>
+        </div>'''
+        COMPARE_NO_IMAGE = '<div class="compare-result-card"><div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">请先上传图片</div></div>'
+
         def on_compare_click(dataset, image):
-            """四模型对比 — 一键运行全部4种算法"""
+            """四模型对比 — 流式渐进渲染：每完成一个模型立即更新结果"""
             if image is None:
-                empty = '<div class="compare-result-card"><div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">请先上传图片</div></div>'
-                nope = [image, image, empty] * 4
-                return tuple(nope)
+                yield tuple([image, image, COMPARE_NO_IMAGE] * 4)
+                return
 
             models = ['patchcore', 'padim', 'fre', 'draem']
-            results = []
-            for m in models:
+            model_names = ['PatchCore', 'PaDiM', 'FRE', 'DRAEM']
+            # 初始化所有槽位为「等待处理」
+            results = [image, image, COMPARE_PENDING] * 4
+
+            for i, m in enumerate(models):
+                base = i * 3
+                # 将当前槽位切换为「正在推理」
+                results[base] = image
+                results[base + 1] = image
+                results[base + 2] = COMPARE_ACTIVE
+                yield tuple(results)
+
                 success, msg = detector.load_model(m, dataset)
                 if success:
-                    orig, heat, result_text = detector.predict(image)
-                    results.extend([orig, heat, result_text])
+                    orig, heat, result_html = detector.predict(image)
+                    results[base] = orig
+                    results[base + 1] = heat
+                    results[base + 2] = result_html
                 else:
-                    results.extend([image, image,
-                        f'<div class="compare-result-card"><div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">{m}: {msg}</div></div>'])
-            return tuple(results)
+                    results[base] = image
+                    results[base + 1] = image
+                    results[base + 2] = (
+                        f'<div class="compare-result-card">'
+                        f'<div style="font-size:13px;color:var(--bad);text-align:center;padding:12px;">'
+                        f'{model_names[i]}: {msg}</div></div>'
+                    )
+
+                yield tuple(results)
 
         # 绑定Tab选择事件 - 更新current_algo
         def on_tab_select(tab_name):

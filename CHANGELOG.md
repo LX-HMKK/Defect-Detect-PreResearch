@@ -50,6 +50,32 @@
 - **修复:** 标题栏 `gr.Markdown` 净化器剥离 `<button>`/`<svg>` — 改为 `gr.HTML`
 - **修复:** Gradio Svelte 不执行 `innerHTML` 注入的 `<script>` — 改用 `<img onerror>` bootstrapper 动态创建 `<script>` 注入 `<head>`
 
+## 2026-06-18 — Phase 3：细节打磨 + 全量前端特征完成
+
+### Phase 3 — 细节打磨
+- **新增:** 主题切换平滑过渡 — 400ms `background-color`/`border-color`/`color`/`box-shadow` 过渡覆盖 Gradio 组件
+- **新增:** 骨架屏（Skeleton Screen）— `SKELETON_HTML` + `@keyframes shimmer`，模型加载/推理时显示
+- **新增:** 热力图图例延迟淡入 — `.reveal-child-4` 级联动画
+- **新增:** `prefers-reduced-motion` 无障碍适配 — 骨架屏 shimmer 动画降级为静态
+
+### 追加特征（A1/V2/V3/V4/C1/C2）
+- **新增:** A1 字体优化 — 字体栈增加 `Inter Variable`/`Noto Sans SC`/`JetBrains Mono`，`text-rendering: optimizeLegibility`，`font-synthesis: none`
+- **新增:** V2 全页加载遮罩 — `.page-loader` 首次访问 1.2s 后自动淡出，双环旋转动画
+- **新增:** V3 Logo — 标题栏左侧 36×36 渐变菱形 SVG（与 Favicon 同源）
+- **新增:** V4 页脚入场动画 — `.footer-item` 交错 `footerRise` 动画 (100/250/400ms)
+- **新增:** C1 对比模式流式渐进渲染 — `on_compare_click` 改为 generator `yield`，每完成一个模型立即更新结果，其余显示加载态
+- **新增:** C2 不确定进度条 — `.progress-bar` shimmer 滑动动画，加载态时在状态面板中显示
+
+### Bug 修复
+- **修复:** 下拉框 INPUT 左右不对称 — `.block:has(.wrap-inner)` 和 `.wrap-inner` 同时清零 `padding-left` + `padding-right`（之前仅清零左侧）
+- **修复:** 滚轮滚动时下拉弹出框偏移 — 移除 `.reveal`/`.reveal-child-*` 的 `animation-fill-mode: forwards`，默认态设 `transform: none; filter: none;`（CSS Transform/Filter Effects spec §Containing Block）
+- **修复:** 导入顺序违规 — `base64`/`io`/`json` 移至标准库组，`cv2` 保持第三方首位
+- **修复:** `_format_result` 空指针防护 — `self.current_model=None` 时返回友好错误
+- **修复:** `theme.js` 双重 `bindEvents()` 调用 — 删除外部重复调用
+- **修复:** FOUC（亮色用户首帧暗色闪烁）— `gr.Blocks(head=...)` 注入阻塞式反闪烁脚本 + CSS 兜底
+- **修复:** `inference-interact.js` 内存泄漏 — `_bboxCleanups[]` 追踪 resize/load 监听器，`cleanupOverlays()` 统一释放
+- **修复:** MutationObserver 递归风险 — 回调中先 `disconnect()` → 操作 DOM → `setTimeout` 后重新 `observe()`
+
 ## [未发布] - 2026-06-11
 
 ### 新增

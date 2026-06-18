@@ -187,13 +187,10 @@
     }
 
     // ── 启动 ──────────────────────────────────────────────
+    // 注：init() 内部在首次成功获取按钮后会调用 bindEvents()，此处无需重复调用
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            init();
-            bindEvents();
-        });
+        document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
-        bindEvents();
     }
 })();

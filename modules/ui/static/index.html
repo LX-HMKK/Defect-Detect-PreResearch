@@ -638,8 +638,8 @@
 
         <!-- 四列网格 -->
         <div class="compare-grid">
-            <template x-for="mk in modelOrder" :key="mk">
-                <div class="compare-slot" :class="getSlotClass(mk)">
+            <template x-for="mk in modelOrder">
+                <div class="compare-slot" :class="getSlotClass(mk)" :key="mk">
                     <!-- 卡片头部：模型名 + 结果徽章 -->
                     <div class="compare-slot-header">
                         <h3 x-text="getModelName(mk)"></h3>

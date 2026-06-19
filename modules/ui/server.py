@@ -71,13 +71,13 @@ app.add_middleware(
 )
 
 
-# ── Cache-Control 中间件：静态资源缓存 1 小时 ──
+# ── Cache-Control 中间件：静态资源短期缓存（开发阶段 60s）──
 class CacheControlMiddleware(BaseHTTPMiddleware):
     """为 /static/ 路径下的资源添加 Cache-Control 头。"""
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         if request.url.path.startswith("/static/"):
-            response.headers["Cache-Control"] = "public, max-age=3600"
+            response.headers["Cache-Control"] = "public, max-age=60"
         return response
 
 

@@ -159,19 +159,33 @@ document.addEventListener('alpine:init', function () {
             // ─────────────────────────────────────────────
             scrolled: false,
             currentSection: 0,
+            snapProgress: 0,  // 0.0 ~ 1.0，表示两页之间的滚动进度（驱动进度环填充）
+            sectionCount: 3,
 
             /** 导航点 tooltip 标签 */
             sectionNames: ['算法介绍', '单模型推理', '四模型对比'],
 
             setupScrollObserver: function () {
                 var self = this;
+                var container = self.$refs.snapContainer;
+                if (!container) {
+                    // 降级：使用 window scroll（兼容旧 HTML 或非 snap 模式）
+                    container = window;
+                }
 
-                // 导航栏滚动加深
-                window.addEventListener('scroll', function () {
-                    self.scrolled = window.scrollY > 100;
-                }, { passive: true });
+                // ── 导航栏加深（基于滚动位置）──
+                var scrollHandler = function () {
+                    var scrollY = container === window ? window.scrollY : container.scrollTop;
+                    self.scrolled = scrollY > 50;
+                };
 
-                // IntersectionObserver 检测当前 section（取可见比例最大的）
+                if (container === window) {
+                    window.addEventListener('scroll', scrollHandler, { passive: true });
+                } else {
+                    container.addEventListener('scroll', scrollHandler, { passive: true });
+                }
+
+                // ── IntersectionObserver 检测当前 section ──
                 var sections = [];
                 if (self.$refs.section0) sections.push(self.$refs.section0);
                 if (self.$refs.section1) sections.push(self.$refs.section1);
@@ -192,21 +206,53 @@ document.addEventListener('alpine:init', function () {
                             }
                         });
 
-                        if (maxRatio > 0) {
+                        if (maxRatio > 0 && maxIdx !== self.currentSection) {
+                            // 为离开的 section 添加 exiting class
+                            var prevSection = sections[self.currentSection];
+                            if (prevSection) {
+                                prevSection.classList.add('snap-page--exiting');
+                            }
+                            // 为新进入的 section 移除 exiting class
+                            var nextSection = sections[maxIdx];
+                            if (nextSection) {
+                                nextSection.classList.remove('snap-page--exiting');
+                            }
                             self.currentSection = maxIdx;
+
+                            // 触发新 section 的内容入场动画
+                            if (window.Anim && window.Anim.snapPageEnter) {
+                                window.Anim.snapPageEnter(nextSection, { staggerMs: 100, duration: 500 });
+                            }
+                        }
+
+                        // 计算 snap 进度（用于进度环填充）
+                        if (container !== window) {
+                            var totalHeight = container.scrollHeight - container.clientHeight;
+                            if (totalHeight > 0) {
+                                self.snapProgress = Math.min(1, container.scrollTop / totalHeight);
+                            }
                         }
                     },
-                    { threshold: [0, 0.25, 0.5, 0.75] }
+                    { threshold: [0, 0.15, 0.3, 0.5, 0.7, 0.85, 1] }
                 );
 
                 sections.forEach(function (s) {
                     observer.observe(s);
                 });
 
+                // ── 滚动事件更新进度环（高频率更新，保证进度环流畅）──
+                if (container !== window) {
+                    container.addEventListener('scroll', function () {
+                        var totalHeight = container.scrollHeight - container.clientHeight;
+                        if (totalHeight > 0) {
+                            self.snapProgress = Math.min(1, container.scrollTop / totalHeight);
+                        }
+                    }, { passive: true });
+                }
+
                 // ── 键盘导航（↑↓ 切换 section）──
                 window.addEventListener('keydown', function (e) {
                     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                        // 不在 input/select 中时才处理
                         var tag = document.activeElement ? document.activeElement.tagName : '';
                         if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
@@ -227,7 +273,7 @@ document.addEventListener('alpine:init', function () {
 
                 var target = sections[idx];
                 if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             },
 

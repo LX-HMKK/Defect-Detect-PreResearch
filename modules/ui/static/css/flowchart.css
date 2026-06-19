@@ -1,0 +1,100 @@
+/* ==========================================================================
+   算法流程图样式 — 4 个流光卡 + SVG stroke-dashoffset 绘制动画
+   ========================================================================== */
+
+/* ── 流程图卡片（替代原 .algo-card） ── */
+.flowchart-card {
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-lg);
+    padding: 28px;
+    transition: transform 0.35s var(--ease-spring),
+                box-shadow var(--dur-normal) var(--ease-out),
+                border-color var(--dur-normal) var(--ease-out);
+    position: relative;
+    overflow: hidden;
+}
+
+.flowchart-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--sep-default);
+    box-shadow: var(--shadow-md);
+}
+
+.flowchart-card h3 {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flowchart-card p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+}
+
+/* ── 标签复用 algo-tag ── */
+.flowchart-card .algo-tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 4px;
+    letter-spacing: 0;
+}
+
+/* ── 流程图 SVG 容器 ── */
+.flowchart-svg {
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    display: block;
+    margin-top: 4px;
+}
+
+/* ── 初始隐藏状态（动画由 JS 驱动） ── */
+.flowchart-svg .fc-node rect {
+    stroke-dasharray: var(--node-perimeter, 300);
+    stroke-dashoffset: var(--node-perimeter, 300);
+    transition: none;
+}
+
+.flowchart-svg .fc-arrow {
+    stroke-dasharray: var(--arrow-length, 100);
+    stroke-dashoffset: var(--arrow-length, 100);
+}
+
+.flowchart-svg .fc-label {
+    opacity: 0;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 768px) {
+    .flowchart-card {
+        padding: 20px;
+    }
+    .flowchart-card h3 {
+        font-size: 18px;
+    }
+    .flowchart-svg {
+        max-height: 260px;
+    }
+}
+
+@media (max-width: 480px) {
+    .flowchart-card {
+        padding: 16px;
+    }
+    .flowchart-card h3 {
+        font-size: 16px;
+    }
+    .flowchart-svg {
+        max-height: 220px;
+    }
+}

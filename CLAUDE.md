@@ -55,9 +55,16 @@ python tools/validate_data.py -d ./data
 # PRO 后处理配方评估
 python tools/run_post_process_eval.py -m all -c all
 
-# 启动 Gradio UI
+# 启动 FastAPI UI (Phase 2 — 默认)
 python scripts/run_ui.py
+# → http://127.0.0.1:8000
+
+# 启动 Gradio UI (legacy fallback)
+python scripts/run_ui.py --gradio
 # → http://127.0.0.1:7860
+
+# 自定义端口
+python scripts/run_ui.py --port 3000
 
 # 直接指定 Python 路径 (Windows)
 "C:\Users\lx_hm\.conda\envs\anomalib\python.exe" scripts/run_training.py -m patchcore -c bottle
@@ -320,9 +327,35 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 
 测试套件位于 `tests/`，共 3 个文件。设计为无 GPU、无 anomalib 导入依赖（烟雾测试使用 AST 解析源码以避免触发 Heavy import）。运行方式：`python -m pytest tests/ -v`。
 
-### UI 调试
+### UI 架构 (Phase 2)
 
-UI 模块 (`modules/ui/demo.py`) 使用 `inbrowser=True` 自动打开浏览器。使用 `python scripts/run_ui.py` 启动（该脚本仅一行：导入并调用 `demo.main()`）。UI 不预加载模型——模型在首次使用时按需加载。对比模式一键运行四种算法。
+**默认 UI**: FastAPI + Alpine.js SPA (`modules/ui/server.py` + `modules/ui/static/`)。
+
+- 5 层动效体系：环境光呼吸 → 鼠标光晕跟随 → 滚动驱动动画 → 微交互（胶囊开关/数字跳动/弹簧按钮）→ 视图过渡
+- 三区块自适应连续滚动：算法介绍（SVG 流程图）→ 单模型推理（SSE 流式）→ 四模型对比（并行 SSE）
+- 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
+- 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
+
+**回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
+
+### UI 调试 (Phase 2)
+
+```bash
+# 启动 FastAPI 开发服务器
+python scripts/run_ui.py
+# → http://127.0.0.1:8000
+
+# 健康检查
+curl http://127.0.0.1:8000/api/health
+
+# 模型列表
+curl http://127.0.0.1:8000/api/models
+
+# 独立测试主题模块
+python modules/ui/theme.py    # 输出完整 CSS 到 stdout
+```
+
+**Gradio 6 CSS 作用域问题（仅影响 legacy Gradio UI）**：`gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
 
 **Gradio 6 CSS 作用域问题：** `gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
 

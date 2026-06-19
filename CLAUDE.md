@@ -114,17 +114,17 @@ modules/
     theme.py                   # 主题管理器：色板定义 + CSS 生成 + Favicon
     styles.css                 # [Legacy] Gradio 专用 CSS（Phase 2 使用 static/css/app.css）
     static/
-      index.html               # Alpine.js SPA 入口（三区块连续滚动）
+      index.html               # Alpine.js SPA 入口（CSS snap 全屏滚动，三页吸附）
       theme.js                 # 主题切换交互（localStorage + data-theme）
       inference-interact.js    # [Legacy] Gradio 推理结果交互增强
       css/
-        app.css                # Phase 2 主样式表（亮/暗双模式，~1800 行）
+        app.css                # Phase 2 主样式表（亮/暗双模式，~2100 行）
         flowchart.css          # SVG 流程图动画样式
       js/
-        app.js                 # Alpine 全局状态：主题/导航/推理/健康检查
+        app.js                 # Alpine 全局状态：主题/snap 导航/进度环/推理/健康检查
         inference.js           # InferenceRunner (SSE) + imageCompare 滑块 + tooltip + bbox
         compare.js             # CompareRunner (SSE) + Alpine compare 组件
-        animations.js          # 滚动驱动淡入动画 (ScrollReveal)
+        animations.js          # 滚动驱动淡入动画 (ScrollReveal) + snap 过渡编排
         cursor-glow.js         # 鼠标光晕跟随效果
         flowchart.js           # SVG 流程图绘制动画
 configs/
@@ -177,7 +177,13 @@ memory/                         # Claude Code 会话记忆
 
 - **`setupBboxOverlays()`** (`inference.js`) — NMS bbox JSON → 绝对定位 overlay，hover 高亮 `var(--accent)` 边框，计入 `object-fit: contain` 居中偏移。
 
-- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~1800 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、上传区、骨架屏、进度条、结果卡片、对比滑块、热力图图例+tooltip、bbox overlay、四模型对比网格、页脚动画、全页加载遮罩）。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。
+- **`.pipeline`** (CSS grid) — 三列等宽水平流水线（`grid-template-columns: 1fr 1fr 1fr`）。每列 `.pipeline-step`（步骤卡片，带圆形序号 `.pipeline-step-num`）。步骤间用 `::after` 伪元素 `→` 连接。**禁止向 `.pipeline` 添加额外子元素，会破坏 grid 布局。**
+
+- **`.algo-card-accent`** — 算法卡片左侧 3px 色标竖线（`position: absolute`）。颜色通过 `--algo-color` CSS 变量驱动：PatchCore #2997ff, PaDiM #30d158, FRE #ff9f0a, DRAEM #bf5af2。
+
+- **`.snap-dots`** — 右侧固定导航点（改为进度环）。SVG 圆环通过 `snapProgress` 驱动 `stroke-dashoffset` 实现连续填充。移动端移至底部横条。
+
+- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~2100 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、上传区、骨架屏、进度条、结果卡片、对比滑块、热力图图例+tooltip、bbox overlay、四模型对比网格、页脚动画、全页加载遮罩）。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。
 
 ### Gradio Legacy 组件
 
@@ -369,11 +375,22 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 **默认 UI**: FastAPI + Alpine.js SPA (`modules/ui/server.py` + `modules/ui/static/`)。
 
 - 5 层动效体系：环境光呼吸 → 鼠标光晕跟随 → 滚动驱动动画 → 微交互（胶囊开关/数字跳动/弹簧按钮）→ 视图过渡
-- 三区块自适应连续滚动：算法介绍（SVG 流程图）→ 单模型推理（SSE 流式）→ 四模型对比（并行 SSE）
+- 三页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍 → 单模型推理 → 四模型对比
+- 每页 100dvh 全视口，滚动吸附到整页，无半页停留
+- 右侧进度环导航点（SVG 圆环 + 页码"1/3"），实时反映滚动位置
+- S1 三列流水线（上传→选择→推理），S2 共享原图上置 + 四列仅热力图
 - 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
 - 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
+
+### CSS 陷阱：`.pipeline` Grid 子元素数量
+
+`.pipeline` 使用 `grid-template-columns: 1fr 1fr 1fr` 精确三列布局。**禁止在 `.pipeline` 内添加除 `.pipeline-step` 外的任何子元素**——即使是非 `pipeline-step` 的 div 也会被 grid auto-placement 占据列位，将后续步骤推至第二行。步骤间连接线必须使用 `::after` 伪元素，不能添加 DOM 节点。
+
+### Alpine 陷阱：`x-data` 子作用域访问父属性
+
+`section#s2` 带有 `x-data="compare"`（子作用域），其内的 Alpine 表达式无法直接访问 `app` 作用域的属性（如 `resultData`）。`x-show` / `:src` 等绑定必须使用当前作用域内的属性（如 `compareDone`、`compareSlots`）。
 
 ### CSS 陷阱：`.compare-heatmap` 选择器泄漏
 
@@ -392,8 +409,9 @@ curl http://127.0.0.1:8000/api/health
 # 模型列表
 curl http://127.0.0.1:8000/api/models
 
-# 独立测试主题模块
-python modules/ui/theme.py    # 输出完整 CSS 到 stdout
+# 浏览器控制台验证 snap 状态
+document.querySelector('.snap-container').style.scrollSnapType  // "y mandatory"
+document.querySelector('.snap-dot-label').textContent           // "1 / 3"
 ```
 
 **Gradio 6 CSS 作用域问题（仅影响 legacy Gradio UI）**：`gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。

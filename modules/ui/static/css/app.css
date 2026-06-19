@@ -276,7 +276,7 @@ html[data-theme="light"] .snap-container::before {
 button, select, .snap-ring, .theme-capsule, .upload-zone, .compare-handle,
 .nav-select, .model-select, .btn-inference, .btn-compare, .btn-reset,
 input[type="range"], .compare-slot, .algo-card, .flowchart-card,
-.result-card, .metric, .snap-dots, .navbar {
+.result-dashboard, .metric, .snap-dots, .navbar {
     user-select: none !important;
     -webkit-user-select: none !important;
     -webkit-touch-callout: none;
@@ -284,9 +284,9 @@ input[type="range"], .compare-slot, .algo-card, .flowchart-card,
 
 /* Content areas: allow text selection */
 p, .algo-card p, .flowchart-card p, .footer p, .section-title,
-.result-verdict, .compare-guide p, .upload-text, .upload-hint,
+.compare-guide p, .upload-text, .upload-hint,
 .hero-title, .hero-subtitle, .footer-section p, .footer-item p,
-.result-header span, .compare-summary span {
+.compare-summary span {
     user-select: text;
     -webkit-user-select: text;
 }
@@ -1416,69 +1416,189 @@ html[data-theme="dark"] .capsule-icon--moon {
     font-size: 14px;
 }
 
-/* 推理控制区 — 重试按钮容器 */
-.inference-actions {
+/* ═══════════════════════════════════════════════════════════════════════════
+   结果仪表盘卡片 — 一体化布局
+   ═══════════════════════════════════════════════════════════════════════════ */
+.result-dashboard {
+    max-width: 780px;
+    margin: 0 auto;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-xl);
+    padding: 28px;
     display: flex;
-    justify-content: center;
-    margin-top: 20px;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: var(--shadow-md);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   结果面板 — 左右分栏
-   ═══════════════════════════════════════════════════════════════════════════ */
-.result-layout {
+/* ── 标题栏 ── */
+.result-dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.result-dashboard-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.result-dashboard-label {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.result-dashboard-meta {
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
+/* ── 对比滑块区 ── */
+.result-dashboard-compare {
+    position: relative;
+}
+
+/* ── 三列指标行 ── */
+.result-metrics-row {
     display: grid;
-    grid-template-columns: 6fr 4fr;
-    gap: 24px;
-    align-items: start;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
 }
 
-.result-left {
-    min-width: 0;
+.result-metric-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.result-right {
-    min-width: 0;
+.result-metric-card .metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
-/* 右栏指标卡自适应 */
-.result-right .result-card {
-    height: 100%;
+.result-metric-card .metric-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
 }
 
-/* ── 结果面板入场动画 ── */
-.result-panel {
-    animation: resultReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+/* ── 图例 overlay（左下角）── */
+.heatmap-legend--overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 5;
 }
 
-@keyframes resultReveal {
-    from {
-        opacity: 0;
-        transform: translateY(24px) scale(0.96);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+.heatmap-legend--overlay .legend-bar-wrap {
+    max-width: 120px;
+}
+
+/* ── 判决 + 操作底部栏 ── */
+.result-dashboard-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+}
+
+.result-dashboard-footer.footer-anomaly {
+    background: var(--bad-bg);
+}
+
+.result-dashboard-footer.footer-normal {
+    background: var(--ok-bg);
+}
+
+.footer-verdict {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text);
+}
+
+.footer-verdict b {
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ── 置信度/阈值进度条颜色 ── */
+.fill-threshold {
+    background: linear-gradient(90deg, var(--text-tertiary), var(--text-secondary));
+}
+
+/* ── 流水线收缩摘要 ── */
+.pipeline-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 0;
+    margin-bottom: 8px;
+}
+
+.pipeline-summary-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-tertiary);
+}
+
+.pipeline-summary-step--done {
+    color: var(--text);
+}
+
+.pipeline-summary-dot {
+    font-size: 10px;
+    line-height: 1;
+}
+
+.pipeline-summary-step--done .pipeline-summary-dot {
+    color: var(--ok);
+}
+
+.pipeline-summary-arrow {
+    color: var(--text-tertiary);
+    font-size: 14px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Snap 页面进出动画
+   Snap 页面进出动画（由 JS WAAPI 驱动，以下 keyframes 保留供参考）
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* 页面进入：内容从下方淡入 + 微缩放 */
 @keyframes snapPageEnter {
     from {
         opacity: 0;
-        transform: translateY(40px) scale(0.97);
+        transform: translateY(30px);
     }
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
     }
 }
 
-/* 页面离开：内容向上淡出 + 微缩放 */
 @keyframes snapPageExit {
     from {
         opacity: 1;
@@ -1486,7 +1606,7 @@ html[data-theme="dark"] .capsule-icon--moon {
     }
     to {
         opacity: 0;
-        transform: translateY(-24px) scale(0.98);
+        transform: translateY(30px) scale(0.97);
     }
 }
 
@@ -1628,28 +1748,8 @@ html[data-theme="dark"] .capsule-icon--moon {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   结果卡片
+   共用原子类：徽章、指标、判决点
    ═══════════════════════════════════════════════════════════════════════════ */
-.result-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--sep-subtle);
-    border-radius: var(--r-lg);
-    padding: 28px;
-}
-
-.result-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-}
-
-.result-model {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.01em;
-}
 
 .result-badge {
     font-size: 13px;
@@ -1669,14 +1769,7 @@ html[data-theme="dark"] .capsule-icon--moon {
     color: var(--ok);
 }
 
-/* ── 指标区 ── */
-.result-metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 24px;
-}
-
+/* ── 共用指标组件 ── */
 .metric {
     display: flex;
     flex-direction: column;
@@ -1743,50 +1836,7 @@ html[data-theme="dark"] .capsule-icon--moon {
     transition: left 0.6s var(--ease-out-expo);
 }
 
-/* ── 判决区 ── */
-.result-verdict {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px 20px;
-    border-radius: var(--r-md);
-    font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    /* 磨砂玻璃基底 */
-    background: rgba(128, 128, 128, 0.04);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--sep-subtle);
-    position: relative;
-    overflow: hidden;
-}
-
-/* 左侧渐变色条（替代纯色背景） */
-.result-verdict::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-}
-
-.verdict-anomaly {
-    border-color: rgba(255, 69, 58, 0.2);
-}
-.verdict-anomaly::before {
-    background: linear-gradient(180deg, var(--bad), #ff6b5b);
-}
-
-.verdict-normal {
-    border-color: rgba(48, 209, 88, 0.2);
-}
-.verdict-normal::before {
-    background: linear-gradient(180deg, var(--ok), #5be07d);
-}
-
+/* ── 判决点 ── */
 .verdict-dot {
     font-size: 18px;
     line-height: 1;
@@ -1798,10 +1848,6 @@ html[data-theme="dark"] .capsule-icon--moon {
 
 .dot-normal {
     color: var(--ok);
-}
-
-.result-verdict b {
-    color: var(--text);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2557,10 +2603,13 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         gap: 12px;
     }
 
-    /* Result layout: stack */
-    .result-layout {
+    /* Result dashboard: stack metrics */
+    .result-metrics-row {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 12px;
+    }
+    .result-dashboard {
+        padding: 20px;
     }
 
     /* Hero smaller */
@@ -2607,7 +2656,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     .snap-container { padding-bottom: 56px; }
 
     /* Result metrics stack */
-    .result-metrics { grid-template-columns: 1fr; }
+    .result-metrics-row { grid-template-columns: 1fr; }
     .metric-value { font-size: 24px; }
 
     .compare-handle-grip {

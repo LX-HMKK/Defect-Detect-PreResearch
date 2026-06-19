@@ -694,103 +694,113 @@
                     </div>
 
                     <!-- ============================================================ -->
-                    <!-- 结果面板（推理完成后显示） -->
+                    <!-- 流水线收缩摘要（推理完成后显示） -->
+                    <!-- ============================================================ -->
+                    <div class="pipeline-summary" x-show="inferenceState === 'done'" x-transition>
+                        <span class="pipeline-summary-step pipeline-summary-step--done">
+                            <span class="pipeline-summary-dot">●</span> 已上传
+                        </span>
+                        <span class="pipeline-summary-arrow">→</span>
+                        <span class="pipeline-summary-step pipeline-summary-step--done">
+                            <span class="pipeline-summary-dot">●</span>
+                            <span x-text="(models.find(function(m){ return m.key === selectedModel }) || {}).name || 'PatchCore'"></span>
+                        </span>
+                        <span class="pipeline-summary-arrow">→</span>
+                        <span class="pipeline-summary-step pipeline-summary-step--done">
+                            <span class="pipeline-summary-dot">●</span> 推理完成 ✓
+                        </span>
+                    </div>
+
+                    <!-- ============================================================ -->
+                    <!-- 结果仪表盘卡片（推理完成后显示） -->
                     <!-- ============================================================ -->
                     <template x-if="inferenceState === 'done' && resultData">
-                    <div class="result-panel scroll-reveal" x-transition>
-                        <div class="result-layout">
-                            <!-- 左侧：图片对比滑块 -->
-                            <div class="result-left">
-                                <div class="compare-slider" x-data="imageCompare">
-                                    <div class="compare-container">
-                                        <!-- 原图（底层） -->
-                                        <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
-                                        <!-- 热力图（上层，clip 裁剪） -->
-                                        <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
-                                             :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
-                                        <!-- 拖拽手柄 -->
-                                        <div class="compare-handle" :style="{ left: sliderPos + '%' }"
-                                             @mousedown="startDrag" @touchstart="startDrag">
-                                            <div class="compare-handle-line"></div>
-                                            <div class="compare-handle-grip">
-                                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
-                                                    <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
-                                                </svg>
-                                            </div>
-                                        </div>
-                                        <!-- 隐藏的 range 控制 -->
-                                        <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
-                                    </div>
+                    <div class="result-dashboard scroll-reveal" x-transition>
+                        <!-- 标题栏 -->
+                        <div class="result-dashboard-header">
+                            <div class="result-dashboard-title">
+                                <span class="result-dashboard-label">推理结果</span>
+                                <span class="result-dashboard-meta" x-text="resultData.model_name + ' · ' + selectedDataset"></span>
+                            </div>
+                            <span class="result-badge"
+                                  :class="resultData.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
+                                  x-text="resultData.is_anomaly ? '异常' : '正常'"></span>
+                        </div>
 
-                                    <!-- 热力图图例 -->
-                                    <div class="heatmap-legend">
-                                        <div class="legend-label">异常得分</div>
-                                        <div class="legend-bar-wrap">
-                                            <div class="legend-bar"></div>
-                                            <div class="legend-labels">
-                                                <span>1.0</span><span>0.8</span><span>0.6</span><span>0.4</span><span>0.2</span><span>0.0</span>
-                                            </div>
-                                        </div>
+                        <!-- 对比滑块：全宽 -->
+                        <div class="result-dashboard-compare" x-data="imageCompare">
+                            <div class="compare-container">
+                                <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
+                                <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
+                                     :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
+                                <div class="compare-handle" :style="{ left: sliderPos + '%' }"
+                                     @mousedown="startDrag" @touchstart="startDrag">
+                                    <div class="compare-handle-line"></div>
+                                    <div class="compare-handle-grip">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
+                                            <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
+                            </div>
+                            <!-- 图例 overlay（左下角） -->
+                            <div class="heatmap-legend heatmap-legend--overlay">
+                                <div class="legend-label">异常得分</div>
+                                <div class="legend-bar-wrap">
+                                    <div class="legend-bar"></div>
+                                    <div class="legend-labels">
+                                        <span>1.0</span><span>0.5</span><span>0.0</span>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- 右侧：指标卡 -->
-                            <div class="result-right">
-                                <div class="result-card" x-show="resultData">
-                                    <div class="result-header">
-                                        <span class="result-model" x-text="resultData.model_name"></span>
-                                        <span class="result-badge"
-                                              :class="resultData.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
-                                              x-text="resultData.is_anomaly ? '异常' : '正常'"></span>
-                                    </div>
-
-                                    <div class="result-metrics">
-                                        <!-- 异常得分 -->
-                                        <div class="metric">
-                                            <div class="metric-label">异常得分</div>
-                                            <div class="metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
-                                            <div class="metric-bar">
-                                                <div class="metric-fill"
-                                                     :class="resultData.is_anomaly ? 'fill-anomaly' : 'fill-normal'"
-                                                     :style="{ width: (resultData.score * 100) + '%' }"></div>
-                                                <div class="metric-threshold"
-                                                     :style="{ left: (resultData.threshold * 100) + '%' }"></div>
-                                            </div>
-                                        </div>
-
-                                        <!-- 置信度 -->
-                                        <div class="metric">
-                                            <div class="metric-label">置信度</div>
-                                            <div class="metric-value result-confidence-value"
-                                                  x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
-                                            <div class="metric-bar">
-                                                <div class="metric-fill fill-confidence"
-                                                     :style="{ width: (resultData.confidence * 100) + '%' }"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 判决 -->
-                                    <div class="result-verdict"
-                                         :class="resultData.is_anomaly ? 'verdict-anomaly' : 'verdict-normal'">
-                                        <span class="verdict-dot" :class="resultData.is_anomaly ? 'dot-anomaly' : 'dot-normal'"
-                                              x-text="resultData.is_anomaly ? '●' : '●'"></span>
-                                        <span>
-                                            得分 <b x-text="resultData.score.toFixed(4)"></b>
-                                            <span x-text="resultData.is_anomaly ? ' > ' : ' ≤ '"></span>
-                                            阈值 <b>τ = <span x-text="resultData.threshold.toFixed(3)"></span></b>
-                                            &rarr; <b x-text="resultData.is_anomaly ? '异常' : '正常'"></b>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <!-- 重新上传按钮 -->
-                                <div class="inference-actions">
-                                    <button class="btn-reset" @click="resetInference()">重新上传</button>
+                        <!-- 三列指标行 -->
+                        <div class="result-metrics-row">
+                            <div class="result-metric-card">
+                                <div class="metric-label">异常得分</div>
+                                <div class="metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill"
+                                         :class="resultData.is_anomaly ? 'fill-anomaly' : 'fill-normal'"
+                                         :style="{ width: (resultData.score * 100) + '%' }"></div>
+                                    <div class="metric-threshold"
+                                         :style="{ left: (resultData.threshold * 100) + '%' }"></div>
                                 </div>
                             </div>
+                            <div class="result-metric-card">
+                                <div class="metric-label">置信度</div>
+                                <div class="metric-value result-confidence-value"
+                                      x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill fill-confidence"
+                                         :style="{ width: (resultData.confidence * 100) + '%' }"></div>
+                                </div>
+                            </div>
+                            <div class="result-metric-card">
+                                <div class="metric-label">阈值 τ</div>
+                                <div class="metric-value" x-text="resultData.threshold.toFixed(3)"></div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill fill-threshold"
+                                         :style="{ width: (resultData.threshold * 100) + '%' }"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 判决条 + 操作 -->
+                        <div class="result-dashboard-footer"
+                             :class="resultData.is_anomaly ? 'footer-anomaly' : 'footer-normal'">
+                            <span class="footer-verdict">
+                                <span class="verdict-dot" :class="resultData.is_anomaly ? 'dot-anomaly' : 'dot-normal'"
+                                      x-text="resultData.is_anomaly ? '●' : '●'"></span>
+                                得分 <b x-text="resultData.score.toFixed(4)"></b>
+                                <span x-text="resultData.is_anomaly ? ' > ' : ' ≤ '"></span>
+                                阈值 <b>τ = <span x-text="resultData.threshold.toFixed(3)"></span></b>
+                                &rarr; <b x-text="resultData.is_anomaly ? '异常' : '正常'"></b>
+                            </span>
+                            <button class="btn-reset" @click="resetInference()">重新上传</button>
                         </div>
 
                         <!-- 隐藏数据：供 JS 读取（tooltip + bbox） -->

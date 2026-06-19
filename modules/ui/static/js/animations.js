@@ -211,6 +211,75 @@ const Anim = {
             }
             requestAnimationFrame(step);
         });
+    },
+
+    /**
+     * Snap 页面过渡编排
+     * 当进入新 section 时，触发对应 section 内子元素的逐级入场动画。
+     *
+     * @param {Element} section - 进入的 section 元素
+     * @param {Object} options
+     * @param {number} options.staggerMs - 子元素间延迟 (ms)，默认 100
+     * @param {number} options.duration - 单个动画时长 (ms)，默认 500
+     * @returns {Animation[]}
+     */
+    snapPageEnter(section, options = {}) {
+        const { staggerMs = 100, duration = 500 } = options;
+        // 对 section 的 snap-page-inner 内所有带 .scroll-reveal 的直接子元素触发入场
+        const inner = section.querySelector(':scope > .snap-page-inner');
+        if (!inner) return [];
+        const children = inner.querySelectorAll(':scope > .scroll-reveal, :scope > .scroll-reveal-stagger > .scroll-reveal');
+        if (children.length === 0) return [];
+        const animations = [];
+        children.forEach((child, i) => {
+            // 重置初始状态
+            child.style.opacity = '0';
+            child.style.transform = 'translateY(24px)';
+            animations.push(
+                child.animate(
+                    [
+                        { opacity: 0, transform: 'translateY(24px)' },
+                        { opacity: 1, transform: 'translateY(0)' }
+                    ],
+                    {
+                        duration,
+                        delay: i * staggerMs,
+                        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                        fill: 'forwards'
+                    }
+                )
+            );
+        });
+        return animations;
+    },
+
+    /**
+     * Snap 页面离开动画
+     * @param {Element} section - 离开的 section 元素
+     * @returns {Animation[]}
+     */
+    snapPageExit(section) {
+        const inner = section.querySelector(':scope > .snap-page-inner');
+        if (!inner) return [];
+        const children = inner.querySelectorAll(':scope > .scroll-reveal, :scope > .scroll-reveal-stagger > .scroll-reveal');
+        if (children.length === 0) return [];
+        const animations = [];
+        children.forEach((child) => {
+            animations.push(
+                child.animate(
+                    [
+                        { opacity: 1, transform: 'translateY(0)' },
+                        { opacity: 0, transform: 'translateY(-16px)' }
+                    ],
+                    {
+                        duration: 300,
+                        easing: 'cubic-bezier(0, 0, 0.2, 1)',
+                        fill: 'forwards'
+                    }
+                )
+            );
+        });
+        return animations;
     }
 };
 

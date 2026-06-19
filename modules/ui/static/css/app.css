@@ -1633,7 +1633,7 @@ html[data-theme="light"] .theme-capsule:hover {
     gap: 12px;
 }
 
-.compare-heatmap {
+.compare-slot .compare-heatmap {
     width: 100%;
     border-radius: var(--r-md);
     object-fit: contain;

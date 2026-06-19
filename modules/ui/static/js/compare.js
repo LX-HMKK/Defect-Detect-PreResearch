@@ -180,6 +180,13 @@ document.addEventListener('alpine:init', function () {
                     },
                     onModelResult: function (data) {
                         self.compareSlots[data.model] = { status: 'done', data: data, error: null };
+                        // DOM 更新后设置 bbox overlays（作为 @load 的兜底）
+                        var mk = data.model;
+                        self.$nextTick(function () {
+                            setTimeout(function () {
+                                self.setupCompareBbox(mk);
+                            }, 200);
+                        });
                     },
                     onModelError: function (data) {
                         self.compareSlots[data.model] = { status: 'error', data: null, error: data.message };
@@ -225,6 +232,63 @@ document.addEventListener('alpine:init', function () {
             slotIsActive:  function (mk) { return this.compareSlots[mk].status === 'active'; },
             slotIsPending: function (mk) { return this.compareSlots[mk].status === 'pending'; },
             slotIsError:   function (mk) { return this.compareSlots[mk].status === 'error'; },
+
+            /** 为对比槽位设置 bbox overlays（热力图加载完成后调用） */
+            setupCompareBbox: function (mk) {
+                var wrap = document.getElementById('compare-wrap-' + mk);
+                var img  = document.getElementById('compare-heatmap-' + mk);
+                if (!wrap || !img) return;
+
+                var bboxes;
+                try {
+                    bboxes = JSON.parse(wrap.getAttribute('data-bboxes') || '[]');
+                } catch (e) { return; }
+                if (!bboxes || bboxes.length === 0) return;
+
+                // 清除已有 overlay
+                wrap.querySelectorAll('.bbox-overlay').forEach(function (el) { el.remove(); });
+
+                bboxes.forEach(function (bbox, i) {
+                    var div = document.createElement('div');
+                    div.className = 'bbox-overlay bbox-overlay-' + i;
+                    div.title = '缺陷区域 · 得分: ' + bbox[4].toFixed(4);
+                    wrap.appendChild(div);
+                });
+
+                // 定位更新函数（复用 object-fit: contain 逻辑）
+                var update = function () {
+                    var imgRect = img.getBoundingClientRect();
+                    var wrapRect = wrap.getBoundingClientRect();
+
+                    var naturalW = img.naturalWidth;
+                    var naturalH = img.naturalHeight;
+                    var displayW = imgRect.width;
+                    var displayH = imgRect.height;
+
+                    var scale = Math.min(displayW / naturalW, displayH / naturalH);
+                    var renderedW = naturalW * scale;
+                    var renderedH = naturalH * scale;
+                    var contentX = (displayW - renderedW) / 2;
+                    var contentY = (displayH - renderedH) / 2;
+                    var offsetX = imgRect.left - wrapRect.left;
+                    var offsetY = imgRect.top - wrapRect.top;
+
+                    bboxes.forEach(function (bb, i) {
+                        var ov = wrap.querySelector('.bbox-overlay-' + i);
+                        if (!ov) return;
+                        ov.style.left   = (offsetX + contentX + bb[0] * scale) + 'px';
+                        ov.style.top    = (offsetY + contentY + bb[1] * scale) + 'px';
+                        ov.style.width  = (bb[2] * scale) + 'px';
+                        ov.style.height = (bb[3] * scale) + 'px';
+                    });
+                };
+
+                update();
+                // 监听 resize / 图片加载变化
+                var ro = new ResizeObserver(update);
+                ro.observe(img);
+                img.addEventListener('load', update);
+            },
         };
     });
 });

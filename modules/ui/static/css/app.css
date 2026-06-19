@@ -1633,12 +1633,21 @@ html[data-theme="light"] .theme-capsule:hover {
     gap: 12px;
 }
 
-.compare-slot .compare-heatmap {
+.compare-heatmap-wrap {
+    position: relative;
     width: 100%;
     border-radius: var(--r-md);
-    object-fit: contain;
+    overflow: hidden;
     background: var(--bg-secondary);
+}
+
+.compare-slot .compare-heatmap {
+    display: block;
+    width: 100%;
     max-height: 200px;
+    object-fit: contain;
+    border-radius: var(--r-md);
+    background: var(--bg-secondary);
 }
 
 /* ── 紧凑指标 ── */

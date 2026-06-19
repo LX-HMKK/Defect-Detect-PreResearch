@@ -670,12 +670,19 @@
                         <span x-text="compareSlots[mk].error"></span>
                     </div>
 
-                    <!-- 完成状态：热力图缩略图 + 指标 -->
+                    <!-- 完成状态：热力图 + 识别框 + 指标 -->
                     <template x-if="slotIsDone(mk) && compareSlots[mk].data">
                     <div class="compare-slot-result">
-                        <img :src="compareSlots[mk].data.heatmap_b64"
-                             :alt="getModelName(mk) + ' 热力图'"
-                             class="compare-heatmap">
+                        <!-- 热力图容器（用于 bbox overlay 定位） -->
+                        <div class="compare-heatmap-wrap"
+                             :id="'compare-wrap-' + mk"
+                             :data-bboxes="JSON.stringify(compareSlots[mk].data.bboxes || [])">
+                            <img :src="compareSlots[mk].data.heatmap_b64"
+                                 :alt="getModelName(mk) + ' 热力图'"
+                                 class="compare-heatmap"
+                                 :id="'compare-heatmap-' + mk"
+                                 @load="setupCompareBbox(mk)">
+                        </div>
                         <div class="compare-metrics">
                             <div class="compare-metric">
                                 <span class="compare-metric-label">得分</span>

@@ -526,18 +526,18 @@ html[data-theme="light"] .theme-capsule:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Hero 区域
+   Hero 区域 — Section 0
    ═══════════════════════════════════════════════════════════════════════════ */
 .hero {
-    padding: 120px 0 80px;
+    padding: 0 0 48px;
     text-align: center;
 }
 
 .hero-title {
     font-family: var(--font-display);
-    font-size: 56px;
+    font-size: 64px;
     font-weight: 700;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
     line-height: 1.1;
     color: var(--text);
 }
@@ -551,24 +551,27 @@ html[data-theme="light"] .theme-capsule:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   算法卡片网格
+   算法卡片网格 — Section 0
    ═══════════════════════════════════════════════════════════════════════════ */
 .algo-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    padding: 40px 0;
+    gap: 32px;
+    padding: 0;
 }
 
 .algo-card {
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-lg);
-    padding: 32px;
+    padding: 36px;
+    position: relative;
+    overflow: hidden;
     transition: transform 0.35s var(--ease-spring),
                 box-shadow var(--dur-normal) var(--ease-out),
                 border-color var(--dur-normal) var(--ease-out);
-    cursor: default;
+    display: flex;
+    flex-direction: column;
 }
 
 .algo-card:hover {
@@ -577,40 +580,75 @@ html[data-theme="light"] .theme-capsule:hover {
     box-shadow: var(--shadow-md);
 }
 
+/* 左侧色标竖线 */
+.algo-card-accent {
+    position: absolute;
+    left: 0;
+    top: 20px;
+    bottom: 20px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--algo-color, var(--accent));
+    transition: box-shadow 0.35s var(--ease-out);
+}
+
+.algo-card:hover .algo-card-accent {
+    box-shadow: 0 0 12px var(--algo-color, var(--accent));
+}
+
+/* 卡片内容区域 */
+.algo-card-body {
+    padding-left: 8px;
+}
+
 .algo-card h3 {
     font-family: var(--font-display);
     font-size: 22px;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    margin: 0 0 8px 0;
     color: var(--text);
-    margin-bottom: 10px;
     display: flex;
     align-items: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
 }
 
+.algo-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.algo-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 4px 0;
+}
+
+.algo-card-kicker {
+    font-size: 13px !important;
+    color: var(--text-tertiary) !important;
+    font-style: italic;
+}
+
+/* 算法标签 */
 .algo-tag {
     font-size: 11px;
     font-weight: 500;
     padding: 2px 8px;
     border-radius: 20px;
-    margin-left: 8px;
+    margin-left: 4px;
     letter-spacing: 0;
 }
 
 .algo-tag--rec {
-    background: var(--accent-dim);
-    color: var(--accent);
+    background: rgba(41, 151, 255, 0.15);
+    color: #2997ff;
 }
 
 .algo-tag--alt {
-    background: var(--ok-bg);
-    color: var(--ok);
-}
-
-.algo-card p {
-    color: var(--text-secondary);
-    line-height: 1.6;
-    font-size: 14px;
+    background: rgba(48, 209, 88, 0.15);
+    color: #30d158;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

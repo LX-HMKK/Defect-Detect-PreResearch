@@ -2,7 +2,7 @@
 
 基于 **anomalib 2.3.0** 的无监督工业异常检测算法复现与性能评测系统。
 
-> **版本**: v1.0.0 | **语言**: Python 3.10 | **框架**: PyTorch 2.x + anomalib 2.3.0 + Gradio 4.x
+> **版本**: v1.0.0 | **语言**: Python 3.10 | **框架**: PyTorch 2.x + anomalib 2.3.0 | **UI**: FastAPI + Alpine.js SPA
 
 ---
 
@@ -96,10 +96,17 @@ python scripts/run_evaluation.py -m all -c all
 
 ```bash
 python scripts/run_ui.py
-# 访问 http://127.0.0.1:7860
+# → http://127.0.0.1:8000（自动打开浏览器）
+
+# 不自动打开浏览器
+python scripts/run_ui.py --no-browser
+
+# Gradio 回退 (legacy)
+python scripts/run_ui.py --gradio
+# → http://127.0.0.1:7860
 ```
 
-启动工业暗色主题 Web 界面，支持图像上传、模型推理、异常热力图可视化与结果导出。
+FastAPI + Alpine.js SPA，三页 snap 全屏滚动：算法介绍 → 单模型推理（一体化仪表盘）→ 四模型对比。
 
 ### 5. 阈值计算
 
@@ -145,16 +152,11 @@ python tools/run_report.py
 
 ## 界面特性
 
-### 工业级暗色模式 UI
-
-- **深色主题**：#121212 背景，专业沉稳
-- **Morandi 色系**：钢蓝主按钮、暗红异常告警、深绿正常状态
-- **算法选择**：顶部 Tabs 标签页，下划线高亮
-- **数据可视化**：
-  - 36-48px 大号异常得分
-  - 带轨道的现代化进度条 + shimmer 动画
-  - 0-1 热力图色阶图例
-- **容器质感**：内描边、微妙分割线
+- **亮/暗双模式**：胶囊开关切换，`prefers-color-scheme` 自动跟随
+- **CSS scroll-snap 三页吸附**：算法介绍 → 单模型推理仪表盘 → 四模型对比
+- **原图/热力图对比滑块**：拖拽分割线实时对比，Apple 风格异常得分 tooltip
+- **SSE 流式推理**：实时进度推送，四模型并行对比
+- **5 层动效**：环境呼吸光 → 光标光晕 → 滚动入场 → 微交互 → 视图过渡
 
 ---
 
@@ -197,7 +199,7 @@ Defect-Detect-PreResearch/
 │   ├── config/                # 配置管理
 │   ├── data_processing/       # 数据集处理（MVTecFormatter）
 │   ├── evaluation/            # 指标计算（AUROC/AUPR/PRO）
-│   └── ui/                    # Gradio Web 可视化平台
+│   └── ui/                    # FastAPI + Alpine.js SPA（含 Gradio legacy 回退）
 ├── configs/                   # 算法 YAML 配置（5 个文件）
 ├── scripts/                   # 核心工作流脚本（训练/评估/阈值/UI/数据处理）
 ├── tools/                     # 分析工具（7 个：小样本/消融/基准/混淆矩阵/数据验证/统计/报告）

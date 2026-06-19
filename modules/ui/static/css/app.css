@@ -1650,6 +1650,43 @@ html[data-theme="light"] .theme-capsule:hover {
     background: var(--bg-secondary);
 }
 
+/* ── 四模型对比：原图缩略图 ── */
+.compare-mini-img-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.compare-mini-img {
+    display: block;
+    width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+    border-radius: var(--r-md);
+    background: var(--bg-secondary);
+}
+
+.compare-mini-label {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.compare-mini-label--heat {
+    left: auto;
+    right: 6px;
+}
+
 /* ── 紧凑指标 ── */
 .compare-metrics {
     display: flex;

@@ -2152,36 +2152,51 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
    Mobile Responsive — 平板及以下
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
+    /* Snap pages: reduce padding */
+    .snap-page-inner {
+        padding: 32px 16px;
+    }
+
+    /* Navbar */
     .navbar { padding: 0 16px; }
-    .navbar-inner { height: 48px; }
+    .navbar-inner { height: 44px; }
+    .navbar-title { font-size: 14px; }
+    .navbar-section { display: none; }  /* 小屏隐藏标题接力 */
 
-    /* Stack algo cards */
-    .algo-grid { grid-template-columns: 1fr; gap: 16px; }
+    /* Pipeline: stack vertically */
+    .pipeline {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 
-    /* Smaller hero */
-    .hero { padding: 80px 0 40px; }
-    .hero-title { font-size: 36px; }
+    /* Result layout: stack */
+    .result-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Hero smaller */
+    .hero { padding: 40px 0 32px; }
+    .hero-title { font-size: 40px; }
     .hero-subtitle { font-size: 16px; }
 
-    /* Single column inference */
+    /* Algo grid: single column */
+    .algo-grid { grid-template-columns: 1fr; gap: 20px; }
+    .algo-card { padding: 28px; }
+    .algo-card h3 { font-size: 18px; }
+
+    /* Compare grid: 2x2 */
+    .compare-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .compare-shared-img { max-height: 180px; }
+
+    /* Section title smaller */
+    .section-title { font-size: 26px; }
+
+    /* Inference controls: stack */
     .inference-controls { flex-direction: column; gap: 12px; }
     .btn-inference { width: 100%; }
 
-    /* Stack compare */
-    .compare-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .compare-summary { flex-direction: column; align-items: flex-start; }
-
-    /* Result metrics stack */
-    .result-metrics { grid-template-columns: 1fr; }
-
-    .metric-value { font-size: 24px; }
-
-    .compare-handle-grip {
-        width: 16px;
-        height: 16px;
-    }
-
-    /* Move snap dots from right side to bottom bar */
+    /* Progress ring: move to bottom bar */
     .snap-dots {
         position: fixed;
         right: auto; top: auto;
@@ -2189,71 +2204,74 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         transform: none;
         flex-direction: row;
         justify-content: center;
-        gap: 16px;
+        gap: 12px;
         padding: 12px 0;
         background: var(--bg-root);
-        border-top: 1px solid rgba(255,255,255,0.06);
+        border-top: 1px solid var(--sep-subtle);
         width: 100%;
         z-index: 100;
     }
-    .snap-ring {
-        width: 20px;
-        height: 20px;
+    .snap-ring { width: 28px; height: 28px; }
+
+    /* Add bottom padding for nav dots */
+    .snap-container { padding-bottom: 56px; }
+
+    /* Result metrics stack */
+    .result-metrics { grid-template-columns: 1fr; }
+    .metric-value { font-size: 24px; }
+
+    .compare-handle-grip {
+        width: 16px;
+        height: 16px;
     }
 
-    /* Add bottom padding so content isn't hidden behind snap dots */
-    body { padding-bottom: 56px; }
+    /* Compare summary stack */
+    .compare-summary { flex-direction: column; align-items: flex-start; }
+
+    /* Section padding */
+    .section { padding: 40px 16px; }
+    .section-title { font-size: 26px; }
+
+    .inference-area { padding: 20px; }
+
+    .compare-slot-result { flex-direction: column; }
 
     /* Larger touch targets */
     .theme-capsule { width: 64px; height: 34px; }
     .capsule-knob { width: 26px; height: 26px; }
 
-    .section-title { font-size: 26px; }
-
-    .algo-card { padding: 24px; }
-
-    .inference-area { padding: 20px; }
-
-    .compare-slot-result { flex-direction: column; }
+    /* Flowchart card */
+    .flowchart-card { padding: 20px; }
+    .flowchart-card h3 { font-size: 18px; }
+    .flowchart-svg { max-height: 260px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Mobile Responsive — 手机
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
+    .hero-title { font-size: 32px; }
+    .snap-page-inner { padding: 24px 12px; }
+    .section-title { font-size: 22px; }
+
+    .algo-grid { gap: 12px; }
+    .algo-card { padding: 24px; }
+    .algo-card h3 { font-size: 18px; }
+
     .compare-grid { grid-template-columns: 1fr; }
-    .hero-title { font-size: 28px; }
+    .compare-shared-img { max-height: 160px; }
+    .compare-ranking { flex-direction: column; }
+
+    .pipeline-step { padding: 14px; }
+    .pipeline-step-num { width: 24px; height: 24px; font-size: 11px; }
+
     .upload-zone { min-height: 180px; }
+    .navbar-inner { height: 44px; }
+    .navbar-title { font-size: 14px; }
 
-    .navbar-inner {
-        height: 44px;
-    }
+    .footer { padding: 32px 16px; }
 
-    .navbar-title {
-        font-size: 14px;
-    }
-
-    .section-title {
-        font-size: 22px;
-    }
-
-    .algo-grid {
-        gap: 12px;
-    }
-
-    .algo-card {
-        padding: 20px;
-    }
-
-    .algo-card h3 {
-        font-size: 18px;
-    }
-
-    .footer {
-        padding: 32px 16px;
-    }
-
-    .compare-ranking {
-        flex-direction: column;
-    }
+    .flowchart-card { padding: 16px; }
+    .flowchart-card h3 { font-size: 16px; }
+    .flowchart-svg { max-height: 220px; }
 }

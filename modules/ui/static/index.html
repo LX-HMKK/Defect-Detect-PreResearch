@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>工业异常检测系统</title>
 
-    <!-- Inter 字体 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap" rel="stylesheet">
+    <!-- 使用系统字体栈：SF Pro (macOS/iOS) / PingFang SC (中文) / Segoe UI (Windows) -->
+    <!-- 无需加载外部 Web 字体，消除阻塞渲染的字体请求 -->
 
     <!-- 主样式表 -->
     <link rel="stylesheet" href="/static/css/app.css">
@@ -116,25 +114,26 @@
         color: var(--text-tertiary);
         margin-top: 2px;
     }
-    /* 共享原图区域 */
+    /* 共享原图区域 — column 布局居中 */
     .compare-shared-image {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
         margin-bottom: 20px;
-        padding: 8px 12px;
+        padding: 12px;
         background: var(--bg-secondary);
         border-radius: 10px;
     }
     .compare-shared-image img {
-        height: 64px;
-        width: auto;
-        border-radius: 6px;
+        max-height: 200px;
+        width: 100%;
         object-fit: contain;
+        border-radius: 6px;
         background: var(--bg);
     }
     .compare-shared-label {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 500;
         color: var(--text-secondary);
     }
@@ -231,12 +230,25 @@
 
             <div class="navbar-right">
                 <!-- 数据集选择器 -->
-                <select class="nav-select" x-model="selectedDataset"
-                        aria-label="选择数据集">
-                    <template x-for="ds in datasets" :key="ds">
-                        <option x-text="ds" :value="ds"></option>
-                    </template>
-                </select>
+                <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
+                    <button class="custom-select-trigger"
+                            :class="{ 'is-open': open }"
+                            @click="open = !open"
+                            aria-label="选择数据集">
+                        <span class="custom-select-label" x-text="selectedDataset || '数据集'"></span>
+                        <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                        </svg>
+                    </button>
+                    <div class="custom-select-menu" x-show="open" x-transition>
+                        <template x-for="ds in datasets" :key="ds">
+                            <div class="custom-select-option"
+                                 :class="{ 'is-selected': ds === selectedDataset }"
+                                 @click="selectedDataset = ds; open = false"
+                                 x-text="ds"></div>
+                        </template>
+                    </div>
+                </div>
 
                 <!-- 胶囊主题切换 -->
                 <button class="theme-capsule" @click="toggleTheme"
@@ -269,7 +281,7 @@
         <!-- ============================================== -->
         <!-- Section 0: 算法介绍（首页） -->
         <!-- ============================================== -->
-        <section id="s0" class="snap-page" x-ref="section0" x-intersect:enter="currentSection = 0">
+        <section id="s0" class="snap-page" x-ref="section0">
             <div class="snap-page-inner">
                 <div class="hero">
                     <h1 class="hero-title scroll-reveal">工业缺陷检测</h1>
@@ -280,7 +292,7 @@
                 <div class="algo-grid scroll-reveal-stagger">
 
                     <!-- ═══ PatchCore ═══ -->
-                    <div class="algo-card algo-card--patchcore scroll-reveal" x-intersect="onCardIntersect">
+                    <div class="algo-card algo-card--patchcore scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
@@ -358,7 +370,7 @@
                     </div>
 
                     <!-- ═══ PaDiM ═══ -->
-                    <div class="algo-card algo-card--padim scroll-reveal" x-intersect="onCardIntersect">
+                    <div class="algo-card algo-card--padim scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #30d158;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128202;</span> PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
@@ -420,7 +432,7 @@
                     </div>
 
                     <!-- ═══ FRE ═══ -->
-                    <div class="algo-card algo-card--fre scroll-reveal" x-intersect="onCardIntersect">
+                    <div class="algo-card algo-card--fre scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #ff9f0a;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128260;</span> FRE</h3>
@@ -482,7 +494,7 @@
                     </div>
 
                     <!-- ═══ DRAEM ═══ -->
-                    <div class="algo-card algo-card--draem scroll-reveal" x-intersect="onCardIntersect">
+                    <div class="algo-card algo-card--draem scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #bf5af2;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#127919;</span> DRAEM</h3>
@@ -559,7 +571,7 @@
         <!-- ============================================== -->
         <!-- Section 1: 单模型推理 -->
         <!-- ============================================== -->
-        <section id="s1" class="snap-page" x-ref="section1" x-intersect:enter="currentSection = 1">
+        <section id="s1" class="snap-page" x-ref="section1">
             <div class="snap-page-inner">
                 <h2 class="section-title scroll-reveal">单模型推理</h2>
                 <div class="inference-area">
@@ -614,11 +626,26 @@
                                 <span class="pipeline-step-num">2</span>
                                 <span class="pipeline-step-label">选择模型</span>
                             </div>
-                            <select class="model-select" x-model="selectedModel" aria-label="选择算法">
-                                <template x-for="m in models" :key="m.key">
-                                    <option :value="m.key" x-text="m.name + ' — ' + m.direction"></option>
-                                </template>
-                            </select>
+                            <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
+                                <button class="custom-select-trigger"
+                                        :class="{ 'is-open': open }"
+                                        @click="open = !open"
+                                        aria-label="选择算法">
+                                    <span class="custom-select-label"
+                                          x-text="(models.find(function(m){ return m.key === selectedModel }) || {}).name || '选择算法'"></span>
+                                    <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                                    </svg>
+                                </button>
+                                <div class="custom-select-menu" x-show="open" x-transition>
+                                    <template x-for="m in models" :key="m.key">
+                                        <div class="custom-select-option"
+                                             :class="{ 'is-selected': m.key === selectedModel }"
+                                             @click="selectedModel = m.key; open = false"
+                                             x-text="m.name + ' — ' + m.direction"></div>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Step 3: 开始推理 -->
@@ -783,7 +810,7 @@
         <!-- ============================================== -->
         <!-- Section 2: 四模型对比 + 页脚 -->
         <!-- ============================================== -->
-        <section id="s2" class="snap-page" x-ref="section2" x-data="compare" x-intersect:enter="currentSection = 2">
+        <section id="s2" class="snap-page" x-ref="section2" x-data="compare">
             <div class="snap-page-inner">
                 <h2 class="section-title scroll-reveal">四模型对比</h2>
 
@@ -830,7 +857,7 @@
                             <span class="compare-rank-item">
                                 <span class="rank-num" x-text="'#' + (i + 1)"></span>
                                 <span class="rank-name" x-text="r.name"></span>
-                                <code x-text="r.score.toFixed(4)"></code>
+                                <code x-text="r.score?.toFixed(4) ?? '—'"></code>
                             </span>
                         </template>
                     </div>

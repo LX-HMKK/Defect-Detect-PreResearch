@@ -118,13 +118,13 @@ modules/
       theme.js                 # 主题切换交互（localStorage + data-theme）
       inference-interact.js    # [Legacy] Gradio 推理结果交互增强
       css/
-        app.css                # Phase 2 主样式表（亮/暗双模式，~2100 行）
+        app.css                # Phase 2 主样式表（亮/暗双模式，~2700 行）
         flowchart.css          # SVG 流程图动画样式
       js/
         app.js                 # Alpine 全局状态：主题/snap 导航/进度环/推理/健康检查
         inference.js           # InferenceRunner (SSE) + imageCompare 滑块 + tooltip + bbox
         compare.js             # CompareRunner (SSE) + Alpine compare 组件
-        animations.js          # 滚动驱动淡入动画 (ScrollReveal) + snap 过渡编排
+        animations.js          # 滚动驱动淡入动画 (ScrollReveal) + snap 过渡编排（JS WAAPI 统一驱动进出，CSS 退出动画已移除）
         cursor-glow.js         # 鼠标光晕跟随效果
         flowchart.js           # SVG 流程图绘制动画
 configs/
@@ -165,7 +165,7 @@ memory/                         # Claude Code 会话记忆
 
 - **`modules/ui/server.py`** → FastAPI 应用 — Phase 2 核心。`/api/predict` (SSE 流式单模型推理) 和 `/api/compare` (SSE 流式四模型并行推理) 通过 `asyncio.to_thread` 在线程池执行 `_run_prediction()`，避免阻塞事件循环。`CacheControlMiddleware` 为 `/static/*` 资源添加 `no-cache` 头（ETag 验证）。`/api/models` 返回可用模型和数据集列表。`/api/theme/light-css` 返回亮色 CSS 变量。
 
-- **`Alpine.data('app')`** (`modules/ui/static/js/app.js`) — 全局状态。主题切换（`toggleTheme` + `prefers-color-scheme` 跟随）、导航滚动（`IntersectionObserver` + 键盘 ↑↓）、数据集/模型列表获取、推理状态机（`idle→uploaded→loading→inferring→done|error`）、SSE 流式推理调度、健康检查轮询（30s）。
+- **`Alpine.data('app')`** (`modules/ui/static/js/app.js`) — 全局状态。主题切换（`toggleTheme` + `prefers-color-scheme` 跟随）、导航滚动（`IntersectionObserver`（以 `.snap-container` 为 `root`）+ 键盘 ↑↓）、数据集/模型列表获取、推理状态机（`idle→uploaded→loading→inferring→done|error`）、SSE 流式推理调度、健康检查轮询（30s）。导航下拉选择器使用 Alpine 内联 `x-data="{ open: false }"` 模式（仅遮蔽 `open`，父作用域属性自动透传），替代了原生 `<select>`。
 
 - **`Alpine.data('compare')`** (`modules/ui/static/js/compare.js`) — 四模型对比组件。`compareSlots` 状态机（`pending→active→done|error`）、`CompareRunner.run()` 消费 `/api/compare` SSE 流、`setupCompareBbox()` 为每个槽位创建 bbox overlay 并监听 ResizeObserver 实时定位。
 
@@ -183,7 +183,7 @@ memory/                         # Claude Code 会话记忆
 
 - **`.snap-dots`** — 右侧固定导航点（改为进度环）。SVG 圆环通过 `snapProgress` 驱动 `stroke-dashoffset` 实现连续填充。移动端移至底部横条。
 
-- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~2100 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、上传区、骨架屏、进度条、结果卡片、对比滑块、热力图图例+tooltip、bbox overlay、四模型对比网格、页脚动画、全页加载遮罩）。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。
+- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~2500 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、自定义下拉选择器、上传区、骨架屏、进度条微光扫过、一体化仪表盘卡片 `.result-dashboard`、对比滑块、热力图图例 overlay、bbox overlay、四模型对比网格 `.compare-grid`、流水线收缩摘要 `.pipeline-summary`、页脚动画、全页加载遮罩）。系统字体栈（`SF Pro Display` → `PingFang SC` → `Microsoft YaHei`），零外部字体依赖。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。Chrome 115+ `@supports (animation-timeline: view())` 块已禁用（与 JS scroll-snap 动画编排冲突）。
 
 ### Gradio Legacy 组件
 
@@ -378,9 +378,12 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 - 三页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍 → 单模型推理 → 四模型对比
 - 每页 100dvh 全视口，滚动吸附到整页，无半页停留
 - 右侧进度环导航点（SVG 圆环 + 页码"1/3"），实时反映滚动位置
-- S1 三列流水线（上传→选择→推理），S2 共享原图上置 + 四列仅热力图
+- **进出动画**：统一由 JS WAAPI 驱动（`snapPageEnter` / `snapPageExit`），方向向下推送（与滚动方向一致），CSS 退出动画已删除以避免双动画竞争
+- **S1 布局**：三列流水线（上传→选择→推理）→ 完成后收缩为 `.pipeline-summary` 步骤摘要 → 一体化仪表盘卡片 `.result-dashboard`（标题栏 + 全宽对比滑块 + 三列指标行 + 底部判决/操作）
+- **S2（S3）布局**：共享原图居中显示（max-height: 200px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
 - 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
 - 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
+- 布局精修规范：`docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md`
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
 
@@ -395,6 +398,45 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 ### CSS 陷阱：`.compare-heatmap` 选择器泄漏
 
 `app.css` 中 `.compare-heatmap { position: absolute; }` 为单模型对比滑块设计（热力图叠加在原图之上），该选择器会泄漏到四模型对比槽位。`.compare-slot .compare-heatmap` 覆盖规则若未显式设置 `position: relative`，热力图将脱离文档流，导致父容器 `.compare-heatmap-wrap` 高度塌陷至 0px，配合 `overflow: hidden` 将热力图完全裁剪。**任何对 `.compare-heatmap` 的修改必须验证两种用法**：(1) `.compare-container .compare-heatmap` 滑块叠层，(2) `.compare-slot .compare-heatmap` 对比槽位。
+
+### CSS 陷阱：Snap 进出动画双驱动竞争
+
+进出动画**仅由 JS WAAPI 驱动**（`Anim.snapPageEnter` / `Anim.snapPageExit`）。旧的 CSS `@keyframes pageContentExit` 和 `.snap-page--exiting .snap-page-inner > *` 规则已删除。若重新添加 CSS animation 到 `.snap-page--exiting` 选择器，会与 JS WAAPI 形成双动画竞争，导致元素同时执行两套动画（闪烁/跳变）。`@supports (animation-timeline: view())` 块已注释禁用，待 Chrome 原生 scroll-driven animations 成熟后再评估迁移。
+
+### IntersectionObserver 陷阱：`root` 参数缺失
+
+`.snap-container` 为 `overflow-y: auto` 的滚动容器，section 在其内部滚动。若 `IntersectionObserver` 不指定 `root` 参数，默认以 viewport 为根进行观察——而 `.snap-container` 填满 100dvh 视口，其内部所有 section 对 viewport 均 100% 可见，导致 Observer **永远检测不到 section 切换**。务必在 options 中传入 `root: container`（container 指向 `.snap-container` 元素）。
+
+### CSS 陷阱：`border-image` + `border-radius` 互斥
+
+`border-image` 会完全替代 `border-radius` 的渲染——设置 `border-image` 后圆角静默失效，显示为直角。需要渐变边框+圆角共存时，必须用 `::before` 伪元素 + `mask-composite: exclude` 模拟，而非 `border-image`。
+
+示例：
+```css
+/* ❌ 错误：border-image 会覆盖 border-radius */
+.summary {
+    border-radius: 12px;
+    border-image: linear-gradient(135deg, gold, orange) 1;
+}
+
+/* ✅ 正确：::before + mask-composite */
+.summary {
+    border-radius: 12px;
+    position: relative;
+}
+.summary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, gold, orange);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+}
+```
 
 ### UI 调试 (Phase 2)
 

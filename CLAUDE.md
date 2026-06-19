@@ -57,7 +57,10 @@ python tools/run_post_process_eval.py -m all -c all
 
 # 启动 FastAPI UI (Phase 2 — 默认)
 python scripts/run_ui.py
-# → http://127.0.0.1:8000
+# → http://127.0.0.1:8000（自动打开浏览器）
+
+# 不自动打开浏览器（调试用）
+python scripts/run_ui.py --no-browser
 
 # 启动 Gradio UI (legacy fallback)
 python scripts/run_ui.py --gradio
@@ -106,11 +109,24 @@ modules/
   evaluation/metrics.py        # MetricsEvaluator（从零实现 AUROC/AUPR/PRO）
   evaluation/post_processor.py # AnomalyMapProcessor: 异常热力图后处理（7 种配方）
   ui/
-    demo.py                   # Gradio UI：AnomalyDetector + create_interface
-    styles.css                # Apple 风格设计系统（亮/暗双模式，1050+ 行）
-    theme.py                  # 主题管理器：色板定义 + CSS 生成 + 切换按钮 + Favicon
-    static/theme.js           # 主题切换交互（localStorage + data-theme）
-	    static/inference-interact.js  # 推理结果交互增强（热力图 hover tooltip + bbox 高亮）
+    server.py                  # FastAPI 服务器 — Phase 2 核心：REST API + SSE 流式推理
+    demo.py                    # [Legacy] Gradio UI：AnomalyDetector + create_interface
+    theme.py                   # 主题管理器：色板定义 + CSS 生成 + Favicon
+    styles.css                 # [Legacy] Gradio 专用 CSS（Phase 2 使用 static/css/app.css）
+    static/
+      index.html               # Alpine.js SPA 入口（三区块连续滚动）
+      theme.js                 # 主题切换交互（localStorage + data-theme）
+      inference-interact.js    # [Legacy] Gradio 推理结果交互增强
+      css/
+        app.css                # Phase 2 主样式表（亮/暗双模式，~1800 行）
+        flowchart.css          # SVG 流程图动画样式
+      js/
+        app.js                 # Alpine 全局状态：主题/导航/推理/健康检查
+        inference.js           # InferenceRunner (SSE) + imageCompare 滑块 + tooltip + bbox
+        compare.js             # CompareRunner (SSE) + Alpine compare 组件
+        animations.js          # 滚动驱动淡入动画 (ScrollReveal)
+        cursor-glow.js         # 鼠标光晕跟随效果
+        flowchart.js           # SVG 流程图绘制动画
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
@@ -119,8 +135,9 @@ tools/                          # 分析工具（小样本/消融/基准/混淆�
 results/                        # 训练结果
 docs/
   # 演示材料 (讲稿.html/md)、需求/任务书
-  superpowers/specs/            # 设计规范（Apple UI 设计规范、Phase 1 前端增强）
+  superpowers/specs/            # 设计规范
   superpowers/plans/            # 实现计划
+memory/                         # Claude Code 会话记忆
 .cache/                         # 运行时缓存 (pycache, logs, pretrained)
 ```
 
@@ -144,13 +161,33 @@ docs/
 
 - **`AnomalyMapProcessor`** (`modules/evaluation/post_processor.py`) — 异常热力图后处理管线。提供 4 种基础算子（高斯滤波/中值滤波/形态学开闭/双线性上采样）及 7 种组合配方，通过 `PRESET_CONFIGS` 字典调用。`process_anomaly_maps()` 为批量处理入口。
 
-- **`AnomalyDetector`** (`modules/ui/demo.py`) — 加载 checkpoint、执行推理、生成热力图叠加层与 base64 编码的原始灰度图（供前端 hover 交互），在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框并编码为 JSON 嵌入结果 HTML。`_format_result()` 返回带逐层入场动画（`.reveal-child-*`）的 Apple 风格结果卡片。单模型推理 (`on_run_click`) 和四模型对比 (`on_compare_click`) 均使用 generator `yield` 实现流式渐进渲染（骨架屏 → 加载态 → 结果）。页面加载时通过 `gr.Blocks(head=...)` 注入阻塞式反 FOUC 脚本。
+### Phase 2 UI（FastAPI + Alpine.js SPA）
 
-- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。提供 `get_theme_switch_html()`（太阳/月亮 SVG 切换按钮）、`get_theme_js()`（localStorage 持久化逻辑）、`get_favicon_html()`（SVG 菱形图标，亮/暗双模式自适应）。暗色默认变量在 `styles.css` 的 `:root` 块中，亮色变量通过 `gr.HTML("<style>…</style>")` 注入以绕过 Gradio 6 的 CSS 作用域处理。
+- **`modules/ui/server.py`** → FastAPI 应用 — Phase 2 核心。`/api/predict` (SSE 流式单模型推理) 和 `/api/compare` (SSE 流式四模型并行推理) 通过 `asyncio.to_thread` 在线程池执行 `_run_prediction()`，避免阻塞事件循环。`CacheControlMiddleware` 为 `/static/*` 资源添加 `no-cache` 头（ETag 验证）。`/api/models` 返回可用模型和数据集列表。`/api/theme/light-css` 返回亮色 CSS 变量。
 
-- **`modules/ui/static/inference-interact.js`** — 推理结果交互增强。MutationObserver 监听 DOM 变化（回调中先 disconnect 防递归），从隐藏的 base64 灰度图读取像素值创建离屏 canvas，在热力图 `<img>` 上 mousemove 显示 tooltip（Apple 风格异常得分）；bbox JSON → 绝对定位透明 overlay，hover 高亮 `var(--accent)` 边框。`_bboxCleanups[]` 追踪所有 resize/load 监听器，`cleanupOverlays()` 统一释放防内存泄漏。
+- **`Alpine.data('app')`** (`modules/ui/static/js/app.js`) — 全局状态。主题切换（`toggleTheme` + `prefers-color-scheme` 跟随）、导航滚动（`IntersectionObserver` + 键盘 ↑↓）、数据集/模型列表获取、推理状态机（`idle→uploaded→loading→inferring→done|error`）、SSE 流式推理调度、健康检查轮询（30s）。
 
-- **`modules/ui/styles.css`** — Apple 风格设计系统（~1350 行）。亮/暗双模式通过 CSS 自定义属性实现，`html[data-theme="light"]` 选择器控制亮色覆盖。包含 15 组件的完整规范（标题区+Logo、标签页、算法卡片、输入控件、按钮、状态面板+进度条、骨架屏、结果卡片、度量数字、热力图图例+tooltip、bbox overlay、对比模式、底部说明+页脚动画、全页加载遮罩、下拉框修复），以及交错入场动画（`.reveal-1` ~ `.reveal-6` + `.footerRise`）、磨砂玻璃效果（`backdrop-filter: blur(20px)`）、弹簧缓动（`cubic-bezier(0.22,0.8,0.3,1.15)`）。`.reveal`/`.reveal-child-*` 不使用 `animation-fill-mode: forwards`（防止 `transform:translateY(0)`/`filter:blur(0)` 为非 none 值创建包含块导致 `position:fixed` 弹出框随滚动偏移）。设计规范详见 `docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md`。
+- **`Alpine.data('compare')`** (`modules/ui/static/js/compare.js`) — 四模型对比组件。`compareSlots` 状态机（`pending→active→done|error`）、`CompareRunner.run()` 消费 `/api/compare` SSE 流、`setupCompareBbox()` 为每个槽位创建 bbox overlay 并监听 ResizeObserver 实时定位。
+
+- **`InferenceRunner`** (`modules/ui/static/js/inference.js`) — `/api/predict` SSE 客户端。ReadableStream 读取 + CRLF→LF 归一化 + event/data 行解析。
+
+- **`imageCompare`** Alpine 组件 (`inference.js`) — 原图/热力图对比滑块。`mousemove/touchmove` 拖拽控制 `clipPath: inset()`。
+
+- **`setupHeatmapTooltip()`** (`inference.js`) — 离屏 canvas 从隐藏 `<img>` 读取灰度像素值，mousemove 显示 Apple 风格异常得分 tooltip。
+
+- **`setupBboxOverlays()`** (`inference.js`) — NMS bbox JSON → 绝对定位 overlay，hover 高亮 `var(--accent)` 边框，计入 `object-fit: contain` 居中偏移。
+
+- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~1800 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、上传区、骨架屏、进度条、结果卡片、对比滑块、热力图图例+tooltip、bbox overlay、四模型对比网格、页脚动画、全页加载遮罩）。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。
+
+### Gradio Legacy 组件
+
+- **`AnomalyDetector`** (`modules/ui/demo.py`) — [Legacy] 加载 checkpoint、执行推理、生成热力图叠加层与 base64 编码的原始灰度图（供前端 hover 交互），在独立阈值 (`NMS_BBOX_THRESHOLD = 0.3`) 下生成 NMS 边界框。`_format_result()` 返回带逐层入场动画（`.reveal-child-*`）的 Apple 风格结果卡片。单模型/四模型对比均使用 generator `yield` 实现流式渐进渲染。页面加载时通过 `gr.Blocks(head=...)` 注入阻塞式反 FOUC 脚本。
+
+- **`modules/ui/theme.py`** — 主题管理器。`DARK`/`LIGHT` 色板字典 → `build_css_variables()` 编译为 CSS `:root` 变量块。`get_light_css()` 供 FastAPI `/api/theme/light-css` 端点使用。暗色默认变量在 `app.css` 的 `:root` 块中，亮色变量通过 `html[data-theme="light"]` 选择器覆盖。
+
+- **`modules/ui/styles.css`** — [Legacy] Gradio 专用样式（~1350 行），Phase 2 不再使用。
+
+- **`modules/ui/static/inference-interact.js`** — [Legacy] Gradio 推理结果交互增强。Phase 2 对应功能在 `js/inference.js`。
 
 ### 数据流
 
@@ -159,7 +196,7 @@ docs/
 3. `setup()` → `get_datamodule_from_config()` + `get_model_from_config()`（均严格从配置读取参数）
 4. `train()` → anomalib `Engine.fit()`（PatchCore/PaDiM：仅 coreset 子采样/高斯建模，1 个 epoch）
 5. `evaluate()` → `Engine.test()` → 提取 6 个指标 → `_compute_optimal_threshold()` (Youden's J, [0,1] 全域搜索) → `_save_results()` + `_update_results_json_threshold()` → JSON 输出至 `results/comparison/{model}_{category}_results.json`
-6. UI 通过 `AnomalyDetector.load_model()` → 动态创建模型（不加载 checkpoint 权重于模型对象，checkpoint 仅传入 `Engine.predict()` 的 `ckpt_path` 参数）→ `predict()` 生成热力图 + NMS 边界框
+6. UI 通过 FastAPI (`server.py`) 暴露 `/api/predict` 和 `/api/compare` SSE 端点 → `_run_prediction()` 在线程池执行推理 → 返回 `{image_b64, heatmap_b64, bboxes, score, ...}` → 前端 Alpine.js SPA 消费 SSE 流并渲染结果
 
 ### 训练器中的三层配置优先级
 
@@ -338,6 +375,10 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
 
+### CSS 陷阱：`.compare-heatmap` 选择器泄漏
+
+`app.css` 中 `.compare-heatmap { position: absolute; }` 为单模型对比滑块设计（热力图叠加在原图之上），该选择器会泄漏到四模型对比槽位。`.compare-slot .compare-heatmap` 覆盖规则若未显式设置 `position: relative`，热力图将脱离文档流，导致父容器 `.compare-heatmap-wrap` 高度塌陷至 0px，配合 `overflow: hidden` 将热力图完全裁剪。**任何对 `.compare-heatmap` 的修改必须验证两种用法**：(1) `.compare-container .compare-heatmap` 滑块叠层，(2) `.compare-slot .compare-heatmap` 对比槽位。
+
 ### UI 调试 (Phase 2)
 
 ```bash
@@ -357,15 +398,7 @@ python modules/ui/theme.py    # 输出完整 CSS 到 stdout
 
 **Gradio 6 CSS 作用域问题（仅影响 legacy Gradio UI）**：`gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
 
-**Gradio 6 CSS 作用域问题：** `gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
-
 **亮/暗双模式：** 系统通过 `prefers-color-scheme` 自动检测，并支持手动切换。手动选择存储在 `localStorage.theme`，优先级高于系统设定。CSS 通过 `html[data-theme="light"]` 选择器覆盖变量。切换逻辑在 `modules/ui/static/theme.js`。
-
-**主题开发命令：**
-```bash
-# 独立测试主题模块
-python modules/ui/theme.py    # 输出完整 CSS 到 stdout
-```
 
 ## 相关文件
 
@@ -374,6 +407,6 @@ python modules/ui/theme.py    # 输出完整 CSS 到 stdout
 - [data/DATASET_REGISTRY.md](data/DATASET_REGISTRY.md) — 所有数据集清单、已知问题、defect-type 缩写表
 - [requirements.txt](requirements.txt) — 固定版本依赖清单
 - [configs/config.yaml](configs/config.yaml) — 主配置（所有可调参数集中管理）
-- [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
-- [docs/superpowers/specs/2026-06-18-phase1-frontend-enhancement-design.md](docs/superpowers/specs/2026-06-18-phase1-frontend-enhancement-design.md) — Phase 1 前端增强设计
-- [docs/superpowers/plans/2026-06-18-phase1-implementation-plan.md](docs/superpowers/plans/2026-06-18-phase1-implementation-plan.md) — Phase 1 实现计划
+- [docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md](docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md) — Phase 2 UI 设计规范（FastAPI + Alpine.js SPA）
+- [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Phase 1 Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
+- [memory/](memory/) — Claude Code 会话记忆目录

@@ -61,6 +61,9 @@ const InferenceRunner = {
 
                 buffer += decoder.decode(value, { stream: true });
 
+                // 归一化行尾：\r\n → \n（sse-starlette 使用 CRLF，但 JS 解析器期望 LF）
+                buffer = buffer.replace(/\r\n/g, '\n');
+
                 // SSE 协议：event/data 行对，以 \n\n 分隔
                 while (buffer.includes('\n\n')) {
                     const idx = buffer.indexOf('\n\n');

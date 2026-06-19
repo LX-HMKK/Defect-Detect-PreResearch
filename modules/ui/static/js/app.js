@@ -5,6 +5,7 @@
  * 必须在 Alpine.js CDN 之前加载（通过 alpine:init 事件注册）。
  */
 document.addEventListener('alpine:init', function () {
+
     Alpine.data('app', function () {
         return {
             // ─────────────────────────────────────────────
@@ -207,21 +208,20 @@ document.addEventListener('alpine:init', function () {
                         });
 
                         if (maxRatio > 0 && maxIdx !== self.currentSection) {
-                            // 为离开的 section 添加 exiting class
                             var prevSection = sections[self.currentSection];
-                            if (prevSection) {
-                                prevSection.classList.add('snap-page--exiting');
-                            }
-                            // 为新进入的 section 移除 exiting class
                             var nextSection = sections[maxIdx];
-                            if (nextSection) {
-                                nextSection.classList.remove('snap-page--exiting');
+
+                            // 1. 先触发旧 section 的退出动画（向下推出，与滚动方向一致）
+                            if (prevSection && window.Anim && window.Anim.snapPageExit) {
+                                window.Anim.snapPageExit(prevSection);
                             }
+
+                            // 2. 更新 currentSection
                             self.currentSection = maxIdx;
 
-                            // 触发新 section 的内容入场动画
-                            if (window.Anim && window.Anim.snapPageEnter) {
-                                window.Anim.snapPageEnter(nextSection, { staggerMs: 100, duration: 500 });
+                            // 3. 触发新 section 的入场动画（snapPageEnter 内部会移除 exiting class + 取消旧动画）
+                            if (nextSection && window.Anim && window.Anim.snapPageEnter) {
+                                window.Anim.snapPageEnter(nextSection, { staggerMs: 80, duration: 500 });
                             }
                         }
 
@@ -233,7 +233,10 @@ document.addEventListener('alpine:init', function () {
                             }
                         }
                     },
-                    { threshold: [0, 0.15, 0.3, 0.5, 0.7, 0.85, 1] }
+                    {
+                        threshold: [0, 0.15, 0.3, 0.5, 0.7, 0.85, 1],
+                        root: container === window ? null : container  // 关键修复：以 snap-container 为观察根
+                    }
                 );
 
                 sections.forEach(function (s) {
@@ -451,12 +454,6 @@ document.addEventListener('alpine:init', function () {
                 if (fileInput) fileInput.value = '';
             },
 
-            // ─────────────────────────────────────────────
-            // 算法卡片交叉观察（P2 流程图触发用）
-            // ─────────────────────────────────────────────
-            onCardIntersect: function () {
-                // 将在 P2 中用于触发 SVG 流程图绘制动画
-            }
         };
     });
 });

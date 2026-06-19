@@ -755,26 +755,17 @@ html[data-theme="dark"] .capsule-icon--moon {
 
 /* ── Snap 页面进出动画 ── */
 
-/* 离开：整个 section 内容向上淡出 */
-.snap-page--exiting .snap-page-inner > * {
-    animation: pageContentExit 0.35s cubic-bezier(0, 0, 0.2, 1) forwards;
-}
-.snap-page--exiting .snap-page-inner > *:nth-child(1) { animation-delay: 0s; }
-.snap-page--exiting .snap-page-inner > *:nth-child(2) { animation-delay: 0.04s; }
-.snap-page--exiting .snap-page-inner > *:nth-child(3) { animation-delay: 0.08s; }
-.snap-page--exiting .snap-page-inner > *:nth-child(4) { animation-delay: 0.12s; }
-
-@keyframes pageContentExit {
-    from { opacity: 1; transform: translateY(0) scale(1); }
-    to   { opacity: 0; transform: translateY(-20px) scale(0.98); }
-}
+/* 进出动画统一由 JS WAAPI 驱动（snapPageEnter / snapPageExit）
+   避免 CSS animation 与 JS WAAPI 双动画竞争 */
 
 /* 进入：内容从下方淡入（由 JS snapPageEnter 驱动） */
 
-/* 当 section 正在离开时 Hero 缩小淡出 */
+/* 当 section 正在离开时 Hero 缩小淡出（方向与 snapPageExit 统一：向下） */
 .snap-page--exiting .hero-title {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateY(20px) scale(0.95);
+    transition: opacity 0.35s cubic-bezier(0, 0, 0.2, 1),
+                transform 0.35s cubic-bezier(0, 0, 0.2, 1);
 }
 
 .hero-subtitle {
@@ -2518,8 +2509,10 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 .scroll-reveal-stagger > *:nth-child(3) { transition-delay: 240ms; }
 .scroll-reveal-stagger > *:nth-child(4) { transition-delay: 360ms; }
 
-/* Chrome 115+: 使用 ViewTimeline 在吸附时触发动画 */
-@supports (animation-timeline: view()) {
+/* Chrome 115+: 使用 ViewTimeline 在吸附时触发动画
+   ⚠ 暂禁用 — 与 JS scroll-snap 编排的 snapPageEnter/snapPageExit 冲突
+     待 Chrome 原生 scroll-driven animations 成熟后迁移 */
+/* @supports (animation-timeline: view()) {
     .snap-page .scroll-reveal {
         animation: snapPageEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-timeline: view(block 80% 20%);
@@ -2529,7 +2522,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         animation: snapPageEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-timeline: view(block 85% 15%);
     }
-}
+} */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Reduced Motion

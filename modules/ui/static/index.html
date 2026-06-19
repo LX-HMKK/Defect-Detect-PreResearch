@@ -128,18 +128,6 @@
         font-weight: 500;
         color: var(--text);
     }
-    .pipeline-connector {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding-top: 32px;
-        flex-shrink: 0;
-        width: 24px;
-        color: var(--text-tertiary);
-    }
-    .pipeline-connector svg {
-        display: block;
-    }
     /* 结果布局：左右分栏 */
     .result-layout {
         display: grid;
@@ -679,13 +667,6 @@
                             </div>
                         </div>
 
-                        <!-- 连接箭头 -->
-                        <div class="pipeline-connector">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-
                         <!-- Step 2: 选择模型 -->
                         <div class="pipeline-step">
                             <div class="pipeline-step-header">
@@ -697,13 +678,6 @@
                                     <option :value="m.key" x-text="m.name + ' — ' + m.direction"></option>
                                 </template>
                             </select>
-                        </div>
-
-                        <!-- 连接箭头 -->
-                        <div class="pipeline-connector">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
                         </div>
 
                         <!-- Step 3: 开始推理 -->
@@ -873,8 +847,8 @@
                 <h2 class="section-title scroll-reveal">四模型对比</h2>
 
                 <!-- 共享原图区域 -->
-                <div class="compare-shared-image" x-show="resultData?.image_b64">
-                    <img :src="resultData?.image_b64" alt="共享原图">
+                <div class="compare-shared-image" x-show="compareDone">
+                    <img class="compare-shared-img" :src="compareSlots.patchcore?.data?.image_b64 || compareSlots.padim?.data?.image_b64 || compareSlots.fre?.data?.image_b64 || compareSlots.draem?.data?.image_b64" alt="共享原图">
                     <span class="compare-shared-label">输入图像（共享）</span>
                 </div>
 
@@ -905,11 +879,9 @@
                 <!-- 摘要栏（全部完成后显示） -->
                 <template x-if="summary">
                 <div class="compare-summary" x-transition>
-                    <span class="compare-summary-icon">&#127942;</span>
-                    <span class="compare-summary-text">
+                    <span class="compare-summary-trophy">&#127942;</span>
+                    <span class="compare-summary-best">
                         最佳算法：<strong x-text="summary.best_name"></strong>
-                    </span>
-                    <span class="compare-summary-score">
                         得分：<code x-text="summary.best_score?.toFixed(4)"></code>
                     </span>
                     <div class="compare-ranking">

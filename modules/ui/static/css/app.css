@@ -1045,6 +1045,7 @@ html[data-theme="light"] .theme-capsule:hover {
 }
 
 .pipeline-step {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 12px;
@@ -1054,6 +1055,19 @@ html[data-theme="light"] .theme-capsule:hover {
     border: 1px solid var(--sep-subtle);
     transition: border-color var(--dur-normal) var(--ease-out),
                 box-shadow var(--dur-normal) var(--ease-out);
+}
+
+/* 步骤间连接箭头 */
+.pipeline-step:not(:last-child)::after {
+    content: '\2192';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-size: 20px;
+    font-weight: 300;
+    z-index: 1;
 }
 
 .pipeline-step--done {

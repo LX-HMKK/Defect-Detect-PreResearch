@@ -265,7 +265,7 @@ document.addEventListener('alpine:init', function () {
             // ─────────────────────────────────────────────
             inferenceState: 'idle',  // idle | uploaded | loading | inferring | done | error
             inferenceProgress: { stage: '', message: '', pct: 0 },
-            resultData: null,
+            resultData: {},  // 初始为空对象，避免 Alpine 模板在 x-show 中读取 null 属性报错
             uploadedFile: null,
             uploadPreviewUrl: null,
             errorMessage: '',

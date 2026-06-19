@@ -480,7 +480,8 @@
             <!-- ============================================================ -->
             <!-- 结果面板（推理完成后显示） -->
             <!-- ============================================================ -->
-            <div class="result-panel scroll-reveal" x-show="inferenceState === 'done' && resultData" x-transition>
+            <template x-if="inferenceState === 'done' && resultData">
+            <div class="result-panel scroll-reveal" x-transition>
                 <!-- 图片对比滑块 -->
                 <div class="compare-slider" x-data="imageCompare">
                     <div class="compare-container">
@@ -574,6 +575,7 @@
                      :data-bboxes="JSON.stringify(resultData?.bboxes || [])"
                      x-show="false"></div>
             </div>
+            </template>
         </div>
     </section>
 
@@ -613,7 +615,8 @@
         </div>
 
         <!-- 摘要栏（全部完成后显示） -->
-        <div class="compare-summary" x-show="summary" x-transition>
+        <template x-if="summary">
+        <div class="compare-summary" x-transition>
             <span class="compare-summary-icon">&#127942;</span>
             <span class="compare-summary-text">
                 最佳算法：<strong x-text="summary.best_name"></strong>
@@ -631,6 +634,7 @@
                 </template>
             </div>
         </div>
+        </template>
 
         <!-- 四列网格 -->
         <div class="compare-grid">
@@ -667,7 +671,8 @@
                     </div>
 
                     <!-- 完成状态：热力图缩略图 + 指标 -->
-                    <div class="compare-slot-result" x-show="slotIsDone(mk) && compareSlots[mk].data">
+                    <template x-if="slotIsDone(mk) && compareSlots[mk].data">
+                    <div class="compare-slot-result">
                         <img :src="compareSlots[mk].data.heatmap_b64"
                              :alt="getModelName(mk) + ' 热力图'"
                              class="compare-heatmap">
@@ -689,6 +694,7 @@
                             </div>
                         </div>
                     </div>
+                    </template>
                 </div>
             </template>
         </div>

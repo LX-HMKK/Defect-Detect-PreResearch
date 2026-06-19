@@ -333,8 +333,8 @@ async def predict(request: Request):
             }
             await asyncio.sleep(0.1)
 
-            # 调用共享推理逻辑
-            result_data = _run_prediction(img, model_key, dataset)
+            # 调用共享推理逻辑（线程池执行，避免阻塞事件循环导致 SSE 断流）
+            result_data = await asyncio.to_thread(_run_prediction, img, model_key, dataset)
 
             # ── 阶段 4: 后处理 ──
             yield {
@@ -433,10 +433,8 @@ async def compare(request: Request):
             await asyncio.sleep(0.1)
 
             try:
-                # 调用共享推理逻辑
-                result_data = _run_prediction(img, model_key, dataset)
-
-                # 附加模型显示名（_run_prediction 已包含 model 和 model_name）
+                # 调用共享推理逻辑（线程池执行，避免阻塞事件循环）
+                result_data = await asyncio.to_thread(_run_prediction, img, model_key, dataset)
                 results.append(result_data)
                 yield {
                     "event": "model_result",

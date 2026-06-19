@@ -29,11 +29,228 @@
         document.documentElement.setAttribute('data-theme', t);
     })();
     </script>
+
+    <!-- 关键布局 CSS：scroll-snap 容器和页面结构 -->
+    <style>
+    /* Snap 滚动容器 */
+    .snap-container {
+        height: 100dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scroll-snap-type: y mandatory;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+    .snap-page {
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    .snap-page-inner {
+        flex: 1;
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 56px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+    /* 固定导航栏 */
+    .navbar {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+    }
+    /* 进度环导航点 */
+    .snap-dots {
+        position: fixed;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        transition: opacity 0.3s;
+    }
+    .snap-dot-label {
+        font-size: 11px;
+        font-family: var(--font-body, 'Inter', system-ui, -apple-system, sans-serif);
+        color: var(--text-tertiary);
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+    .snap-ring {
+        display: block;
+    }
+    .snap-ring circle {
+        transition: stroke-dashoffset 0.4s ease;
+    }
+    /* 流水线布局 */
+    .pipeline {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .pipeline-step {
+        flex: 1;
+        min-width: 0;
+    }
+    .pipeline-step-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .pipeline-step-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent, #2997ff);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .pipeline-step-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text);
+    }
+    .pipeline-connector {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 32px;
+        flex-shrink: 0;
+        width: 24px;
+        color: var(--text-tertiary);
+    }
+    .pipeline-connector svg {
+        display: block;
+    }
+    /* 结果布局：左右分栏 */
+    .result-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    .result-left {
+        min-width: 0;
+    }
+    .result-right {
+        min-width: 0;
+        padding-top: 0;
+    }
+    /* 算法卡片 */
+    .algo-card {
+        position: relative;
+        overflow: hidden;
+    }
+    .algo-card-accent {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--algo-color, var(--accent));
+        border-radius: 4px 0 0 4px;
+        flex-shrink: 0;
+    }
+    .algo-card-body {
+        padding-left: 8px;
+    }
+    .algo-card-body h3 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .algo-icon {
+        font-size: 18px;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    .algo-card-kicker {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        margin-top: 2px;
+    }
+    /* 共享原图区域 */
+    .compare-shared-image {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border-radius: 10px;
+    }
+    .compare-shared-image img {
+        height: 64px;
+        width: auto;
+        border-radius: 6px;
+        object-fit: contain;
+        background: var(--bg);
+    }
+    .compare-shared-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    /* 对比槽位色标 */
+    .compare-slot-accent {
+        width: 100%;
+        height: 3px;
+        border-radius: 2px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
+    }
+    /* 滚动提示 */
+    .scroll-hint {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        margin-top: auto;
+        padding-bottom: 16px;
+        cursor: pointer;
+    }
+    .scroll-hint span {
+        font-size: 12px;
+        color: var(--text-tertiary);
+    }
+    .scroll-hint svg {
+        animation: scrollHintBounce 2s ease-in-out infinite;
+    }
+    @keyframes scrollHintBounce {
+        0%, 100% { transform: translateY(0); opacity: 0.5; }
+        50% { transform: translateY(6px); opacity: 1; }
+    }
+    /* 推理操作按钮组 */
+    .inference-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
+    }
+    </style>
 </head>
 <body x-data="app" x-init="init()" @mousemove="onMouseMove">
 
     <!-- 跳过导航链接（无障碍，Tab 聚焦时可见） -->
-    <a href="#section-0" class="skip-link">跳到主内容</a>
+    <a href="#s0" class="skip-link">跳到主内容</a>
 
     <!-- ══════════════════════════════════════════════════ -->
     <!-- 页面加载遮罩（渐变淡出） -->
@@ -46,24 +263,20 @@
                     <stop offset="100%" stop-color="#0070d6"/>
                 </linearGradient>
             </defs>
-            <!-- 外圈菱形 -->
             <rect class="logo-outer" x="2" y="18" width="22.63" height="22.63" rx="3"
                   transform="rotate(-45 2 18)" fill="url(#logoGradLoader)" opacity="0.15"/>
-            <!-- 中间菱形 -->
             <rect class="logo-mid" x="6" y="18" width="16.97" height="16.97" rx="2"
                   transform="rotate(-45 6 18)" fill="url(#logoGradLoader)" opacity="0.35"/>
-            <!-- 内核菱形 -->
             <rect class="logo-inner" x="9.5" y="18" width="12.02" height="12.02" rx="2"
                   transform="rotate(-45 9.5 18)" fill="url(#logoGradLoader)"/>
-            <!-- 中心亮点 -->
             <circle cx="18" cy="18" r="2.5" fill="#ffffff" opacity="0.9"/>
         </svg>
     </div>
 
     <!-- ══════════════════════════════════════════════════ -->
-    <!-- 导航栏 — 磨砂玻璃 + 滚动加深 -->
+    <!-- 导航栏 — 固定顶部 + 磨砂玻璃 + section 标题接力 -->
     <!-- ══════════════════════════════════════════════════ -->
-    <nav class="navbar" :class="{ 'navbar--scrolled': scrolled }">
+    <nav class="navbar" :class="{ 'navbar--scrolled': currentSection > 0 }">
         <div class="navbar-inner">
             <div class="navbar-brand">
                 <!-- Logo SVG -->
@@ -83,6 +296,8 @@
                     <circle cx="18" cy="18" r="2.5" fill="#ffffff" opacity="0.9"/>
                 </svg>
                 <span class="navbar-title">缺陷检测</span>
+                <!-- Section 标题接力 -->
+                <span class="navbar-section" x-show="currentSection > 0" x-text="sectionNames[currentSection]"></span>
             </div>
 
             <div class="navbar-right">
@@ -105,623 +320,696 @@
         </div>
     </nav>
 
-    <!-- 右侧导航点 -->
-    <div class="nav-dots" aria-label="页面导航">
-        <button class="nav-dot" :class="{ active: currentSection === 0 }"
-                @click="scrollToSection(0)"
-                :aria-label="sectionNames[0]" :title="sectionNames[0]"></button>
-        <button class="nav-dot" :class="{ active: currentSection === 1 }"
-                @click="scrollToSection(1)"
-                :aria-label="sectionNames[1]" :title="sectionNames[1]"></button>
-        <button class="nav-dot" :class="{ active: currentSection === 2 }"
-                @click="scrollToSection(2)"
-                :aria-label="sectionNames[2]" :title="sectionNames[2]"></button>
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- 进度环导航点 -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div class="snap-dots" aria-label="页面导航">
+        <svg class="snap-ring" viewBox="0 0 40 40" width="40" height="40">
+            <circle cx="20" cy="20" r="17" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" opacity="0.3"/>
+            <circle cx="20" cy="20" r="17" fill="none" stroke="var(--accent)" stroke-width="1.5"
+                    stroke-linecap="round" stroke-dasharray="106.8" :stroke-dashoffset="106.8 - 106.8 * (currentSection / 2)"/>
+        </svg>
+        <span class="snap-dot-label" x-text="(currentSection + 1) + ' / 3'"></span>
     </div>
 
     <!-- ══════════════════════════════════════════════════ -->
-    <!-- Section 0: 算法介绍 -->
+    <!-- Snap 容器 — 全视口吸附滚动 -->
     <!-- ══════════════════════════════════════════════════ -->
-    <section id="section-0" class="section" x-ref="section0">
-        <div class="hero">
-            <h1 class="hero-title scroll-reveal">工业异常检测</h1>
-            <p class="hero-subtitle scroll-reveal">四种无监督算法 &middot; 实时推理 &middot; 像素级定位</p>
-        </div>
+    <div class="snap-container" x-ref="snapContainer">
 
-        <!-- 2x2 算法流程图卡片网格 -->
-        <div class="algo-grid scroll-reveal-stagger">
-            <!-- ═══ PatchCore ═══ -->
-            <div class="flowchart-card scroll-reveal" x-intersect="onCardIntersect">
-                <h3>PatchCore <span class="algo-tag algo-tag--rec">推荐</span></h3>
-                <p>CNN 提取局部特征 &rarr; 记忆库存储正常样本 &rarr; 最近邻距离判别。零训练、推理最快、工业首选。</p>
-                <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <marker id="arrow-pc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
-                        </marker>
-                    </defs>
-                    <!-- Row 1: 正常样本 → CNN特征 → Patch特征 → 记忆库 -->
-                    <g class="fc-node">
-                        <rect x="8" y="62" width="85" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="50" y="89" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
-                    </g>
-                    <line class="fc-arrow" x1="93" y1="84" x2="116" y2="84"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <g class="fc-node">
-                        <rect x="118" y="62" width="85" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="160" y="89" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
-                    </g>
-                    <line class="fc-arrow" x1="203" y1="84" x2="226" y2="84"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <g class="fc-node">
-                        <rect x="228" y="62" width="85" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="270" y="89" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">Patch 特征</text>
-                    </g>
-                    <line class="fc-arrow" x1="313" y1="84" x2="336" y2="84"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <g class="fc-node">
-                        <rect x="338" y="58" width="74" height="52" rx="8"
-                              fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                        <text class="fc-label" x="375" y="81" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">记忆库</text>
-                        <text class="fc-label" x="375" y="97" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(coreset)</text>
-                    </g>
-                    <!-- Vertical connector: 记忆库 → 最近邻距离 -->
-                    <polyline class="fc-arrow" points="375,110 375,158 175,158 175,186"
-                              fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <!-- Row 2: 测试样本特征 → 最近邻距离 → 异常得分 -->
-                    <g class="fc-node">
-                        <rect x="8" y="188" width="95" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="55" y="215" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">测试样本特征</text>
-                    </g>
-                    <line class="fc-arrow" x1="103" y1="210" x2="128" y2="210"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <g class="fc-node">
-                        <rect x="130" y="188" width="90" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="175" y="215" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">最近邻距离</text>
-                    </g>
-                    <line class="fc-arrow" x1="220" y1="210" x2="246" y2="210"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                    <g class="fc-node">
-                        <rect x="248" y="184" width="85" height="52" rx="8"
-                              fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                        <text class="fc-label" x="290" y="207" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                        <text class="fc-label" x="290" y="223" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
-                    </g>
-                </svg>
-            </div>
+        <!-- ============================================== -->
+        <!-- Section 0: 算法介绍（首页） -->
+        <!-- ============================================== -->
+        <section id="s0" class="snap-page" x-ref="section0" x-intersect:enter="currentSection = 0">
+            <div class="snap-page-inner">
+                <div class="hero">
+                    <h1 class="hero-title scroll-reveal">工业缺陷检测</h1>
+                    <p class="hero-subtitle scroll-reveal">四种无监督算法 &middot; 实时推理 &middot; 像素级定位</p>
+                </div>
 
-            <!-- ═══ PaDiM ═══ -->
-            <div class="flowchart-card scroll-reveal" x-intersect="onCardIntersect">
-                <h3>PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
-                <p>Patch 级高斯分布建模 &rarr; 马氏距离度量偏离程度。参数量仅 2.8M，适合边缘部署。</p>
-                <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <marker id="arrow-pdim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
-                        </marker>
-                    </defs>
-                    <!-- Row 1: 正常样本 → CNN多尺度特征 → Patch高斯分布 -->
-                    <g class="fc-node">
-                        <rect x="10" y="72" width="82" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="51" y="99" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
-                    </g>
-                    <line class="fc-arrow" x1="92" y1="94" x2="116" y2="94"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
-                    <g class="fc-node">
-                        <rect x="118" y="72" width="112" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="174" y="99" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 多尺度特征</text>
-                    </g>
-                    <line class="fc-arrow" x1="230" y1="94" x2="254" y2="94"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
-                    <g class="fc-node">
-                        <rect x="256" y="68" width="100" height="52" rx="8"
-                              fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                        <text class="fc-label" x="306" y="89" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">Patch 高斯分布</text>
-                        <text class="fc-label" x="306" y="106" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(μ, Σ per patch)</text>
-                    </g>
-                    <!-- Vertical connector: Patch高斯 → 马氏距离 -->
-                    <polyline class="fc-arrow" points="306,120 306,154 232,154 232,186"
-                              fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
-                    <!-- Row 2: 马氏距离 → 异常得分 -->
-                    <g class="fc-node">
-                        <rect x="192" y="188" width="80" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="232" y="215" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">马氏距离</text>
-                    </g>
-                    <line class="fc-arrow" x1="272" y1="210" x2="296" y2="210"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
-                    <g class="fc-node">
-                        <rect x="298" y="184" width="85" height="52" rx="8"
-                              fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                        <text class="fc-label" x="340" y="207" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                        <text class="fc-label" x="340" y="223" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
-                    </g>
-                </svg>
-            </div>
+                <!-- 2x2 算法流程图卡片网格 -->
+                <div class="algo-grid scroll-reveal-stagger">
 
-            <!-- ═══ FRE ═══ -->
-            <div class="flowchart-card scroll-reveal" x-intersect="onCardIntersect">
-                <h3>FRE</h3>
-                <p>ResNet50 特征提取 &rarr; 自编码器重构 &rarr; 重构误差定位异常。高解释性，适合质量追溯。</p>
-                <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <marker id="arrow-fre" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
-                        </marker>
-                    </defs>
-                    <!-- Row 1: 正常样本 → CNN特征 → 线性自编码器 -->
-                    <g class="fc-node">
-                        <rect x="8" y="75" width="82" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="49" y="102" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
-                    </g>
-                    <line class="fc-arrow" x1="90" y1="97" x2="114" y2="97"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
-                    <g class="fc-node">
-                        <rect x="116" y="75" width="82" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="157" y="102" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
-                    </g>
-                    <line class="fc-arrow" x1="198" y1="97" x2="222" y2="97"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
-                    <g class="fc-node">
-                        <rect x="224" y="71" width="110" height="52" rx="8"
-                              fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                        <text class="fc-label" x="279" y="92" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">线性自编码器</text>
-                        <text class="fc-label" x="279" y="109" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(encoder→decoder)</text>
-                    </g>
-                    <!-- Vertical connector: 自编码器 → 重构误差 -->
-                    <polyline class="fc-arrow" points="279,123 279,158 147,158 147,186"
-                              fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
-                    <!-- Row 2: 重构误差 → 异常得分 -->
-                    <g class="fc-node">
-                        <rect x="105" y="188" width="84" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="147" y="215" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">重构误差</text>
-                    </g>
-                    <line class="fc-arrow" x1="189" y1="210" x2="214" y2="210"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
-                    <g class="fc-node">
-                        <rect x="216" y="184" width="85" height="52" rx="8"
-                              fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                        <text class="fc-label" x="258" y="207" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                        <text class="fc-label" x="258" y="223" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
-                    </g>
-                </svg>
-            </div>
-
-            <!-- ═══ DRAEM ═══ -->
-            <div class="flowchart-card scroll-reveal" x-intersect="onCardIntersect">
-                <h3>DRAEM</h3>
-                <p>数据增强合成缺陷 &rarr; 训练判别网络。无需真实异常样本，微小缺陷检测灵敏。</p>
-                <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <marker id="arrow-draem" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
-                        </marker>
-                    </defs>
-                    <!-- Row 1: 正常样本 → 合成异常 → 判别网络 -->
-                    <g class="fc-node">
-                        <rect x="8" y="66" width="82" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="49" y="93" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
-                    </g>
-                    <line class="fc-arrow" x1="90" y1="88" x2="114" y2="88"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
-                    <g class="fc-node">
-                        <rect x="116" y="62" width="102" height="52" rx="8"
-                              fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
-                        <text class="fc-label" x="167" y="83" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--warn)">合成异常</text>
-                        <text class="fc-label" x="167" y="100" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(纹理增强)</text>
-                    </g>
-                    <line class="fc-arrow" x1="218" y1="88" x2="244" y2="88"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
-                    <g class="fc-node">
-                        <rect x="246" y="62" width="100" height="52" rx="8"
-                              fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                        <text class="fc-label" x="296" y="83" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">判别网络训练</text>
-                        <text class="fc-label" x="296" y="100" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(UNet-like)</text>
-                    </g>
-                    <!-- Vertical connector: 判别网络 → 异常分割 -->
-                    <polyline class="fc-arrow" points="296,114 296,152 162,152 162,186"
-                              fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
-                    <!-- Row 2: 异常分割 → 异常得分 -->
-                    <g class="fc-node">
-                        <rect x="112" y="188" width="100" height="44" rx="8"
-                              fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                        <text class="fc-label" x="162" y="215" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" fill="var(--text)">异常分割</text>
-                    </g>
-                    <line class="fc-arrow" x1="212" y1="210" x2="240" y2="210"
-                          stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
-                    <g class="fc-node">
-                        <rect x="242" y="184" width="85" height="52" rx="8"
-                              fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                        <text class="fc-label" x="284" y="207" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                        <text class="fc-label" x="284" y="223" text-anchor="middle"
-                              font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
-                    </g>
-                </svg>
-            </div>
-        </div>
-    </section>
-
-    <!-- 过渡区 -->
-    <div class="transition-zone">
-        <div class="transition-line"></div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════ -->
-    <!-- Section 1: 单模型推理 -->
-    <!-- ══════════════════════════════════════════════════ -->
-    <section id="section-1" class="section" x-ref="section1">
-        <h2 class="section-title scroll-reveal">单模型推理</h2>
-        <div class="inference-area">
-
-            <!-- 上传区（idle / error 状态显示） -->
-            <div class="upload-area" x-show="inferenceState === 'idle' || inferenceState === 'error'">
-                <div class="upload-zone"
-                     :class="{ 'has-file': uploadedFile }"
-                     x-on:click="$refs.fileInput.click()"
-                     x-on:dragover.prevent
-                     x-on:drop.prevent="onDrop">
-                    <input type="file" x-ref="fileInput"
-                           accept="image/png,image/jpeg,image/bmp,image/webp"
-                           @change="onFileSelected" hidden>
-
-                    <!-- 空状态：上传提示 -->
-                    <template x-if="!uploadedFile">
-                        <div class="upload-placeholder">
-                            <svg class="upload-icon-svg" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="4" y="10" width="40" height="32" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
-                                <path d="M4 26l10-8 8 6 10-10 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
-                                <circle cx="16" cy="18" r="3" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
-                            </svg>
-                            <div class="upload-text">拖拽图片到此处</div>
-                            <div class="upload-hint">或点击选择文件 &middot; 支持 PNG / JPG / BMP</div>
+                    <!-- ═══ PatchCore ═══ -->
+                    <div class="algo-card algo-card--patchcore scroll-reveal" x-intersect="onCardIntersect">
+                        <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
+                        <div class="algo-card-body">
+                            <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
+                            <p>CNN 特征记忆库 + 最近邻搜索 &middot; 24.9M 参数</p>
+                            <p class="algo-card-kicker">零训练、推理最快，工业首选</p>
                         </div>
-                    </template>
+                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="arrow-pc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                    <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
+                                </marker>
+                            </defs>
+                            <!-- Row 1: 正常样本 → CNN特征 → Patch特征 → 记忆库 -->
+                            <g class="fc-node">
+                                <rect x="8" y="62" width="85" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="50" y="89" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                            </g>
+                            <line class="fc-arrow" x1="93" y1="84" x2="116" y2="84"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="118" y="62" width="85" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="160" y="89" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
+                            </g>
+                            <line class="fc-arrow" x1="203" y1="84" x2="226" y2="84"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="228" y="62" width="85" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="270" y="89" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">Patch 特征</text>
+                            </g>
+                            <line class="fc-arrow" x1="313" y1="84" x2="336" y2="84"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="338" y="58" width="74" height="52" rx="8"
+                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="375" y="81" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">记忆库</text>
+                                <text class="fc-label" x="375" y="97" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(coreset)</text>
+                            </g>
+                            <!-- Vertical connector: 记忆库 → 最近邻距离 -->
+                            <polyline class="fc-arrow" points="375,110 375,158 175,158 175,186"
+                                      fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <!-- Row 2: 测试样本特征 → 最近邻距离 → 异常得分 -->
+                            <g class="fc-node">
+                                <rect x="8" y="188" width="95" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="55" y="215" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">测试样本特征</text>
+                            </g>
+                            <line class="fc-arrow" x1="103" y1="210" x2="128" y2="210"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="130" y="188" width="90" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="175" y="215" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">最近邻距离</text>
+                            </g>
+                            <line class="fc-arrow" x1="220" y1="210" x2="246" y2="210"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="248" y="184" width="85" height="52" rx="8"
+                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="290" y="207" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="290" y="223" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                            </g>
+                        </svg>
+                    </div>
 
-                    <!-- 已上传：预览 -->
-                    <template x-if="uploadedFile">
-                        <div class="upload-preview">
-                            <img :src="uploadPreviewUrl" alt="预览图片">
-                            <button class="upload-clear-btn" @click.stop="resetInference" aria-label="清除图片">
-                                &times;
+                    <!-- ═══ PaDiM ═══ -->
+                    <div class="algo-card algo-card--padim scroll-reveal" x-intersect="onCardIntersect">
+                        <div class="algo-card-accent" style="--algo-color: #30d158;"></div>
+                        <div class="algo-card-body">
+                            <h3><span class="algo-icon">&#128202;</span> PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
+                            <p>CNN 多尺度特征 + 马氏距离 &middot; 2.8M 参数</p>
+                            <p class="algo-card-kicker">轻量高效，适合边缘部署</p>
+                        </div>
+                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="arrow-pdim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                    <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
+                                </marker>
+                            </defs>
+                            <!-- Row 1: 正常样本 → CNN多尺度特征 → Patch高斯分布 -->
+                            <g class="fc-node">
+                                <rect x="10" y="72" width="82" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="51" y="99" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                            </g>
+                            <line class="fc-arrow" x1="92" y1="94" x2="116" y2="94"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <g class="fc-node">
+                                <rect x="118" y="72" width="112" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="174" y="99" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 多尺度特征</text>
+                            </g>
+                            <line class="fc-arrow" x1="230" y1="94" x2="254" y2="94"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <g class="fc-node">
+                                <rect x="256" y="68" width="100" height="52" rx="8"
+                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="306" y="89" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">Patch 高斯分布</text>
+                                <text class="fc-label" x="306" y="106" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(μ, Σ per patch)</text>
+                            </g>
+                            <!-- Vertical connector: Patch高斯 → 马氏距离 -->
+                            <polyline class="fc-arrow" points="306,120 306,154 232,154 232,186"
+                                      fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <!-- Row 2: 马氏距离 → 异常得分 -->
+                            <g class="fc-node">
+                                <rect x="192" y="188" width="80" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="232" y="215" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">马氏距离</text>
+                            </g>
+                            <line class="fc-arrow" x1="272" y1="210" x2="296" y2="210"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <g class="fc-node">
+                                <rect x="298" y="184" width="85" height="52" rx="8"
+                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="340" y="207" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="340" y="223" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <!-- ═══ FRE ═══ -->
+                    <div class="algo-card algo-card--fre scroll-reveal" x-intersect="onCardIntersect">
+                        <div class="algo-card-accent" style="--algo-color: #ff9f0a;"></div>
+                        <div class="algo-card-body">
+                            <h3><span class="algo-icon">&#128260;</span> FRE</h3>
+                            <p>ResNet50 特征 + 自编码器重构 &middot; 23.0M 参数</p>
+                            <p class="algo-card-kicker">高解释性，适合质量追溯</p>
+                        </div>
+                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="arrow-fre" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                    <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
+                                </marker>
+                            </defs>
+                            <!-- Row 1: 正常样本 → CNN特征 → 线性自编码器 -->
+                            <g class="fc-node">
+                                <rect x="8" y="75" width="82" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="49" y="102" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                            </g>
+                            <line class="fc-arrow" x1="90" y1="97" x2="114" y2="97"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <g class="fc-node">
+                                <rect x="116" y="75" width="82" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="157" y="102" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
+                            </g>
+                            <line class="fc-arrow" x1="198" y1="97" x2="222" y2="97"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <g class="fc-node">
+                                <rect x="224" y="71" width="110" height="52" rx="8"
+                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="279" y="92" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">线性自编码器</text>
+                                <text class="fc-label" x="279" y="109" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(encoder→decoder)</text>
+                            </g>
+                            <!-- Vertical connector: 自编码器 → 重构误差 -->
+                            <polyline class="fc-arrow" points="279,123 279,158 147,158 147,186"
+                                      fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <!-- Row 2: 重构误差 → 异常得分 -->
+                            <g class="fc-node">
+                                <rect x="105" y="188" width="84" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="147" y="215" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">重构误差</text>
+                            </g>
+                            <line class="fc-arrow" x1="189" y1="210" x2="214" y2="210"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <g class="fc-node">
+                                <rect x="216" y="184" width="85" height="52" rx="8"
+                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="258" y="207" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="258" y="223" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <!-- ═══ DRAEM ═══ -->
+                    <div class="algo-card algo-card--draem scroll-reveal" x-intersect="onCardIntersect">
+                        <div class="algo-card-accent" style="--algo-color: #bf5af2;"></div>
+                        <div class="algo-card-body">
+                            <h3><span class="algo-icon">&#127919;</span> DRAEM</h3>
+                            <p>合成异常增强 + 判别网络 &middot; 97.4M 参数</p>
+                            <p class="algo-card-kicker">无需真实异常样本，灵敏检测</p>
+                        </div>
+                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <marker id="arrow-draem" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                    <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
+                                </marker>
+                            </defs>
+                            <!-- Row 1: 正常样本 → 合成异常 → 判别网络 -->
+                            <g class="fc-node">
+                                <rect x="8" y="66" width="82" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="49" y="93" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                            </g>
+                            <line class="fc-arrow" x1="90" y1="88" x2="114" y2="88"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <g class="fc-node">
+                                <rect x="116" y="62" width="102" height="52" rx="8"
+                                      fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
+                                <text class="fc-label" x="167" y="83" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--warn)">合成异常</text>
+                                <text class="fc-label" x="167" y="100" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(纹理增强)</text>
+                            </g>
+                            <line class="fc-arrow" x1="218" y1="88" x2="244" y2="88"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <g class="fc-node">
+                                <rect x="246" y="62" width="100" height="52" rx="8"
+                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="296" y="83" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">判别网络训练</text>
+                                <text class="fc-label" x="296" y="100" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(UNet-like)</text>
+                            </g>
+                            <!-- Vertical connector: 判别网络 → 异常分割 -->
+                            <polyline class="fc-arrow" points="296,114 296,152 162,152 162,186"
+                                      fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <!-- Row 2: 异常分割 → 异常得分 -->
+                            <g class="fc-node">
+                                <rect x="112" y="188" width="100" height="44" rx="8"
+                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="162" y="215" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">异常分割</text>
+                            </g>
+                            <line class="fc-arrow" x1="212" y1="210" x2="240" y2="210"
+                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <g class="fc-node">
+                                <rect x="242" y="184" width="85" height="52" rx="8"
+                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="284" y="207" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="284" y="223" text-anchor="middle"
+                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- 滚动提示 -->
+                <div class="scroll-hint" x-show="currentSection === 0" x-transition.opacity.duration.500ms>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>向下滚动</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- Section 1: 单模型推理 -->
+        <!-- ============================================== -->
+        <section id="s1" class="snap-page" x-ref="section1" x-intersect:enter="currentSection = 1">
+            <div class="snap-page-inner">
+                <h2 class="section-title scroll-reveal">单模型推理</h2>
+                <div class="inference-area">
+
+                    <!-- 流水线：上传 → 选择 → 推理（idle / uploaded / error 状态显示） -->
+                    <div class="pipeline" x-show="inferenceState === 'idle' || inferenceState === 'uploaded' || inferenceState === 'error'">
+                        <!-- Step 1: 上传图片 -->
+                        <div class="pipeline-step">
+                            <div class="pipeline-step-header">
+                                <span class="pipeline-step-num">1</span>
+                                <span class="pipeline-step-label">上传图片</span>
+                            </div>
+                            <div class="upload-area">
+                                <div class="upload-zone"
+                                     :class="{ 'has-file': uploadedFile }"
+                                     x-on:click="$refs.fileInput.click()"
+                                     x-on:dragover.prevent
+                                     x-on:drop.prevent="onDrop">
+                                    <input type="file" x-ref="fileInput"
+                                           accept="image/png,image/jpeg,image/bmp,image/webp"
+                                           @change="onFileSelected" hidden>
+
+                                    <!-- 空状态：上传提示 -->
+                                    <template x-if="!uploadedFile">
+                                        <div class="upload-placeholder">
+                                            <svg class="upload-icon-svg" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <rect x="4" y="10" width="40" height="32" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+                                                <path d="M4 26l10-8 8 6 10-10 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+                                                <circle cx="16" cy="18" r="3" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+                                            </svg>
+                                            <div class="upload-text">拖拽图片到此处</div>
+                                            <div class="upload-hint">或点击选择文件 &middot; 支持 PNG / JPG / BMP</div>
+                                        </div>
+                                    </template>
+
+                                    <!-- 已上传：预览 -->
+                                    <template x-if="uploadedFile">
+                                        <div class="upload-preview">
+                                            <img :src="uploadPreviewUrl" alt="预览图片">
+                                            <button class="upload-clear-btn" @click.stop="resetInference" aria-label="清除图片">
+                                                &times;
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 连接箭头 -->
+                        <div class="pipeline-connector">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <!-- Step 2: 选择模型 -->
+                        <div class="pipeline-step">
+                            <div class="pipeline-step-header">
+                                <span class="pipeline-step-num">2</span>
+                                <span class="pipeline-step-label">选择模型</span>
+                            </div>
+                            <select class="model-select" x-model="selectedModel" aria-label="选择算法">
+                                <template x-for="m in models" :key="m.key">
+                                    <option :value="m.key" x-text="m.name + ' — ' + m.direction"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- 连接箭头 -->
+                        <div class="pipeline-connector">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <!-- Step 3: 开始推理 -->
+                        <div class="pipeline-step">
+                            <div class="pipeline-step-header">
+                                <span class="pipeline-step-num">3</span>
+                                <span class="pipeline-step-label">开始推理</span>
+                            </div>
+                            <button class="btn-inference"
+                                    :class="inferenceState"
+                                    :disabled="inferenceState === 'loading' || inferenceState === 'inferring'"
+                                    @click="startInference()">
+                                <span x-show="inferenceState === 'idle' || inferenceState === 'uploaded' || inferenceState === 'error'">开始推理</span>
+                                <span x-show="inferenceState === 'loading' || inferenceState === 'inferring'" class="btn-spinner-text">
+                                    <span class="btn-spinner"></span> 推理中...
+                                </span>
+                                <span x-show="inferenceState === 'done'" class="btn-done-text">推理完成 &#10003;</span>
+                            </button>
+                            <!-- 重试按钮（错误状态时在流水线中显示） -->
+                            <button class="btn-reset" x-show="inferenceState === 'error'"
+                                    @click="startInference()">
+                                <span>重试</span>
                             </button>
                         </div>
-                    </template>
-                </div>
-            </div>
+                    </div>
 
-            <!-- 推理控制栏 -->
-            <div class="inference-controls">
-                <select class="model-select" x-model="selectedModel" aria-label="选择算法">
-                    <template x-for="m in models" :key="m.key">
-                        <option :value="m.key" x-text="m.name + ' — ' + m.direction"></option>
-                    </template>
-                </select>
-
-                <button class="btn-inference"
-                        :class="inferenceState"
-                        :disabled="inferenceState === 'loading' || inferenceState === 'inferring'"
-                        @click="startInference()">
-                    <span x-show="inferenceState === 'idle' || inferenceState === 'uploaded' || inferenceState === 'error'">开始推理</span>
-                    <span x-show="inferenceState === 'loading' || inferenceState === 'inferring'" class="btn-spinner-text">
-                        <span class="btn-spinner"></span> 推理中...
-                    </span>
-                    <span x-show="inferenceState === 'done'" class="btn-done-text">推理完成 &#10003;</span>
-                </button>
-
-                <!-- 重试 / 重置按钮 -->
-                <button class="btn-reset" x-show="inferenceState === 'done' || inferenceState === 'error'"
-                        @click="inferenceState === 'error' ? startInference() : resetInference()">
-                    <span x-show="inferenceState === 'error'">重试</span>
-                    <span x-show="inferenceState === 'done'">重新上传</span>
-                </button>
-            </div>
-
-            <!-- 进度条 -->
-            <div class="progress-bar" x-show="inferenceState === 'loading' || inferenceState === 'inferring'">
-                <div class="progress-track">
-                    <div class="progress-fill" :style="{ width: inferenceProgress.pct + '%' }"></div>
-                </div>
-                <div class="progress-message" x-text="inferenceProgress.message"></div>
-            </div>
-
-            <!-- 错误卡片 -->
-            <div class="error-card" x-show="inferenceState === 'error'" x-transition>
-                <span class="error-icon">&#9888;</span>
-                <span class="error-text" x-text="errorMessage"></span>
-            </div>
-
-            <!-- 占位提示（idle / uploaded 无结果时） -->
-            <div class="result-placeholder" x-show="inferenceState === 'idle' || (inferenceState === 'uploaded' && !resultData)">
-                <div class="result-empty">
-                    <p>选择模型并上传图片后，点击「开始推理」</p>
-                </div>
-            </div>
-
-            <!-- ============================================================ -->
-            <!-- 结果面板（推理完成后显示） -->
-            <!-- ============================================================ -->
-            <template x-if="inferenceState === 'done' && resultData">
-            <div class="result-panel scroll-reveal" x-transition>
-                <!-- 图片对比滑块 -->
-                <div class="compare-slider" x-data="imageCompare">
-                    <div class="compare-container">
-                        <!-- 原图（底层） -->
-                        <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
-                        <!-- 热力图（上层，clip 裁剪） -->
-                        <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
-                             :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
-                        <!-- 拖拽手柄 -->
-                        <div class="compare-handle" :style="{ left: sliderPos + '%' }"
-                             @mousedown="startDrag" @touchstart="startDrag">
-                            <div class="compare-handle-line"></div>
-                            <div class="compare-handle-grip">
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
-                                    <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
-                                </svg>
-                            </div>
+                    <!-- 进度条 -->
+                    <div class="progress-bar" x-show="inferenceState === 'loading' || inferenceState === 'inferring'">
+                        <div class="progress-track">
+                            <div class="progress-fill" :style="{ width: inferenceProgress.pct + '%' }"></div>
                         </div>
-                        <!-- 隐藏的 range 控制 -->
-                        <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
+                        <div class="progress-message" x-text="inferenceProgress.message"></div>
                     </div>
 
-                    <!-- 热力图图例 -->
-                    <div class="heatmap-legend">
-                        <div class="legend-label">异常得分</div>
-                        <div class="legend-bar-wrap">
-                            <div class="legend-bar"></div>
-                            <div class="legend-labels">
-                                <span>1.0</span><span>0.8</span><span>0.6</span><span>0.4</span><span>0.2</span><span>0.0</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 结果卡片 -->
-                <div class="result-card" x-show="resultData">
-                    <div class="result-header">
-                        <span class="result-model" x-text="resultData.model_name"></span>
-                        <span class="result-badge"
-                              :class="resultData.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
-                              x-text="resultData.is_anomaly ? '异常' : '正常'"></span>
-                    </div>
-
-                    <div class="result-metrics">
-                        <!-- 异常得分 -->
-                        <div class="metric">
-                            <div class="metric-label">异常得分</div>
-                            <div class="metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
-                            <div class="metric-bar">
-                                <div class="metric-fill"
-                                     :class="resultData.is_anomaly ? 'fill-anomaly' : 'fill-normal'"
-                                     :style="{ width: (resultData.score * 100) + '%' }"></div>
-                                <div class="metric-threshold"
-                                     :style="{ left: (resultData.threshold * 100) + '%' }"></div>
-                            </div>
-                        </div>
-
-                        <!-- 置信度 -->
-                        <div class="metric">
-                            <div class="metric-label">置信度</div>
-                            <div class="metric-value result-confidence-value"
-                                  x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
-                            <div class="metric-bar">
-                                <div class="metric-fill fill-confidence"
-                                     :style="{ width: (resultData.confidence * 100) + '%' }"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 判决 -->
-                    <div class="result-verdict"
-                         :class="resultData.is_anomaly ? 'verdict-anomaly' : 'verdict-normal'">
-                        <span class="verdict-dot" :class="resultData.is_anomaly ? 'dot-anomaly' : 'dot-normal'"
-                              x-text="resultData.is_anomaly ? '●' : '●'"></span>
-                        <span>
-                            得分 <b x-text="resultData.score.toFixed(4)"></b>
-                            <span x-text="resultData.is_anomaly ? ' > ' : ' ≤ '"></span>
-                            阈值 <b>τ = <span x-text="resultData.threshold.toFixed(3)"></span></b>
-                            &rarr; <b x-text="resultData.is_anomaly ? '异常' : '正常'"></b>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- 隐藏数据：供 JS 读取（tooltip + bbox） -->
-                <img :src="resultData?.anomaly_map_b64"
-                     x-ref="anomalyMapData"
-                     x-show="false"
-                     @load="setupVisualInteractions()">
-                <div x-ref="bboxData"
-                     :data-bboxes="JSON.stringify(resultData?.bboxes || [])"
-                     x-show="false"></div>
-            </div>
-            </template>
-        </div>
-    </section>
-
-    <!-- 过渡区 -->
-    <div class="transition-zone">
-        <div class="transition-line"></div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════ -->
-    <!-- Section 2: 四模型对比 -->
-    <!-- ══════════════════════════════════════════════════ -->
-    <section id="section-2" class="section" x-ref="section2" x-data="compare">
-        <h2 class="section-title scroll-reveal">四模型对比</h2>
-
-        <!-- 引导提示（未开始对比时显示） -->
-        <div class="compare-guide" x-show="!compareRunning && !compareDone">
-            <p>先完成单模型推理上传图片，然后点击下方按钮一键运行四种算法</p>
-        </div>
-
-        <!-- 对比按钮 -->
-        <button class="btn-compare" @click="startCompare()"
-                :disabled="compareRunning"
-                x-show="!compareRunning || compareDone">
-            <span x-show="!compareRunning && !compareDone">&#9654; 四模型同时对比</span>
-            <span x-show="compareDone">&#8635; 重新对比</span>
-        </button>
-
-        <!-- 进度指示器 -->
-        <div class="compare-progress" x-show="compareRunning">
-            <div class="compare-progress-text">
-                正在对比中... <span x-text="completedCount"></span>/4
-            </div>
-            <div class="compare-progress-track">
-                <div class="compare-progress-fill"
-                     :style="{ width: (completedCount / 4 * 100) + '%' }"></div>
-            </div>
-        </div>
-
-        <!-- 摘要栏（全部完成后显示） -->
-        <template x-if="summary">
-        <div class="compare-summary" x-transition>
-            <span class="compare-summary-icon">&#127942;</span>
-            <span class="compare-summary-text">
-                最佳算法：<strong x-text="summary.best_name"></strong>
-            </span>
-            <span class="compare-summary-score">
-                得分：<code x-text="summary.best_score?.toFixed(4)"></code>
-            </span>
-            <div class="compare-ranking">
-                <template x-for="(r, i) in summary.ranking" :key="r.model">
-                    <span class="compare-rank-item">
-                        <span class="rank-num" x-text="'#' + (i + 1)"></span>
-                        <span class="rank-name" x-text="r.name"></span>
-                        <code x-text="r.score.toFixed(4)"></code>
-                    </span>
-                </template>
-            </div>
-        </div>
-        </template>
-
-        <!-- 四列网格 -->
-        <div class="compare-grid">
-            <template x-for="mk in modelOrder">
-                <div class="compare-slot" :class="getSlotClass(mk)" :key="mk">
-                    <!-- 卡片头部：模型名 + 结果徽章 -->
-                    <div class="compare-slot-header">
-                        <h3 x-text="getModelName(mk)"></h3>
-                        <span class="compare-slot-badge"
-                              x-show="slotIsDone(mk) && compareSlots[mk].data"
-                              :class="compareSlots[mk]?.data?.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
-                              x-text="compareSlots[mk]?.data?.is_anomaly ? '异常' : '正常'"></span>
-                    </div>
-
-                    <!-- 等待状态 -->
-                    <div class="compare-slot-pending" x-show="slotIsPending(mk)">
-                        <span class="compare-slot-placeholder">等待推理...</span>
-                    </div>
-
-                    <!-- 推理中状态：骨架屏 + spinner -->
-                    <div class="compare-slot-active" x-show="slotIsActive(mk)">
-                        <div class="compare-skeleton">
-                            <div class="skeleton-row w-80 h-12"></div>
-                            <div class="skeleton-row w-60 h-12"></div>
-                            <div class="skeleton-row w-90 h-8"></div>
-                        </div>
-                        <div class="compare-spinner"></div>
-                    </div>
-
-                    <!-- 错误状态 -->
-                    <div class="compare-slot-error" x-show="slotIsError(mk)">
+                    <!-- 错误卡片 -->
+                    <div class="error-card" x-show="inferenceState === 'error'" x-transition>
                         <span class="error-icon">&#9888;</span>
-                        <span x-text="compareSlots[mk].error"></span>
+                        <span class="error-text" x-text="errorMessage"></span>
                     </div>
 
-                    <!-- 完成状态：原图 + 热力图 + 识别框 + 指标 -->
-                    <template x-if="slotIsDone(mk) && compareSlots[mk].data">
-                    <div class="compare-slot-result">
-                        <!-- 原图 -->
-                        <div class="compare-mini-img-wrap">
-                            <img :src="compareSlots[mk].data.image_b64"
-                                 :alt="getModelName(mk) + ' 原图'"
-                                 class="compare-mini-img">
-                            <span class="compare-mini-label">原图</span>
+                    <!-- 占位提示（idle 时无结果显示） -->
+                    <div class="result-placeholder" x-show="inferenceState === 'idle' && !uploadedFile">
+                        <div class="result-empty">
+                            <p>选择模型并上传图片后，点击「开始推理」</p>
                         </div>
-                        <!-- 热力图容器（用于 bbox overlay 定位） -->
-                        <div class="compare-heatmap-wrap"
-                             :id="'compare-wrap-' + mk"
-                             :data-bboxes="JSON.stringify(compareSlots[mk].data.bboxes || [])">
-                            <img :src="compareSlots[mk].data.heatmap_b64"
-                                 :alt="getModelName(mk) + ' 热力图'"
-                                 class="compare-heatmap"
-                                 :id="'compare-heatmap-' + mk"
-                                 @load="setupCompareBbox(mk)">
-                            <span class="compare-mini-label compare-mini-label--heat">热力图</span>
+                    </div>
+
+                    <!-- ============================================================ -->
+                    <!-- 结果面板（推理完成后显示） -->
+                    <!-- ============================================================ -->
+                    <template x-if="inferenceState === 'done' && resultData">
+                    <div class="result-panel scroll-reveal" x-transition>
+                        <div class="result-layout">
+                            <!-- 左侧：图片对比滑块 -->
+                            <div class="result-left">
+                                <div class="compare-slider" x-data="imageCompare">
+                                    <div class="compare-container">
+                                        <!-- 原图（底层） -->
+                                        <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
+                                        <!-- 热力图（上层，clip 裁剪） -->
+                                        <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
+                                             :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
+                                        <!-- 拖拽手柄 -->
+                                        <div class="compare-handle" :style="{ left: sliderPos + '%' }"
+                                             @mousedown="startDrag" @touchstart="startDrag">
+                                            <div class="compare-handle-line"></div>
+                                            <div class="compare-handle-grip">
+                                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
+                                                    <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <!-- 隐藏的 range 控制 -->
+                                        <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
+                                    </div>
+
+                                    <!-- 热力图图例 -->
+                                    <div class="heatmap-legend">
+                                        <div class="legend-label">异常得分</div>
+                                        <div class="legend-bar-wrap">
+                                            <div class="legend-bar"></div>
+                                            <div class="legend-labels">
+                                                <span>1.0</span><span>0.8</span><span>0.6</span><span>0.4</span><span>0.2</span><span>0.0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 右侧：指标卡 -->
+                            <div class="result-right">
+                                <div class="result-card" x-show="resultData">
+                                    <div class="result-header">
+                                        <span class="result-model" x-text="resultData.model_name"></span>
+                                        <span class="result-badge"
+                                              :class="resultData.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
+                                              x-text="resultData.is_anomaly ? '异常' : '正常'"></span>
+                                    </div>
+
+                                    <div class="result-metrics">
+                                        <!-- 异常得分 -->
+                                        <div class="metric">
+                                            <div class="metric-label">异常得分</div>
+                                            <div class="metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
+                                            <div class="metric-bar">
+                                                <div class="metric-fill"
+                                                     :class="resultData.is_anomaly ? 'fill-anomaly' : 'fill-normal'"
+                                                     :style="{ width: (resultData.score * 100) + '%' }"></div>
+                                                <div class="metric-threshold"
+                                                     :style="{ left: (resultData.threshold * 100) + '%' }"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 置信度 -->
+                                        <div class="metric">
+                                            <div class="metric-label">置信度</div>
+                                            <div class="metric-value result-confidence-value"
+                                                  x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
+                                            <div class="metric-bar">
+                                                <div class="metric-fill fill-confidence"
+                                                     :style="{ width: (resultData.confidence * 100) + '%' }"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 判决 -->
+                                    <div class="result-verdict"
+                                         :class="resultData.is_anomaly ? 'verdict-anomaly' : 'verdict-normal'">
+                                        <span class="verdict-dot" :class="resultData.is_anomaly ? 'dot-anomaly' : 'dot-normal'"
+                                              x-text="resultData.is_anomaly ? '●' : '●'"></span>
+                                        <span>
+                                            得分 <b x-text="resultData.score.toFixed(4)"></b>
+                                            <span x-text="resultData.is_anomaly ? ' > ' : ' ≤ '"></span>
+                                            阈值 <b>τ = <span x-text="resultData.threshold.toFixed(3)"></span></b>
+                                            &rarr; <b x-text="resultData.is_anomaly ? '异常' : '正常'"></b>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- 重新上传按钮 -->
+                                <div class="inference-actions">
+                                    <button class="btn-reset" @click="resetInference()">重新上传</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="compare-metrics">
-                            <div class="compare-metric">
-                                <span class="compare-metric-label">得分</span>
-                                <span class="compare-metric-value"
-                                      x-text="compareSlots[mk].data.score.toFixed(4)"></span>
-                            </div>
-                            <div class="compare-metric">
-                                <span class="compare-metric-label">置信度</span>
-                                <span class="compare-metric-value"
-                                      x-text="(compareSlots[mk].data.confidence * 100).toFixed(1) + '%'"></span>
-                            </div>
-                            <div class="compare-metric">
-                                <span class="compare-metric-label">阈值</span>
-                                <span class="compare-metric-value compare-metric-value--small"
-                                      x-text="compareSlots[mk].data.threshold.toFixed(3)"></span>
-                            </div>
-                        </div>
+
+                        <!-- 隐藏数据：供 JS 读取（tooltip + bbox） -->
+                        <img :src="resultData?.anomaly_map_b64"
+                             x-ref="anomalyMapData"
+                             x-show="false"
+                             @load="setupVisualInteractions()">
+                        <div x-ref="bboxData"
+                             :data-bboxes="JSON.stringify(resultData?.bboxes || [])"
+                             x-show="false"></div>
                     </div>
                     </template>
                 </div>
-            </template>
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <!-- ══════════════════════════════════════════════════ -->
-    <!-- 页脚 -->
-    <!-- ══════════════════════════════════════════════════ -->
-    <footer class="footer scroll-reveal">
-        <p>工业异常检测系统 &middot; Anomalib 2.3 &middot; 无监督缺陷检测</p>
-        <p class="footer-sub">Powered by PatchCore / PaDiM / FRE / DRAEM</p>
-    </footer>
+        <!-- ============================================== -->
+        <!-- Section 2: 四模型对比 + 页脚 -->
+        <!-- ============================================== -->
+        <section id="s2" class="snap-page" x-ref="section2" x-data="compare" x-intersect:enter="currentSection = 2">
+            <div class="snap-page-inner">
+                <h2 class="section-title scroll-reveal">四模型对比</h2>
+
+                <!-- 共享原图区域 -->
+                <div class="compare-shared-image" x-show="resultData?.image_b64">
+                    <img :src="resultData?.image_b64" alt="共享原图">
+                    <span class="compare-shared-label">输入图像（共享）</span>
+                </div>
+
+                <!-- 引导提示（未开始对比时显示） -->
+                <div class="compare-guide" x-show="!compareRunning && !compareDone">
+                    <p>先完成单模型推理上传图片，然后点击下方按钮一键运行四种算法</p>
+                </div>
+
+                <!-- 对比按钮 -->
+                <button class="btn-compare" @click="startCompare()"
+                        :disabled="compareRunning"
+                        x-show="!compareRunning || compareDone">
+                    <span x-show="!compareRunning && !compareDone">&#9654; 四模型同时对比</span>
+                    <span x-show="compareDone">&#8635; 重新对比</span>
+                </button>
+
+                <!-- 进度指示器 -->
+                <div class="compare-progress" x-show="compareRunning">
+                    <div class="compare-progress-text">
+                        正在对比中... <span x-text="completedCount"></span>/4
+                    </div>
+                    <div class="compare-progress-track">
+                        <div class="compare-progress-fill"
+                             :style="{ width: (completedCount / 4 * 100) + '%' }"></div>
+                    </div>
+                </div>
+
+                <!-- 摘要栏（全部完成后显示） -->
+                <template x-if="summary">
+                <div class="compare-summary" x-transition>
+                    <span class="compare-summary-icon">&#127942;</span>
+                    <span class="compare-summary-text">
+                        最佳算法：<strong x-text="summary.best_name"></strong>
+                    </span>
+                    <span class="compare-summary-score">
+                        得分：<code x-text="summary.best_score?.toFixed(4)"></code>
+                    </span>
+                    <div class="compare-ranking">
+                        <template x-for="(r, i) in summary.ranking" :key="r.model">
+                            <span class="compare-rank-item">
+                                <span class="rank-num" x-text="'#' + (i + 1)"></span>
+                                <span class="rank-name" x-text="r.name"></span>
+                                <code x-text="r.score.toFixed(4)"></code>
+                            </span>
+                        </template>
+                    </div>
+                </div>
+                </template>
+
+                <!-- 四列网格（仅热力图，无独立原图） -->
+                <div class="compare-grid">
+                    <template x-for="mk in modelOrder">
+                        <div class="compare-slot" :class="getSlotClass(mk)" :key="mk">
+                            <!-- 色标 -->
+                            <div class="compare-slot-accent"
+                                 :style="{ background: mk === 'patchcore' ? '#2997ff' : mk === 'padim' ? '#30d158' : mk === 'fre' ? '#ff9f0a' : '#bf5af2' }"></div>
+
+                            <!-- 卡片头部：模型名 + 结果徽章 -->
+                            <div class="compare-slot-header">
+                                <h3 x-text="getModelName(mk)"></h3>
+                                <span class="compare-slot-badge"
+                                      x-show="slotIsDone(mk) && compareSlots[mk].data"
+                                      :class="compareSlots[mk]?.data?.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
+                                      x-text="compareSlots[mk]?.data?.is_anomaly ? '异常' : '正常'"></span>
+                            </div>
+
+                            <!-- 等待状态 -->
+                            <div class="compare-slot-pending" x-show="slotIsPending(mk)">
+                                <span class="compare-slot-placeholder">等待推理...</span>
+                            </div>
+
+                            <!-- 推理中状态：骨架屏 + spinner -->
+                            <div class="compare-slot-active" x-show="slotIsActive(mk)">
+                                <div class="compare-skeleton">
+                                    <div class="skeleton-row w-80 h-12"></div>
+                                    <div class="skeleton-row w-60 h-12"></div>
+                                    <div class="skeleton-row w-90 h-8"></div>
+                                </div>
+                                <div class="compare-spinner"></div>
+                            </div>
+
+                            <!-- 错误状态 -->
+                            <div class="compare-slot-error" x-show="slotIsError(mk)">
+                                <span class="error-icon">&#9888;</span>
+                                <span x-text="compareSlots[mk].error"></span>
+                            </div>
+
+                            <!-- 完成状态：仅热力图 + 指标（无独立原图） -->
+                            <template x-if="slotIsDone(mk) && compareSlots[mk].data">
+                            <div class="compare-slot-result">
+                                <!-- 热力图容器（用于 bbox overlay 定位） -->
+                                <div class="compare-heatmap-wrap"
+                                     :id="'compare-wrap-' + mk"
+                                     :data-bboxes="JSON.stringify(compareSlots[mk].data.bboxes || [])">
+                                    <img :src="compareSlots[mk].data.heatmap_b64"
+                                         :alt="getModelName(mk) + ' 热力图'"
+                                         class="compare-heatmap"
+                                         :id="'compare-heatmap-' + mk"
+                                         @load="setupCompareBbox(mk)">
+                                    <span class="compare-mini-label">热力图</span>
+                                </div>
+                                <div class="compare-metrics">
+                                    <div class="compare-metric">
+                                        <span class="compare-metric-label">得分</span>
+                                        <span class="compare-metric-value"
+                                              x-text="compareSlots[mk].data.score.toFixed(4)"></span>
+                                    </div>
+                                    <div class="compare-metric">
+                                        <span class="compare-metric-label">置信度</span>
+                                        <span class="compare-metric-value"
+                                              x-text="(compareSlots[mk].data.confidence * 100).toFixed(1) + '%'"></span>
+                                    </div>
+                                    <div class="compare-metric">
+                                        <span class="compare-metric-label">阈值</span>
+                                        <span class="compare-metric-value compare-metric-value--small"
+                                              x-text="compareSlots[mk].data.threshold.toFixed(3)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- ════════════════════════════════════════ -->
+                <!-- 页脚（移入 Section 2 底部） -->
+                <!-- ════════════════════════════════════════ -->
+                <footer class="footer scroll-reveal">
+                    <p>工业异常检测系统 &middot; Anomalib 2.3 &middot; 无监督缺陷检测</p>
+                    <p class="footer-sub">Powered by PatchCore / PaDiM / FRE / DRAEM</p>
+                </footer>
+            </div>
+        </section>
+
+    </div>
 
     <!-- ══════════════════════════════════════════════════ -->
     <!-- JavaScript（app.js 必须在 Alpine CDN 之前加载） -->

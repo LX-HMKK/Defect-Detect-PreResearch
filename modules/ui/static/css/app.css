@@ -986,7 +986,8 @@ html[data-theme="light"] .theme-capsule:hover {
     z-index: 1;
 }
 
-.compare-heatmap {
+/* 仅单模型推理对比滑块使用 position:absolute（热力图叠加在原图之上） */
+.compare-container .compare-heatmap {
     position: absolute;
     top: 0;
     left: 0;
@@ -1642,6 +1643,7 @@ html[data-theme="light"] .theme-capsule:hover {
 }
 
 .compare-slot .compare-heatmap {
+    position: relative;  /* 覆盖单模型滑块的 position:absolute，保持在文档流内 */
     display: block;
     width: 100%;
     max-height: 200px;

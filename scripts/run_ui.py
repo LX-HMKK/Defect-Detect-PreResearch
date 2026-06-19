@@ -6,7 +6,8 @@ UI 启动入口 — FastAPI (Phase 2) / Gradio (fallback)
 ================================================================================
 
 用法:
-    python scripts/run_ui.py              # FastAPI UI → http://127.0.0.1:8000
+    python scripts/run_ui.py              # FastAPI UI → http://127.0.0.1:8000 (自动打开浏览器)
+    python scripts/run_ui.py --no-browser # 不自动打开浏览器
     python scripts/run_ui.py --gradio     # Gradio UI → http://127.0.0.1:7860
     python scripts/run_ui.py --port 3000  # 自定义端口
 ================================================================================
@@ -15,6 +16,8 @@ UI 启动入口 — FastAPI (Phase 2) / Gradio (fallback)
 import io
 import argparse
 import sys
+import threading
+import webbrowser
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +56,7 @@ def parse_args():
         epilog="""
 示例:
   python scripts/run_ui.py              # FastAPI → http://127.0.0.1:8000
+  python scripts/run_ui.py --no-browser # 不自动打开浏览器
   python scripts/run_ui.py --gradio     # Gradio → http://127.0.0.1:7860
   python scripts/run_ui.py --port 3000  # 自定义端口
         """
@@ -63,6 +67,8 @@ def parse_args():
                         help="绑定地址（默认 127.0.0.1）")
     parser.add_argument("--gradio", action="store_true",
                         help="启动 Gradio UI (legacy fallback)")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="不自动打开浏览器")
     parser.add_argument("--share", action="store_true",
                         help="Gradio: 生成公开分享链接")
     parser.add_argument("--category", type=str, default=None,
@@ -128,6 +134,11 @@ def main():
         print()
         print("[INFO] 按 Ctrl+C 停止服务")
         print()
+
+        # 自动打开浏览器（默认开启，--no-browser 可禁用）
+        if not args.no_browser:
+            url = f"http://{args.host}:{args.port}"
+            threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
         uvicorn.run(
             "modules.ui.server:app",

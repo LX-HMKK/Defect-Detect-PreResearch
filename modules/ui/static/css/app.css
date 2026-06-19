@@ -1605,47 +1605,41 @@ html[data-theme="light"] .theme-capsule:hover {
     transition: width 0.3s var(--ease-out);
 }
 
-/* ── 摘要栏（最优模型公告）── */
+/* 摘要栏横向紧凑优化 */
 .compare-summary {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px 20px;
-    padding: 16px 24px;
+    gap: 10px 16px;
+    padding: 14px 20px;
     background: var(--bg-secondary);
-    border: 1px solid rgba(255, 159, 10, 0.3);
-    border-radius: var(--r-lg);
-    margin-bottom: 24px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 159, 10, 0.25);
+    border-radius: var(--r-md);
+    margin-bottom: 20px;
 }
 
-.compare-summary-icon {
-    font-size: 24px;
+.compare-summary-trophy {
+    font-size: 20px;
     line-height: 1;
 }
 
-.compare-summary-text {
-    font-size: 15px;
+.compare-summary-best {
+    font-size: 14px;
     color: var(--text);
 }
 
-.compare-summary-text strong {
+.compare-summary-best strong {
     color: var(--warn);
 }
 
-.compare-summary-score {
-    font-size: 14px;
-    color: var(--text-secondary);
-}
-
-.compare-summary-score code {
+.compare-summary-best code {
     font-family: var(--font-mono);
     background: var(--bg-tertiary);
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text);
+    margin-left: 6px;
 }
 
 /* ── 排名列表 ── */
@@ -1695,6 +1689,8 @@ html[data-theme="light"] .theme-capsule:hover {
 
 /* ── 模型结果槽位卡片 ── */
 .compare-slot {
+    position: relative;
+    overflow: hidden;
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-lg);
@@ -1888,22 +1884,65 @@ html[data-theme="light"] .theme-capsule:hover {
 }
 
 .compare-mini-label {
+    display: none;
+}
+
+.compare-mini-label--heat {
+    display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   四模型对比 — Section 2 共享原图 + 色标
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 共享原图 */
+.compare-shared-image {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto 24px;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.compare-shared-label {
     position: absolute;
-    top: 6px;
-    left: 6px;
+    top: 8px;
+    left: 8px;
     font-size: 10px;
     font-weight: 500;
     color: var(--text-secondary);
     background: var(--bg-secondary);
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 4px;
-    opacity: 0.7;
+    opacity: 0.8;
     pointer-events: none;
+    z-index: 1;
 }
 
-.compare-mini-label--heat {
-    left: auto;
-    right: 6px;
+.compare-shared-img {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+}
+
+/* 槽位色标竖线 */
+.compare-slot-accent {
+    position: absolute;
+    left: 0;
+    top: 16px;
+    bottom: 16px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--algo-color, var(--accent));
+    transition: box-shadow 0.3s var(--ease-out);
+}
+
+/* 热力图高度微调 */
+.compare-slot .compare-heatmap {
+    max-height: 180px;
 }
 
 /* ── 紧凑指标 ── */
@@ -1937,6 +1976,11 @@ html[data-theme="light"] .theme-capsule:hover {
 .compare-metric-value--small {
     font-size: 14px;
     color: var(--text-secondary);
+}
+
+/* 紧凑指标字体调整（覆盖原 18px → 16px） */
+.compare-metric-value {
+    font-size: 16px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

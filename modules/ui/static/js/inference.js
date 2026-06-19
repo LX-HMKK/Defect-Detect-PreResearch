@@ -255,20 +255,35 @@ function setupBboxOverlays(containerEl, bboxes, imgEl) {
         var imgRect = imgEl.getBoundingClientRect();
         var containerRect = containerEl.getBoundingClientRect();
 
-        var scaleX = imgRect.width / imgEl.naturalWidth;
-        var scaleY = imgRect.height / imgEl.naturalHeight;
-        var offsetX = imgRect.left - containerRect.left;
-        var offsetY = imgRect.top - containerRect.top;
+        var naturalW = imgEl.naturalWidth;
+        var naturalH = imgEl.naturalHeight;
+        var displayW = imgRect.width;
+        var displayH = imgRect.height;
+
+        // object-fit: contain 会将图片等比缩放至完全可见，
+        // 居中放置在 <img> 元素内。需要计算实际图片内容区域
+        // 的缩放比和偏移，而非直接用 <img> 元素尺寸。
+        var scale = Math.min(displayW / naturalW, displayH / naturalH);
+        var renderedW = naturalW * scale;
+        var renderedH = naturalH * scale;
+
+        // 图片内容在 <img> 元素内的居中偏移
+        var contentOffsetX = (displayW - renderedW) / 2;
+        var contentOffsetY = (displayH - renderedH) / 2;
+
+        // <img> 元素相对于容器的偏移
+        var imgOffsetX = imgRect.left - containerRect.left;
+        var imgOffsetY = imgRect.top - containerRect.top;
 
         bboxes.forEach(function (bbox, i) {
             var x = bbox[0], y = bbox[1], w = bbox[2], h = bbox[3], score = bbox[4];
             var overlay = containerEl.querySelector('.bbox-overlay-' + i);
             if (!overlay) return;
 
-            overlay.style.left = (offsetX + x * scaleX) + 'px';
-            overlay.style.top = (offsetY + y * scaleY) + 'px';
-            overlay.style.width = (w * scaleX) + 'px';
-            overlay.style.height = (h * scaleY) + 'px';
+            overlay.style.left = (imgOffsetX + contentOffsetX + x * scale) + 'px';
+            overlay.style.top = (imgOffsetY + contentOffsetY + y * scale) + 'px';
+            overlay.style.width = (w * scale) + 'px';
+            overlay.style.height = (h * scale) + 'px';
         });
     }
 

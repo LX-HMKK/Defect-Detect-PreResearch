@@ -134,7 +134,8 @@ const Anim = {
      * @param {number} to - 结束值
      * @param {number} duration - 持续时间（ms）
      */
-    numberRoll(el, from, to, duration = 600) {
+    numberRoll(el, from, to, duration = 600, options = {}) {
+        const format = options.format || function (v) { return v.toFixed(4); };
         const start = performance.now();
 
         function update(now) {
@@ -143,12 +144,11 @@ const Anim = {
             // easeOutExpo: 1 - 2^(-10t)
             const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
             const current = from + (to - from) * eased;
-            // 根据目标值的小数位数动态调整显示精度
-            el.textContent = current.toFixed(4);
+            el.textContent = format(current);
             if (progress < 1) {
                 requestAnimationFrame(update);
             } else {
-                el.textContent = to.toFixed(4);
+                el.textContent = format(to);
             }
         }
         requestAnimationFrame(update);

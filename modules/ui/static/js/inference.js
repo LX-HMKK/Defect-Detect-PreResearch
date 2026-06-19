@@ -177,7 +177,7 @@ function setupHeatmapTooltip(anomalyMapEl, heatmapImgEl) {
     if (anomalyMapEl.complete) {
         initCanvas();
     } else {
-        anomalyMapEl.addEventListener('load', initCanvas);
+        anomalyMapEl.addEventListener('load', initCanvas, { once: true });
     }
 
     // 创建 tooltip 元素
@@ -186,7 +186,8 @@ function setupHeatmapTooltip(anomalyMapEl, heatmapImgEl) {
     tooltip.innerHTML = '<span class="hm-tooltip-label">异常得分</span><span class="hm-tooltip-value"></span>';
     document.body.appendChild(tooltip);
 
-    heatmapImgEl.addEventListener('mousemove', function (e) {
+    // 捕获 handler 引用以便后续清除
+    var onMove = function (e) {
         if (canvas.width === 0 || canvas.height === 0) return;
 
         var rect = heatmapImgEl.getBoundingClientRect();
@@ -215,17 +216,20 @@ function setupHeatmapTooltip(anomalyMapEl, heatmapImgEl) {
         }
         tooltip.style.left = tooltipX + 'px';
         tooltip.style.top = tooltipY + 'px';
-    });
+    };
 
-    heatmapImgEl.addEventListener('mouseleave', function () {
+    var onLeave = function () {
         tooltip.style.display = 'none';
-    });
+    };
+
+    heatmapImgEl.addEventListener('mousemove', onMove);
+    heatmapImgEl.addEventListener('mouseleave', onLeave);
 
     // 返回清理函数
     return function () {
         if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
-        heatmapImgEl.removeEventListener('mousemove', function () {});
-        heatmapImgEl.removeEventListener('mouseleave', function () {});
+        heatmapImgEl.removeEventListener('mousemove', onMove);
+        heatmapImgEl.removeEventListener('mouseleave', onLeave);
     };
 }
 

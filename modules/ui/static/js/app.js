@@ -358,7 +358,9 @@ document.addEventListener('alpine:init', function () {
                 }
                 var confEl = document.querySelector('.result-confidence-value');
                 if (confEl) {
-                    Anim.numberRoll(confEl, 0, this.resultData.confidence, 600);
+                    Anim.numberRoll(confEl, 0, this.resultData.confidence * 100, 600, {
+                        format: function (v) { return v.toFixed(1) + '%'; }
+                    });
                 }
             },
 

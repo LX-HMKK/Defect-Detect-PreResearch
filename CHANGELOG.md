@@ -4,6 +4,16 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 2026-06-19 — Phase 2 UI Bug 集中修复
+
+- **修复:** 四模型对比热力图不显示 — `.compare-heatmap { position: absolute }` 全局选择器泄漏到对比槽位，热力图脱离文档流导致父容器 `.compare-heatmap-wrap` 高度塌陷至 0px，配合 `overflow: hidden` 将热力图完全裁剪。修复：全局规则收缩为 `.compare-container .compare-heatmap`（仅影响单模型滑块），`.compare-slot .compare-heatmap` 添加 `position: relative`
+- **修复:** 对比滑块拖拽失效 — `.compare-handle` z-index 被 `.compare-heatmap` 遮挡，将手柄 z-index 提升至 30
+- **修复:** bbox overlay 错位 — `setupBboxOverlays` 未计入 `object-fit: contain` 内容居中偏移量 (`contentOffsetX/Y`)，现正确计算内容区域缩放比和偏移
+- **修复:** 四模型对比缺少原图展示 — 对比槽位新增 `.compare-mini-img-wrap` + `.compare-mini-img` 展示原始输入图
+- **修复:** Cache-Control 浏览器缓存过期 — `max-age=60` 改为 `no-cache`，每次使用前强制 ETag 验证
+- **修复:** SSE 消息断流 — `asyncio.to_thread` 将同步推理调用移出事件循环线程，避免阻塞 SSE 推送
+- **修复:** Alpine.js `x-show` null 属性崩溃 — 敏感路径改用 `<template x-if>` 条件渲染
+
 ## 2026-06-12 — 第 2-3 阶段：安全网 + 结构改进
 
 - **重构:** 将 monkey-patch 兼容层提取到 `modules/algorithm/_anomalib_compat.py`，trainer.py 代码量减少 160+ 行 (H1)

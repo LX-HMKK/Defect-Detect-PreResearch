@@ -150,11 +150,26 @@ document.addEventListener('alpine:init', function () {
                 window.addEventListener('mouseup', onUp);
                 window.addEventListener('touchmove', onMove, { passive: true });
                 window.addEventListener('touchend', onUp);
+
+                // 保存引用以便 destroy 清理
+                this._onMove = onMove;
+                this._onUp = onUp;
             },
 
             startDrag: function (e) {
                 this.dragging = true;
                 e.preventDefault();
+            },
+
+            destroy: function () {
+                if (this._onMove) {
+                    window.removeEventListener('mousemove', this._onMove);
+                    window.removeEventListener('touchmove', this._onMove);
+                }
+                if (this._onUp) {
+                    window.removeEventListener('mouseup', this._onUp);
+                    window.removeEventListener('touchend', this._onUp);
+                }
             }
         };
     });

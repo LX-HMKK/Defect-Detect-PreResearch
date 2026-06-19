@@ -71,13 +71,18 @@ app.add_middleware(
 )
 
 
-# ── Cache-Control 中间件：静态资源短期缓存（开发阶段 60s）──
+# ── Cache-Control 中间件：每次使用前强制验证（no-cache）──
 class CacheControlMiddleware(BaseHTTPMiddleware):
-    """为 /static/ 路径下的资源添加 Cache-Control 头。"""
+    """为 /static/ 路径下的资源添加 Cache-Control 头。
+
+    使用 no-cache（而非 no-store）：浏览器会缓存但每次使用前
+    必须先通过 ETag/If-None-Match 向服务器验证。文件未变则 304，
+    带宽开销近乎为零。既保证实时更新，又保留缓存性能。
+    """
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         if request.url.path.startswith("/static/"):
-            response.headers["Cache-Control"] = "public, max-age=60"
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
 

@@ -854,23 +854,22 @@
                     </div>
                 </div>
 
-                <!-- 摘要栏（全部完成后显示） -->
+                <!-- 摘要栏（全部完成后显示，单行压缩） -->
                 <template x-if="summary">
-                <div class="compare-summary" x-transition>
-                    <span class="compare-summary-trophy">&#127942;</span>
+                <div class="compare-summary-row" x-transition>
+                    <span class="compare-summary-icon">&#127942;</span>
                     <span class="compare-summary-best">
-                        最佳算法：<strong x-text="summary.best_name"></strong>
-                        得分：<code x-text="summary.best_score?.toFixed(4)"></code>
+                        最佳：<strong x-text="summary.best_name"></strong>
+                        <code x-text="summary.best_score?.toFixed(4)"></code>
                     </span>
-                    <div class="compare-ranking">
-                        <template x-for="(r, i) in summary.ranking" :key="r.model">
-                            <span class="compare-rank-item">
-                                <span class="rank-num" x-text="'#' + (i + 1)"></span>
-                                <span class="rank-name" x-text="r.name"></span>
-                                <code x-text="r.score?.toFixed(4) ?? '—'"></code>
-                            </span>
-                        </template>
-                    </div>
+                    <span class="compare-summary-sep">|</span>
+                    <template x-for="(r, i) in summary.ranking" :key="r.model">
+                        <span class="compare-summary-rank" x-show="i > 0">
+                            <span class="rank-hash">#</span><span x-text="i + 1"></span>
+                            <span class="rank-name" x-text="r.name"></span>
+                            <code x-text="r.score?.toFixed(4) ?? '—'"></code>
+                        </span>
+                    </template>
                 </div>
                 </template>
 
@@ -936,11 +935,6 @@
                                         <span class="compare-metric-label">置信度</span>
                                         <span class="compare-metric-value"
                                               x-text="(compareSlots[mk].data.confidence * 100).toFixed(1) + '%'"></span>
-                                    </div>
-                                    <div class="compare-metric">
-                                        <span class="compare-metric-label">阈值</span>
-                                        <span class="compare-metric-value compare-metric-value--small"
-                                              x-text="compareSlots[mk].data.threshold.toFixed(3)"></span>
                                     </div>
                                 </div>
                             </div>

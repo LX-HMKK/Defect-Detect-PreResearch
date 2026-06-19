@@ -1993,129 +1993,7 @@ html[data-theme="dark"] .capsule-icon--moon {
     transition: width 0.3s var(--ease-out);
 }
 
-/* 摘要栏横向紧凑优化 */
-.compare-summary {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 16px;
-    padding: 14px 20px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--sep-subtle);
-    border-radius: var(--r-md);
-    margin-bottom: 20px;
-    position: relative;
-    overflow: hidden;
-    animation: summaryReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* 渐变金色边框：通过 ::before 伪元素模拟（border-image 会破坏 border-radius） */
-.compare-summary::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, #ff9f0a, #ffcc00, #ff9f0a);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.compare-summary > * {
-    position: relative;
-    z-index: 1;
-}
-
-@keyframes summaryReveal {
-    from {
-        opacity: 0;
-        transform: translateY(12px) scale(0.97);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-.compare-summary-trophy {
-    font-size: 20px;
-    line-height: 1;
-}
-
-.compare-summary-best {
-    font-size: 14px;
-    color: var(--text);
-}
-
-.compare-summary-best strong {
-    color: var(--warn);
-}
-
-.compare-summary-best code {
-    font-family: var(--font-mono);
-    background: var(--bg-tertiary);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text);
-    margin-left: 6px;
-}
-
-/* ── 排名列表 ── */
-.compare-ranking {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    width: 100%;
-    margin-top: 4px;
-}
-
-.compare-rank-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    background: var(--bg-tertiary);
-    border-radius: 20px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    /* 逐级弹出入场 */
-    opacity: 0;
-    transform: scale(0.8);
-    animation: rankPopIn 0.4s cubic-bezier(0.22, 0.8, 0.3, 1.15) forwards;
-}
-.compare-rank-item:nth-child(1) { animation-delay: 0.05s; }
-.compare-rank-item:nth-child(2) { animation-delay: 0.15s; }
-.compare-rank-item:nth-child(3) { animation-delay: 0.25s; }
-.compare-rank-item:nth-child(4) { animation-delay: 0.35s; }
-
-@keyframes rankPopIn {
-    from {
-        opacity: 0;
-        transform: scale(0.8);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.compare-rank-item code {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text);
-}
-
-.rank-num {
-    font-weight: 700;
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: 11px;
-}
+/* 摘要栏已移至 .compare-summary-row（见下文「四模型对比」section） */
 
 .rank-name {
     font-weight: 500;
@@ -2136,19 +2014,20 @@ html[data-theme="dark"] .capsule-icon--moon {
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-lg);
-    padding: 20px;
+    padding: 16px;
     transition: border-color var(--dur-normal) var(--ease-out),
-                box-shadow var(--dur-normal) var(--ease-out);
-    min-height: 320px;
+                box-shadow var(--dur-normal) var(--ease-out),
+                transform 0.25s var(--ease-out);
     display: flex;
     flex-direction: column;
+    /* min-height 由内容自然撑高 */
 }
 
-/* ── 槽位 hover 增强 ── */
+/* ── 槽位 hover 克制（避免四列同时跳动）── */
 .compare-slot:hover {
-    transform: translateY(-4px) scale(1.02);
+    transform: translateY(-2px);
     border-color: var(--sep-strong);
-    box-shadow: var(--shadow-lg), 0 0 30px var(--accent-dim);
+    box-shadow: var(--shadow-md);
 }
 
 /* ── 槽位状态修饰符 ── */
@@ -2385,16 +2264,14 @@ html[data-theme="dark"] .capsule-icon--moon {
     background: var(--bg);
 }
 
-/* 槽位色标竖线 */
+/* 槽位色标（顶部横线，更醒目） */
 .compare-slot-accent {
-    position: absolute;
-    left: 0;
-    top: 16px;
-    bottom: 16px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
     background: var(--algo-color, var(--accent));
-    transition: box-shadow 0.3s var(--ease-out);
 }
 
 /* 热力图高度微调 */
@@ -2430,9 +2307,65 @@ html[data-theme="dark"] .capsule-icon--moon {
     color: var(--text);
 }
 
-.compare-metric-value--small {
+/* ── 摘要栏（单行压缩）── */
+.compare-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-md);
+    margin-bottom: 20px;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+.compare-summary-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.compare-summary-best {
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.compare-summary-best strong {
+    font-weight: 600;
+}
+
+.compare-summary-best code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    margin-left: 4px;
+}
+
+.compare-summary-sep {
+    color: var(--sep-strong);
     font-size: 14px;
+}
+
+.compare-summary-rank {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.rank-hash {
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.compare-summary-rank code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: 2px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2665,7 +2598,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     }
 
     /* Compare summary stack */
-    .compare-summary { flex-direction: column; align-items: flex-start; }
+    .compare-summary-row { flex-direction: column; align-items: flex-start; }
 
     /* Section padding */
     .section { padding: 40px 16px; }
@@ -2699,7 +2632,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
     .compare-grid { grid-template-columns: 1fr; }
     .compare-shared-img { max-height: 160px; }
-    .compare-ranking { flex-direction: column; }
+    .compare-summary-row { flex-wrap: wrap; }
 
     .pipeline-step { padding: 14px; }
     .pipeline-step-num { width: 24px; height: 24px; font-size: 11px; }

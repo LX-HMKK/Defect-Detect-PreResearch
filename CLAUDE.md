@@ -82,6 +82,25 @@ python -c "from modules.algorithm.trainer import AnomalyDetectionTrainer; print(
 
 CLI 参数：`-m` 模型 (`patchcore|padim|fre|draem|all`)，`-c` 类别 (`bottle|carpet|region1|region2|region3|region5|all`)，`-d` 数据根目录。
 
+### 典型工作流
+
+```bash
+# 1. 准备数据
+python scripts/run_data_processing.py -i ./data/raw -o ./data/processed/bottle --max_train 150
+
+# 2. 训练模型
+python scripts/run_training.py -m patchcore -c bottle -d ./data
+
+# 3. 计算最优阈值（可选，会更新已有结果）
+python scripts/run_threshold.py -m patchcore -c bottle --save
+
+# 4. 评估并查看指标
+python scripts/run_evaluation.py -m patchcore -c bottle
+
+# 5. 启动 UI 进行推理
+python scripts/run_ui.py
+```
+
 ## 环境配置
 
 ```bash
@@ -149,7 +168,7 @@ memory/                         # Claude Code 会话记忆
 
 - **`get_datamodule_from_config(data_path, category, model_name, config)`** — 自动检测 MVTec AD 与通用 Folder 格式。Folder 格式始终设置 `task='segmentation'`。train_batch_size/eval_batch_size/num_workers 严格从配置读取。
 
-- **`modules/algorithm/_anomalib_compat.py`** — 猴子补丁兼容层，修复 anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 回调签名不匹配。详见[Trainer 兼容性补丁](#trainer-兼容性补丁)。
+- **`modules/algorithm/_anomalib_compat.py`** — 猴子补丁兼容层，修复 anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 回调签名不匹配。详见下文「Trainer 兼容性补丁」。
 
 - **`modules/_runtime.py`** → `configure_runtime_temp()` — 将 `sys.pycache_prefix` 和 `PYTHONPYCACHEPREFIX` 重定向到 `./.cache/pycache/`。所有 `scripts/run_*.py` 和 `tools/run_*.py` 开头均调用此函数。
 
@@ -321,6 +340,12 @@ Angular 协议：`<类型>(<范围>): <主题>`。
 - 使用命令式语气（add, fix, update）
 - **禁止添加 `Co-authored-by`** 到提交信息
 - **多行提交信息必须使用 `-F` 从文件读取**。禁止使用 `git commit -m @'...'@`（PowerShell here-string 语法）或直接内联多行消息——本项目中 Bash 和 PowerShell 两套 shell 并存，here-string/here-doc 语法在交叉环境下极容易误用，导致 `@` 等无关字符混入提交信息。正确做法：先将消息写入临时文件（如 `.git-msg`），然后执行 `git commit -F .git-msg`，完成后删除。
+
+提交前自检（筛查是否误带协作者签名）：
+
+```bash
+git log --all --format="%H %B" | grep -i "Co-authored-by"
+```
 
 ## 算法推荐
 

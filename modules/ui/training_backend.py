@@ -34,12 +34,17 @@ class TrainingMetricsCallback(Callback):
 
     def on_train_start(self, trainer, pl_module):
         self.start_time = time.time()
+        self._log(f"训练开始，共 {trainer.max_epochs} 个 epoch")
 
     def _put(self, payload: Dict):
         try:
             self.metrics_queue.put(payload, block=False)
         except queue.Full:
             pass
+
+    def _log(self, message: str, level: str = 'info'):
+        """推送日志事件到 SSE 队列。"""
+        self._put({'event': 'log', 'message': message, 'level': level})
 
     def _check_stop(self, trainer):
         if self.stop_event.is_set():
@@ -63,6 +68,7 @@ class TrainingMetricsCallback(Callback):
             'train_loss': train_loss,
             'learning_rate': lr,
         })
+        self._log(f"Epoch {epoch + 1}/{trainer.max_epochs} 完成" + (f"，loss={train_loss:.4f}" if train_loss is not None else ""))
 
     def on_validation_epoch_end(self, trainer, pl_module):
         self._check_stop(trainer)
@@ -82,9 +88,11 @@ class TrainingMetricsCallback(Callback):
             'val_image_AUROC': val_auroc,
             'eta_seconds': eta_seconds,
         })
+        self._log("验证完成" + (f"，val_image_AUROC={val_auroc:.4f}" if val_auroc is not None else ""))
 
     def on_train_end(self, trainer, pl_module):
         self._put({'event': 'status', 'status': 'training_end'})
+        self._log("训练结束")
 
 
 def format_uploaded_samples(
@@ -151,6 +159,11 @@ class TrainingTaskManager:
             self._current['current_epoch'] = epoch
 
     def stop(self):
+        """仅设置停止信号，不释放锁。"""
+        self.stop_event.set()
+
+    def finish(self):
+        """任务完成后释放锁并重置状态。"""
         self._lock = False
         self._current = None
         self._started_at = None
@@ -220,19 +233,38 @@ def run_training_job(
         'message': f'正在加载 {model_name} 数据与模型...',
     })
 
-    trainer.train(max_epochs=epochs)
+    try:
+        trainer.train(max_epochs=epochs)
 
-    metrics_queue.put({
-        'event': 'status',
-        'status': 'evaluating',
-        'message': '训练完成，正在评估并计算阈值...',
-    })
+        metrics_queue.put({
+            'event': 'status',
+            'status': 'evaluating',
+            'message': '训练完成，正在评估并计算阈值...',
+        })
 
-    results = trainer.evaluate()
+        results = trainer.evaluate()
 
-    return {
-        'status': 'completed',
-        'model': model_name,
-        'category': category,
-        'results': results,
-    }
+        metrics_queue.put({
+            'event': 'completed',
+            'model': model_name,
+            'category': category,
+            'results': results,
+        })
+
+        return {
+            'status': 'completed',
+            'model': model_name,
+            'category': category,
+            'results': results,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        metrics_queue.put({
+            'event': 'error',
+            'message': str(e),
+            'code': 'TRAINING_ERROR',
+        })
+        raise
+    finally:
+        training_manager.finish()

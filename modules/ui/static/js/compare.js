@@ -197,6 +197,14 @@ document.addEventListener('alpine:init', function () {
                     onDone: function () {
                         self.compareRunning = false;
                         self.compareDone = true;
+                        self.$nextTick(function () {
+                            setTimeout(function () {
+                                var wall = document.querySelector('.compare-wall');
+                                if (wall && window.Anim && window.Anim.compareReveal) {
+                                    window.Anim.compareReveal(wall);
+                                }
+                            }, 120);
+                        });
                     },
                     onError: function (msg) {
                         self.compareRunning = false;

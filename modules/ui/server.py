@@ -39,7 +39,7 @@ import cv2
 from datetime import datetime
 from typing import Dict, List
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +52,7 @@ from anomalib.data import PredictDataset
 # ── 复用现有 Gradio 模块中的核心组件 ──
 from modules.ui.demo import detector, MODEL_CONFIGS, get_available_datasets
 from modules.ui import theme
+from modules.ui.training_backend import format_uploaded_samples
 from modules.config import get as cfg_get, get_threshold, get_data_config
 from modules._runtime import resolve_project_path
 
@@ -157,6 +158,93 @@ async def get_light_css():
     """返回亮色模式 CSS 变量（用于前端动态加载）。"""
     css = theme.get_light_css()
     return Response(content=css, media_type="text/css")
+
+
+# ============================================================================
+# /api/upload-samples — 上传训练样本并格式化为 MVTec AD 临时结构
+# ============================================================================
+
+@app.post("/api/upload-samples")
+async def upload_samples(files: List[UploadFile] = File(...)):
+    """
+    接收多张图片上传，保存为临时 MVTec AD 目录结构。
+
+    Args:
+        files: 图片文件列表（multipart/form-data）。
+
+    Returns:
+        JSON: 包含 session_id、dataset_path、category、total、max_allowed、samples。
+
+    Raises:
+        HTTPException: 400 — 未上传文件、包含非图片文件、或没有有效图片。
+    """
+    # 1. 校验必须上传文件
+    if not files:
+        raise HTTPException(status_code=400, detail="未上传文件")
+
+    # 2. 过滤非图片文件
+    for f in files:
+        content_type = f.content_type or ""
+        if not content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"非图片文件: {f.filename} (type={content_type})",
+            )
+
+    # 3. 超过 150 张时截断到前 150 张
+    max_allowed = 150
+    if len(files) > max_allowed:
+        files = files[:max_allowed]
+
+    # 4. 生成 session_id 与保存路径
+    session_id = f"training_{uuid.uuid4().hex}"
+    temp_dir = resolve_project_path(cfg_get("paths.temp_dir", "./.cache"))
+    upload_dir = temp_dir / "uploads" / session_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # 5. 使用 cv2 读取并保存上传图片，读取失败的跳过
+    saved_paths: List[Path] = []
+    for file in files:
+        try:
+            contents = await file.read()
+            nparr = np.frombuffer(contents, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                continue
+            # 保持原始扩展名，若无则默认 .png
+            suffix = Path(file.filename or "img.png").suffix or ".png"
+            dest_path = upload_dir / f"{uuid.uuid4().hex}{suffix}"
+            cv2.imwrite(str(dest_path), img)
+            saved_paths.append(dest_path)
+        except Exception:
+            continue
+
+    # 7. 如果没有有效图片，返回 400
+    if not saved_paths:
+        raise HTTPException(status_code=400, detail="没有有效图片（读取或解码失败）")
+
+    # 8. 调用 format_uploaded_samples 整理为 MVTec AD 结构
+    dataset_path = format_uploaded_samples(
+        upload_dir=upload_dir,
+        image_files=saved_paths,
+        max_samples=max_allowed,
+    )
+
+    # 9. 收集 train/good/ 下的文件名列表
+    train_good_dir = dataset_path / "train" / "good"
+    samples = sorted([p.name for p in train_good_dir.iterdir() if p.is_file()])
+
+    return JSONResponse(
+        content={
+            "session_id": session_id,
+            "dataset_path": str(dataset_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+            "category": session_id,
+            "total": len(samples),
+            "max_allowed": max_allowed,
+            "samples": samples,
+        },
+        status_code=200,
+    )
 
 
 # ============================================================================

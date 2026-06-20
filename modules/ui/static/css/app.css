@@ -2232,36 +2232,49 @@ html[data-theme="dark"] .capsule-icon--moon {
    四模型对比 — Section 2 共享原图 + 色标
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* 共享原图 — column 布局居中 */
+/* 共享原图 — 悬浮卡片 + 药丸标签 */
 .compare-shared-image {
     position: relative;
-    width: 100%;
-    max-width: 480px;
-    margin: 0 auto 20px;
-    border-radius: var(--r-lg);
-    overflow: hidden;
-    background: var(--bg-secondary);
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding: 12px;
+    width: fit-content;
+    max-width: min(420px, 90vw);
+    margin: 0 auto 28px;
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--sep-default);
+    box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .compare-shared-label {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 4px 10px;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--text-secondary);
-    margin-top: 6px;
-    text-align: center;
+    background: var(--bg-secondary);
+    background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 999px;
+    border: 1px solid var(--sep-default);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    pointer-events: none;
 }
 
 .compare-shared-img {
     display: block;
-    width: 100%;
-    max-height: 200px;
+    max-height: 160px;
+    width: auto;
+    max-width: 100%;
     object-fit: contain;
-    border-radius: var(--r-md);
-    background: var(--bg);
 }
 
 /* 槽位色标（顶部横线，更醒目） */

@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
+import yaml
 from pytorch_lightning.callbacks import Callback
 
 from modules._runtime import resolve_project_path
@@ -37,9 +38,15 @@ class TrainingMetricsCallback(Callback):
         self._log(f"训练开始，共 {trainer.max_epochs} 个 epoch")
 
     def _put(self, payload: Dict):
+        """将事件放入队列；关键事件（error/done/completed）必须送达，其余允许丢弃。"""
+        event = payload.get('event')
+        critical = event in ('error', 'done', 'completed')
         try:
-            self.metrics_queue.put(payload, block=False)
+            self.metrics_queue.put(payload, block=critical, timeout=5.0 if critical else 0)
         except queue.Full:
+            pass
+        except Exception:
+            # 队列不可用时不应中断训练
             pass
 
     def _log(self, message: str, level: str = 'info'):
@@ -61,11 +68,17 @@ class TrainingMetricsCallback(Callback):
         epoch = trainer.current_epoch
         metrics = trainer.callback_metrics
         train_loss = None
-        if 'train_loss' in metrics:
-            train_loss = float(metrics['train_loss'].cpu().item())
+        if 'train_loss' in metrics and metrics['train_loss'] is not None:
+            try:
+                train_loss = float(metrics['train_loss'].cpu().item())
+            except Exception:
+                train_loss = None
         lr = None
         if trainer.optimizers:
-            lr = float(trainer.optimizers[0].param_groups[0]['lr'])
+            try:
+                lr = float(trainer.optimizers[0].param_groups[0]['lr'])
+            except Exception:
+                lr = None
         self._put({
             'event': 'metric',
             'epoch': epoch,
@@ -80,8 +93,11 @@ class TrainingMetricsCallback(Callback):
         epoch = trainer.current_epoch
         metrics = trainer.callback_metrics
         val_auroc = None
-        if 'val_image_AUROC' in metrics:
-            val_auroc = float(metrics['val_image_AUROC'].cpu().item())
+        if 'val_image_AUROC' in metrics and metrics['val_image_AUROC'] is not None:
+            try:
+                val_auroc = float(metrics['val_image_AUROC'].cpu().item())
+            except Exception:
+                val_auroc = None
         elapsed = time.time() - self.start_time if self.start_time else 0
         epoch_per_sec = (epoch + 1) / elapsed if elapsed > 0 and epoch >= 0 else 0
         remaining_epochs = max(0, trainer.max_epochs - epoch - 1)
@@ -122,9 +138,7 @@ def format_uploaded_samples(
     test_dir.mkdir(parents=True, exist_ok=True)
 
     random.shuffle(unique_files)
-    n_test = max(1, int(len(unique_files) * 0.1)) if len(unique_files) > 1 else 0
-    if n_test >= len(unique_files):
-        n_test = max(0, len(unique_files) - 1)
+    n_test = min(max(1, int(len(unique_files) * 0.1)), len(unique_files) - 1)
     test_files = unique_files[:n_test]
     train_files = unique_files[n_test:]
 
@@ -178,7 +192,7 @@ class TrainingTaskManager:
             self._locked = False
             self._current = None
             self._started_at = None
-        self.stop_event.clear()
+            self.stop_event.clear()
 
     @property
     def is_running(self) -> bool:
@@ -209,63 +223,62 @@ def run_training_job(
     seed: int,
     metrics_queue: queue.Queue,
 ) -> Dict:
-    import yaml
-
     output_dir = resolve_project_path(cfg_get('paths.results_dir', './results'))
     base_config_path = Path(__file__).resolve().parents[2] / 'configs' / f'{model_name}.yaml'
 
     config = None
-    if base_config_path.exists():
-        with open(base_config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        if config and 'data' in config and 'init_args' in config['data']:
-            config['data']['init_args']['train_batch_size'] = batch_size
-            config['data']['init_args']['eval_batch_size'] = batch_size
+    temp_config_path: Optional[Path] = None
+    try:
+        if base_config_path.exists():
+            with open(base_config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            if config and 'data' in config and 'init_args' in config['data']:
+                config['data']['init_args']['train_batch_size'] = batch_size
+                config['data']['init_args']['eval_batch_size'] = batch_size
 
-    print(f"[TRAIN] 请求 learning_rate={learning_rate}，实际由各模型 YAML 决定")
+        print(f"[TRAIN] 请求 learning_rate={learning_rate}，实际由各模型 YAML 决定")
 
-    # 若未读取到配置，构造最小配置避免 None 崩溃
-    if config is None:
-        config = {
-            'data': {
-                'class_path': 'anomalib.data.Folder',
-                'init_args': {
-                    'root': str(dataset_path),
-                    'normal_dir': 'train/good',
-                    'abnormal_dir': 'test/good',
-                    'normal_test_dir': 'test/good',
-                    'task': 'segmentation',
-                    'train_batch_size': batch_size,
-                    'eval_batch_size': batch_size,
-                    'num_workers': 0,
-                    'image_size': [256, 256],
+        # 若未读取到配置，构造最小配置避免 None 崩溃
+        if config is None:
+            config = {
+                'data': {
+                    'class_path': 'anomalib.data.Folder',
+                    'init_args': {
+                        'root': str(dataset_path),
+                        'normal_dir': 'train/good',
+                        'abnormal_dir': 'test/good',
+                        'normal_test_dir': 'test/good',
+                        'task': 'segmentation',
+                        'train_batch_size': batch_size,
+                        'eval_batch_size': batch_size,
+                        'num_workers': 0,
+                        'image_size': [256, 256],
+                    }
                 }
             }
-        }
 
-    temp_config_path = dataset_path / f'{model_name}_train_config.yaml'
-    with open(temp_config_path, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(config, f)
+        temp_config_path = dataset_path / f'{model_name}_train_config.yaml'
+        with open(temp_config_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(config, f)
 
-    metrics_callback = TrainingMetricsCallback(metrics_queue, training_manager.stop_event)
+        metrics_callback = TrainingMetricsCallback(metrics_queue, training_manager.stop_event)
 
-    trainer = AnomalyDetectionTrainer(
-        model_name=model_name,
-        data_path=str(dataset_path),
-        category=category,
-        output_dir=str(output_dir),
-        config_path=str(temp_config_path),
-        seed=seed,
-        extra_callbacks=[metrics_callback],
-    )
+        trainer = AnomalyDetectionTrainer(
+            model_name=model_name,
+            data_path=str(dataset_path),
+            category=category,
+            output_dir=str(output_dir),
+            config_path=str(temp_config_path),
+            seed=seed,
+            extra_callbacks=[metrics_callback],
+        )
 
-    metrics_queue.put({
-        'event': 'status',
-        'status': 'setup',
-        'message': f'正在加载 {model_name} 数据与模型...',
-    })
+        metrics_queue.put({
+            'event': 'status',
+            'status': 'setup',
+            'message': f'正在加载 {model_name} 数据与模型...',
+        })
 
-    try:
         trainer.train(max_epochs=epochs)
 
         metrics_queue.put({
@@ -304,5 +317,5 @@ def run_training_job(
             'message': str(e),
         }
     finally:
-        training_manager.finish()
-        temp_config_path.unlink(missing_ok=True)
+        if temp_config_path is not None:
+            temp_config_path.unlink(missing_ok=True)

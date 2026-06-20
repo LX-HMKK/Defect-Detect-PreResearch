@@ -187,6 +187,42 @@ class TrainRequest(BaseModel):
     seed: int = 42
 
 
+def _is_safe_category(category: str) -> bool:
+    """category 只允许字母、数字、下划线、连字符。"""
+    if not category:
+        return False
+    return all(c.isalnum() or c in ('_', '-') for c in category)
+
+
+def _resolve_upload_dataset_path(dataset_path: str) -> Path:
+    """
+    解析训练请求中的数据集路径，并校验其必须位于上传目录下。
+
+    Args:
+        dataset_path: 请求传入的路径（相对或绝对）。
+
+    Returns:
+        Path: 绝对路径。
+
+    Raises:
+        HTTPException: 路径越界或不存在时抛出 400。
+    """
+    path = Path(dataset_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    path = path.resolve()
+
+    upload_root = (resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads').resolve()
+    try:
+        path.relative_to(upload_root)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="数据集路径不在允许的上传目录内")
+
+    if not path.exists():
+        raise HTTPException(status_code=400, detail="数据集路径不存在")
+    return path
+
+
 # ============================================================================
 # 路由：训练状态查询
 # ============================================================================
@@ -220,128 +256,157 @@ async def train(request: TrainRequest):
     SSE 流式训练端点。
     接收训练参数，通过 SSE 推送状态、指标、日志和结果。
     """
-    # 1. 尝试获取全局训练锁
+    # 1. 参数校验
+    if request.model not in MODEL_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"不支持的模型: {request.model}")
+    if not _is_safe_category(request.category):
+        raise HTTPException(status_code=400, detail="category 只能包含字母、数字、下划线和连字符")
+    if request.epochs < 1 or request.epochs > 1000:
+        raise HTTPException(status_code=400, detail="epochs 必须在 1-1000 之间")
+    if request.batch_size < 1 or request.batch_size > 128:
+        raise HTTPException(status_code=400, detail="batch_size 必须在 1-128 之间")
+    if request.learning_rate <= 0 or request.learning_rate >= 1.0:
+        raise HTTPException(status_code=400, detail="learning_rate 必须在 (0, 1) 之间")
+
+    # 2. 解析并校验数据集路径
+    dataset_path = _resolve_upload_dataset_path(request.dataset_path)
+
+    # 3. 尝试获取全局训练锁
     started = training_manager.try_start(
         request.model, request.category, request.epochs
     )
     if not started:
         raise HTTPException(status_code=409, detail="已有训练任务正在运行")
 
-    # 2. 创建指标队列
-    metrics_queue = queue.Queue(maxsize=200)
-    result_container: Dict[str, Any] = {}
+    try:
+        # 4. 创建指标队列
+        metrics_queue = queue.Queue(maxsize=200)
+        result_container: Dict[str, Any] = {}
 
-    # 3. 在独立线程中执行训练
-    def _training_thread():
-        try:
-            dataset_path = Path(request.dataset_path)
-            result = run_training_job(
-                model_name=request.model,
-                dataset_path=dataset_path,
-                category=request.category,
-                epochs=request.epochs,
-                batch_size=request.batch_size,
-                learning_rate=request.learning_rate,
-                seed=request.seed,
-                metrics_queue=metrics_queue,
-            )
-            result_container["result"] = result
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            metrics_queue.put({
-                "event": "error",
-                "message": str(e),
-                "code": "TRAINING_EXCEPTION",
-            })
-        finally:
-            metrics_queue.put({"event": "done"})
+        # 5. 在独立线程中执行训练
+        def _training_thread():
+            try:
+                result = run_training_job(
+                    model_name=request.model,
+                    dataset_path=dataset_path,
+                    category=request.category,
+                    epochs=request.epochs,
+                    batch_size=request.batch_size,
+                    learning_rate=request.learning_rate,
+                    seed=request.seed,
+                    metrics_queue=metrics_queue,
+                )
+                result_container["result"] = result
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                metrics_queue.put({
+                    "event": "error",
+                    "message": str(e),
+                    "code": "TRAINING_EXCEPTION",
+                })
+            finally:
+                metrics_queue.put({"event": "done"})
 
-    thread = threading.Thread(target=_training_thread, daemon=True)
-    thread.start()
+        thread = threading.Thread(target=_training_thread, daemon=True)
+        thread.start()
 
-    # 4. SSE 生成器
-    async def event_generator():
-        try:
-            while True:
-                # 使用 to_thread 避免在协程中阻塞队列 get
-                payload = await asyncio.to_thread(metrics_queue.get)
-                event_type = payload.get("event")
+        # 6. SSE 生成器
+        async def event_generator():
+            try:
+                while True:
+                    # 带超时的队列读取，避免训练线程异常时永久阻塞
+                    try:
+                        payload = await asyncio.to_thread(
+                            metrics_queue.get, timeout=1.0
+                        )
+                    except queue.Empty:
+                        if not thread.is_alive() and metrics_queue.empty():
+                            break
+                        continue
 
-                if event_type == "done":
-                    # 训练结束，推送 completed 事件（如果有结果）
-                    if "result" in result_container:
-                        result = result_container["result"]
+                    event_type = payload.get("event")
+
+                    if event_type == "done":
+                        # 训练结束，推送 completed 事件（如果有结果）
+                        if "result" in result_container:
+                            result = result_container["result"]
+                            yield {
+                                "event": "completed",
+                                "data": json.dumps({
+                                    "status": result.get("status"),
+                                    "model": result.get("model"),
+                                    "category": result.get("category"),
+                                    "results": result.get("results"),
+                                }, ensure_ascii=False),
+                            }
+                        break
+
+                    elif event_type == "error":
+                        yield {
+                            "event": "error",
+                            "data": json.dumps({
+                                "message": payload.get("message"),
+                                "code": payload.get("code", "UNKNOWN"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "status":
+                        yield {
+                            "event": "status",
+                            "data": json.dumps({
+                                "status": payload.get("status"),
+                                "message": payload.get("message"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "metric":
+                        yield {
+                            "event": "metric",
+                            "data": json.dumps({
+                                "epoch": payload.get("epoch"),
+                                "total_epochs": payload.get("total_epochs"),
+                                "train_loss": payload.get("train_loss"),
+                                "learning_rate": payload.get("learning_rate"),
+                                "val_image_AUROC": payload.get("val_image_AUROC"),
+                                "eta_seconds": payload.get("eta_seconds"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "log":
+                        yield {
+                            "event": "log",
+                            "data": json.dumps({
+                                "message": payload.get("message"),
+                                "level": payload.get("level", "info"),
+                                "timestamp": payload.get("timestamp"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "completed":
+                        # run_training_job 内部也会推送 completed，兼容处理
                         yield {
                             "event": "completed",
                             "data": json.dumps({
-                                "status": result.get("status"),
-                                "model": result.get("model"),
-                                "category": result.get("category"),
-                                "results": result.get("results"),
+                                "status": payload.get("status"),
+                                "model": payload.get("model"),
+                                "category": payload.get("category"),
+                                "results": payload.get("results"),
                             }, ensure_ascii=False),
                         }
-                    break
 
-                elif event_type == "error":
-                    yield {
-                        "event": "error",
-                        "data": json.dumps({
-                            "message": payload.get("message"),
-                            "code": payload.get("code", "UNKNOWN"),
-                        }, ensure_ascii=False),
-                    }
+            finally:
+                # 客户端断开或训练结束均释放训练锁
+                training_manager.finish()
 
-                elif event_type == "status":
-                    yield {
-                        "event": "status",
-                        "data": json.dumps({
-                            "status": payload.get("status"),
-                            "message": payload.get("message"),
-                        }, ensure_ascii=False),
-                    }
+        return EventSourceResponse(event_generator())
+    except Exception:
+        # 创建 EventSourceResponse 或启动线程失败时立即释放锁
+        training_manager.finish()
+        raise
 
-                elif event_type == "metric":
-                    yield {
-                        "event": "metric",
-                        "data": json.dumps({
-                            "epoch": payload.get("epoch"),
-                            "total_epochs": payload.get("total_epochs"),
-                            "train_loss": payload.get("train_loss"),
-                            "learning_rate": payload.get("learning_rate"),
-                            "val_image_AUROC": payload.get("val_image_AUROC"),
-                            "eta_seconds": payload.get("eta_seconds"),
-                        }, ensure_ascii=False),
-                    }
 
-                elif event_type == "log":
-                    yield {
-                        "event": "log",
-                        "data": json.dumps({
-                            "message": payload.get("message"),
-                            "level": payload.get("level", "info"),
-                            "timestamp": payload.get("timestamp"),
-                        }, ensure_ascii=False),
-                    }
-
-                elif event_type == "completed":
-                    # run_training_job 内部也会推送 completed，兼容处理
-                    yield {
-                        "event": "completed",
-                        "data": json.dumps({
-                            "status": payload.get("status"),
-                            "model": payload.get("model"),
-                            "category": payload.get("category"),
-                            "results": payload.get("results"),
-                        }, ensure_ascii=False),
-                    }
-
-        finally:
-            # 确保释放训练锁
-            training_manager.stop()
-            training_manager.finish()
-
-    return EventSourceResponse(event_generator())
+# ============================================================================
 # /api/upload-samples — 上传训练样本并格式化为 MVTec AD 临时结构
 # ============================================================================
 
@@ -372,8 +437,8 @@ async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
                 detail=f"非图片文件: {f.filename} (type={content_type})",
             )
 
-    # 3. 超过 150 张时截断到前 150 张
-    max_allowed = 150
+    # 3. 超过最大样本数时截断
+    max_allowed = MAX_TRAIN_SAMPLES
     if len(files) > max_allowed:
         files = files[:max_allowed]
 
@@ -576,7 +641,7 @@ async def predict(request: Request):
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
                 {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen)
+        return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -695,7 +760,7 @@ async def compare(request: Request):
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
                 {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen)
+        return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 

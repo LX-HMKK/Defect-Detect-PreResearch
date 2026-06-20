@@ -410,6 +410,63 @@ const Anim = {
 };
 
 /**
+ * 结果仪表盘揭示动画
+ * 触发卡片淡入，并将指标条宽度从 0 动画到目标值。
+ */
+Anim.resultReveal = function (container) {
+    if (!container) return;
+    if (_prefersReducedMotion) {
+        container.classList.add('is-revealed');
+        return;
+    }
+
+    // 先重置
+    container.classList.remove('is-revealed');
+
+    // 设置指标条目标宽度
+    container.querySelectorAll('.metric-fill').forEach(function (bar) {
+        var target = bar.style.width;
+        if (target) {
+            bar.style.setProperty('--metric-fill-width', target);
+            bar.style.width = '0';
+        }
+    });
+
+    // 容器淡入
+    var anim = container.animate(
+        [{ opacity: 0, transform: 'translateY(20px) scale(0.98)' },
+         { opacity: 1, transform: 'translateY(0) scale(1)' }],
+        { duration: 500, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'both' }
+    );
+
+    anim.finished.then(function () {
+        container.classList.add('is-revealed');
+    });
+};
+
+/**
+ * 四模型对比墙揭示动画
+ * 对墙内每个 compare-slot 使用 WAAPI 逐个入场，不影响 pending/active 状态的可见性。
+ */
+Anim.compareReveal = function (container) {
+    if (!container) return;
+    var slots = container.querySelectorAll('.compare-slot');
+    if (_prefersReducedMotion) {
+        slots.forEach(function (s) { s.style.opacity = '1'; s.style.transform = 'none'; });
+        return;
+    }
+    slots.forEach(function (slot, i) {
+        slot.style.opacity = '0';
+        slot.style.transform = 'translateY(24px) scale(0.98)';
+        slot.animate(
+            [{ opacity: 0, transform: 'translateY(24px) scale(0.98)' },
+             { opacity: 1, transform: 'translateY(0) scale(1)' }],
+            { duration: 500, delay: i * 80, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+        );
+    });
+};
+
+/**
  * 全局初始化：在 Alpine 渲染完成后调用，触发滚动淡入动画。
  */
 function initAllAnimations() {

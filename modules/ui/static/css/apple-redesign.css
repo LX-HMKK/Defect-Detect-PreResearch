@@ -1,0 +1,332 @@
+/* ==========================================================================
+   Apple 风格重设计覆盖层 — Cinematic Pro
+   与现有 app.css 共存，仅通过新增类名和更具体选择器生效
+   ========================================================================== */
+
+/* ── 变量精细覆盖 ── */
+:root {
+    --bg-root: #0a0a0b;
+    --bg-system: rgba(255, 255, 255, 0.055);
+    --bg-secondary: rgba(255, 255, 255, 0.09);
+    --bg-tertiary: rgba(255, 255, 255, 0.13);
+
+    --sep-subtle: rgba(255, 255, 255, 0.07);
+    --sep-default: rgba(255, 255, 255, 0.11);
+    --sep-strong: rgba(255, 255, 255, 0.17);
+
+    --accent: #2997ff;
+    --accent-hover: #47a9ff;
+    --accent-pressed: #0070d6;
+    --accent-dim: rgba(41, 151, 255, 0.14);
+    --accent-glow: rgba(41, 151, 255, 0.30);
+
+    --text: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.60);
+    --text-tertiary: rgba(255, 255, 255, 0.34);
+
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 18px;
+    --r-xl: 24px;
+
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.22, 0.8, 0.3, 1.15);
+}
+
+html[data-theme="light"] {
+    --bg-root: #f5f5f7;
+    --bg-system: rgba(255, 255, 255, 0.62);
+    --bg-secondary: rgba(255, 255, 255, 0.42);
+    --bg-tertiary: rgba(255, 255, 255, 0.28);
+
+    --sep-subtle: rgba(0, 0, 0, 0.05);
+    --sep-default: rgba(0, 0, 0, 0.09);
+    --sep-strong: rgba(0, 0, 0, 0.15);
+
+    --text: rgba(0, 0, 0, 0.88);
+    --text-secondary: rgba(0, 0, 0, 0.55);
+    --text-tertiary: rgba(0, 0, 0, 0.32);
+
+    --accent-dim: rgba(41, 151, 255, 0.10);
+    --accent-glow: rgba(41, 151, 255, 0.14);
+}
+
+/* 降低背景装饰强度 */
+.snap-container::before {
+    opacity: 0.06;
+}
+html[data-theme="light"] .snap-container::before {
+    opacity: 0.04;
+}
+body::before {
+    opacity: 0.22;
+}
+
+/* ── Hero ── */
+.hero {
+    padding: 0 0 28px;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-title {
+    font-size: 88px;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.03;
+    text-shadow: 0 0 100px var(--accent-glow), 0 0 200px rgba(41, 151, 255, 0.10);
+    margin-bottom: 20px;
+}
+
+.hero-subtitle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-default);
+    border-radius: 100px;
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+.hero-subtitle span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.hero-subtitle span:not(:last-child)::after {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+}
+
+/* ── Hero Visual ── */
+.hero-visual {
+    width: 100%;
+    max-width: 720px;
+    margin: 40px auto 0;
+    aspect-ratio: 3 / 1;
+}
+.hero-visual svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+.hero-visual .hv-path {
+    fill: none;
+    stroke: url(#hvGrad);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 900;
+    stroke-dashoffset: 900;
+}
+.hero-visual.is-playing .hv-path {
+    animation: hvDraw 2.2s var(--ease-out-expo) forwards, hvPulse 2.5s 2.2s ease-in-out infinite;
+}
+.hero-visual .hv-node rect {
+    fill: var(--bg-secondary);
+    stroke: var(--sep-default);
+    stroke-width: 1.5;
+    transition: stroke 0.3s var(--ease-out), fill 0.3s var(--ease-out);
+}
+.hero-visual.is-playing .hv-node rect {
+    animation: hvNodePulse 2.5s 2.2s ease-in-out infinite;
+}
+.hero-visual .hv-label {
+    font-family: var(--font-body);
+    font-size: 13px;
+    fill: var(--text-secondary);
+    text-anchor: middle;
+}
+
+@keyframes hvDraw {
+    to { stroke-dashoffset: 0; }
+}
+@keyframes hvPulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+@keyframes hvNodePulse {
+    0%, 100% { stroke: var(--sep-default); fill: var(--bg-secondary); }
+    50% { stroke: var(--accent); fill: var(--accent-dim); }
+}
+
+/* ── Bento 算法卡片 ── */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 44px;
+}
+
+.bento-card {
+    position: relative;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-lg);
+    padding: 28px;
+    overflow: hidden;
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    transition: transform 0.35s var(--ease-spring), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+}
+.bento-card:hover {
+    transform: translateY(-5px) scale(1.012);
+    border-color: var(--sep-default);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35), 0 0 44px var(--accent-dim);
+}
+
+.bento-card .algo-card-accent {
+    left: 0;
+    top: 18px;
+    bottom: 18px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--algo-color, var(--accent));
+    transition: box-shadow 0.35s var(--ease-out);
+}
+.bento-card:hover .algo-card-accent {
+    box-shadow: 0 0 20px var(--algo-color, var(--accent)), 0 0 40px var(--algo-color, var(--accent));
+}
+
+.bento-card h3 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+.bento-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: 4px;
+}
+.bento-card .algo-card-kicker {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+.bento-card .flowchart-svg {
+    margin-top: 18px;
+    width: 100%;
+    height: auto;
+    max-height: 210px;
+}
+
+/* ── 工作台 ── */
+.workbench {
+    max-width: 760px;
+    margin: 0 auto 32px;
+}
+.workbench-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr auto;
+    gap: 16px;
+    align-items: start;
+}
+
+.pipeline.workbench-row .pipeline-step {
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-md);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Drop Zone 强化 */
+.upload-zone {
+    border: 2px dashed var(--sep-default);
+    border-radius: var(--r-lg);
+    min-height: 220px;
+    background: var(--bg-system);
+    transition: border-color 0.3s var(--ease-out), background 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+}
+.upload-zone:hover,
+.upload-zone.is-dragover {
+    border-color: var(--accent);
+    border-style: solid;
+    background: var(--accent-dim);
+    box-shadow: 0 0 30px var(--accent-glow);
+}
+.upload-zone.is-dragover {
+    animation: dropPulse 1.2s ease-in-out infinite;
+}
+@keyframes dropPulse {
+    0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+    50% { box-shadow: 0 0 45px var(--accent-glow); }
+}
+
+/* ── 结果仪表盘 ── */
+.result-dashboard {
+    max-width: 920px;
+    margin: 0 auto;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-xl);
+    padding: 32px;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+}
+
+/* 指标条动画初始态 */
+.result-dashboard .metric-fill {
+    width: 0 !important;
+    transition: width 0.9s var(--ease-out-expo);
+}
+.result-dashboard.is-revealed .metric-fill {
+    width: var(--metric-fill-width, 0) !important;
+}
+
+/* ── 对比墙 ── */
+.compare-wall {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+.compare-wall .compare-slot {
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    transition: transform 0.3s var(--ease-spring), box-shadow 0.3s var(--ease-out);
+}
+.compare-wall .compare-slot:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.30);
+}
+.compare-wall .compare-heatmap-wrap {
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--bg-secondary);
+    margin-bottom: 16px;
+}
+.compare-wall .compare-heatmap {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 768px) {
+    .hero-title { font-size: 52px; }
+    .hero-subtitle { font-size: 14px; gap: 8px; padding: 8px 14px; }
+    .bento-grid { grid-template-columns: 1fr; margin-top: 32px; }
+    .bento-card { padding: 22px; }
+    .workbench-row { grid-template-columns: 1fr; }
+    .result-dashboard { padding: 20px; }
+    .compare-wall { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+    .hero-title { font-size: 38px; }
+    .bento-card { padding: 18px; }
+    .bento-card h3 { font-size: 18px; }
+}

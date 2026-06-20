@@ -382,6 +382,13 @@ document.addEventListener('alpine:init', function () {
                         self.$nextTick(function () {
                             self.animateNumbers();
                             self.setupVisualInteractions();
+                            // Apple 风格结果仪表盘揭示动画
+                            setTimeout(function () {
+                                var dashboard = document.querySelector('.result-dashboard');
+                                if (dashboard && window.Anim && window.Anim.resultReveal) {
+                                    window.Anim.resultReveal(dashboard);
+                                }
+                            }, 80);
                             // 重新触发 scroll-reveal 以捕获新出现的结果面板元素
                             setTimeout(function () {
                                 if (window.initAllAnimations) window.initAllAnimations();

@@ -43,8 +43,13 @@ class TrainingMetricsCallback(Callback):
             pass
 
     def _log(self, message: str, level: str = 'info'):
-        """推送日志事件到 SSE 队列。"""
-        self._put({'event': 'log', 'message': message, 'level': level})
+        """推送日志事件到 SSE 队列，附带时间戳。"""
+        self._put({
+            'event': 'log',
+            'message': message,
+            'level': level,
+            'timestamp': time.time(),
+        })
 
     def _check_stop(self, trainer):
         if self.stop_event.is_set():
@@ -117,7 +122,9 @@ def format_uploaded_samples(
     test_dir.mkdir(parents=True, exist_ok=True)
 
     random.shuffle(unique_files)
-    n_test = max(1, int(len(unique_files) * 0.1)) if len(unique_files) >= 10 else 0
+    n_test = max(1, int(len(unique_files) * 0.1)) if len(unique_files) > 1 else 0
+    if n_test >= len(unique_files):
+        n_test = max(0, len(unique_files) - 1)
     test_files = unique_files[:n_test]
     train_files = unique_files[n_test:]
 
@@ -132,31 +139,34 @@ def format_uploaded_samples(
 
 
 class TrainingTaskManager:
-    """全局单训练任务锁与停止事件管理器。"""
+    """全局单训练任务锁与停止事件管理器。使用 threading.Lock 保证线程安全。"""
 
     def __init__(self):
-        self._lock = False
+        self._lock = threading.Lock()
+        self._locked = False
         self._current: Optional[Dict] = None
         self._started_at: Optional[str] = None
         self.stop_event = threading.Event()
 
     def try_start(self, model: str, category: str, total_epochs: int) -> bool:
-        if self._lock:
-            return False
-        self._lock = True
-        self.stop_event.clear()
-        self._current = {
-            'model': model,
-            'category': category,
-            'current_epoch': 0,
-            'total_epochs': total_epochs,
-        }
-        self._started_at = datetime.now().isoformat()
-        return True
+        with self._lock:
+            if self._locked:
+                return False
+            self._locked = True
+            self.stop_event.clear()
+            self._current = {
+                'model': model,
+                'category': category,
+                'current_epoch': 0,
+                'total_epochs': total_epochs,
+            }
+            self._started_at = datetime.now().isoformat()
+            return True
 
     def update_epoch(self, epoch: int):
-        if self._current:
-            self._current['current_epoch'] = epoch
+        with self._lock:
+            if self._current:
+                self._current['current_epoch'] = epoch
 
     def stop(self):
         """仅设置停止信号，不释放锁。"""
@@ -164,23 +174,26 @@ class TrainingTaskManager:
 
     def finish(self):
         """任务完成后释放锁并重置状态。"""
-        self._lock = False
-        self._current = None
-        self._started_at = None
+        with self._lock:
+            self._locked = False
+            self._current = None
+            self._started_at = None
         self.stop_event.clear()
 
     @property
     def is_running(self) -> bool:
-        return self._lock
+        with self._lock:
+            return self._locked
 
     def to_dict(self) -> Dict:
-        if not self._lock:
-            return {'running': False}
-        return {
-            'running': True,
-            'started_at': self._started_at,
-            **self._current,
-        }
+        with self._lock:
+            if not self._locked:
+                return {'running': False}
+            return {
+                'running': True,
+                'started_at': self._started_at,
+                **self._current,
+            }
 
 
 training_manager = TrainingTaskManager()
@@ -210,6 +223,25 @@ def run_training_job(
             config['data']['init_args']['eval_batch_size'] = batch_size
 
     print(f"[TRAIN] 请求 learning_rate={learning_rate}，实际由各模型 YAML 决定")
+
+    # 若未读取到配置，构造最小配置避免 None 崩溃
+    if config is None:
+        config = {
+            'data': {
+                'class_path': 'anomalib.data.Folder',
+                'init_args': {
+                    'root': str(dataset_path),
+                    'normal_dir': 'train/good',
+                    'abnormal_dir': 'test/good',
+                    'normal_test_dir': 'test/good',
+                    'task': 'segmentation',
+                    'train_batch_size': batch_size,
+                    'eval_batch_size': batch_size,
+                    'num_workers': 0,
+                    'image_size': [256, 256],
+                }
+            }
+        }
 
     temp_config_path = dataset_path / f'{model_name}_train_config.yaml'
     with open(temp_config_path, 'w', encoding='utf-8') as f:
@@ -265,6 +297,12 @@ def run_training_job(
             'message': str(e),
             'code': 'TRAINING_ERROR',
         })
-        raise
+        return {
+            'status': 'error',
+            'model': model_name,
+            'category': category,
+            'message': str(e),
+        }
     finally:
         training_manager.finish()
+        temp_config_path.unlink(missing_ok=True)

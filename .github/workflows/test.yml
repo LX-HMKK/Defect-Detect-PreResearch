@@ -26,6 +26,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest numpy scipy scikit-learn PyYAML
+          pip install fastapi Pillow sse-starlette pydantic python-multipart
 
       - name: 运行测试
         run: python -m pytest tests/ -v

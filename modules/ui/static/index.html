@@ -286,14 +286,35 @@
             <div class="snap-page-inner">
                 <div class="hero">
                     <h1 class="hero-title scroll-reveal">工业缺陷检测</h1>
-                    <p class="hero-subtitle scroll-reveal">四种无监督算法 &middot; 实时推理 &middot; 像素级定位</p>
+                    <p class="hero-subtitle scroll-reveal">
+                        <span>无监督</span><span>像素级</span><span>实时推理</span>
+                    </p>
+                    <div class="hero-visual scroll-reveal" aria-hidden="true">
+                        <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="hvGrad" x1="0" y1="0" x2="720" y2="0">
+                                    <stop offset="0%" stop-color="#2997ff" stop-opacity="0.55"/>
+                                    <stop offset="100%" stop-color="#2997ff" stop-opacity="0.05"/>
+                                </linearGradient>
+                            </defs>
+                            <path class="hv-path" d="M 60 120 L 220 120 L 260 80 L 420 80 L 460 120 L 660 120"/>
+                            <g class="hv-node"><rect x="20" y="90" width="80" height="60" rx="12"/></g>
+                            <text class="hv-label" x="60" y="125">输入</text>
+                            <g class="hv-node"><rect x="180" y="90" width="80" height="60" rx="12"/></g>
+                            <text class="hv-label" x="220" y="125">特征</text>
+                            <g class="hv-node"><rect x="340" y="50" width="80" height="60" rx="12"/></g>
+                            <text class="hv-label" x="380" y="85">得分</text>
+                            <g class="hv-node"><rect x="620" y="90" width="80" height="60" rx="12"/></g>
+                            <text class="hv-label" x="660" y="125">热力图</text>
+                        </svg>
+                    </div>
                 </div>
 
                 <!-- 2x2 算法流程图卡片网格 -->
-                <div class="algo-grid scroll-reveal-stagger">
+                <div class="algo-grid bento-grid scroll-reveal-stagger">
 
                     <!-- ═══ PatchCore ═══ -->
-                    <div class="algo-card algo-card--patchcore scroll-reveal">
+                    <div class="algo-card bento-card algo-card--patchcore scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
@@ -371,7 +392,7 @@
                     </div>
 
                     <!-- ═══ PaDiM ═══ -->
-                    <div class="algo-card algo-card--padim scroll-reveal">
+                    <div class="algo-card bento-card algo-card--padim scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #30d158;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128202;</span> PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
@@ -433,7 +454,7 @@
                     </div>
 
                     <!-- ═══ FRE ═══ -->
-                    <div class="algo-card algo-card--fre scroll-reveal">
+                    <div class="algo-card bento-card algo-card--fre scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #ff9f0a;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128260;</span> FRE</h3>
@@ -495,7 +516,7 @@
                     </div>
 
                     <!-- ═══ DRAEM ═══ -->
-                    <div class="algo-card algo-card--draem scroll-reveal">
+                    <div class="algo-card bento-card algo-card--draem scroll-reveal">
                         <div class="algo-card-accent" style="--algo-color: #bf5af2;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#127919;</span> DRAEM</h3>

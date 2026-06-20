@@ -48,20 +48,18 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-# ── anomalib 导入（cv2 已在前面导入，DLL 加载顺序正确）──
-from anomalib.data import PredictDataset
-
-# ── 复用现有 Gradio 模块中的核心组件 ──
-from modules.ui.demo import detector, MODEL_CONFIGS, get_available_datasets
-from modules.ui import theme
-from modules.ui.training_backend import (
+# ── 轻量 UI 组件（无 anomalib/torch/gradio 依赖）──
+from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets
+from modules.ui._training_common import (
     format_uploaded_samples,
-    run_training_job,
     training_manager,
     MAX_TRAIN_SAMPLES,
 )
+from modules.ui import theme
 from modules.config import get as cfg_get, get_threshold, get_data_config
 from modules._runtime import resolve_project_path
+
+# detector 与 run_training_job 为 heavy 组件，在各自端点中延迟导入。
 
 # ============================================================================
 # FastAPI 应用实例
@@ -284,9 +282,10 @@ async def train(request: TrainRequest):
         metrics_queue = queue.Queue(maxsize=200)
         result_container: Dict[str, Any] = {}
 
-        # 5. 在独立线程中执行训练
+        # 5. 在独立线程中执行训练（延迟导入 heavy 训练逻辑）
         def _training_thread():
             try:
+                from modules.ui.training_backend import run_training_job
                 result = run_training_job(
                     model_name=request.model,
                     dataset_path=dataset_path,
@@ -524,6 +523,10 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
         ValueError: 模型加载失败时抛出。
         RuntimeError: 推理过程失败时抛出。
     """
+    # 延迟导入 heavy 组件，避免 server 模块导入阶段依赖 anomalib/gradio。
+    from anomalib.data import PredictDataset
+    from modules.ui.demo import detector
+
     # 加载模型
     success, msg = detector.load_model(model_key, dataset)
     if not success:

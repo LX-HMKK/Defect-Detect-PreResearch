@@ -599,7 +599,8 @@
                 <div class="inference-area">
 
                     <!-- 流水线：上传 → 选择 → 推理（idle / uploaded / error 状态显示） -->
-                    <div class="pipeline" x-show="inferenceState === 'idle' || inferenceState === 'uploaded' || inferenceState === 'error'">
+                    <div class="workbench">
+                    <div class="pipeline workbench-row" x-show="inferenceState === 'idle' || inferenceState === 'uploaded' || inferenceState === 'error'">
                         <!-- Step 1: 上传图片 -->
                         <div class="pipeline-step">
                             <div class="pipeline-step-header">
@@ -692,6 +693,7 @@
                                 <span>重试</span>
                             </button>
                         </div>
+                    </div>
                     </div>
 
                     <!-- 进度条 -->

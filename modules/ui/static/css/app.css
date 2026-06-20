@@ -456,15 +456,17 @@ html[data-theme="light"] .navbar--scrolled {
     gap: 6px;
     background: var(--bg-secondary);
     border: 1px solid var(--sep-subtle);
-    border-radius: var(--r-sm);
+    border-radius: 999px;
     color: var(--text);
     font-family: var(--font-body);
     font-size: 13px;
-    padding: 6px 10px 6px 12px;
+    padding: 6px 12px 6px 14px;
     cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: border-color var(--dur-fast) var(--ease-out),
                 box-shadow var(--dur-fast) var(--ease-out),
-                background var(--dur-fast) var(--ease-out);
+                background var(--dur-fast) var(--ease-out),
+                transform 0.2s var(--ease-out);
     white-space: nowrap;
     min-width: 80px;
 }
@@ -472,6 +474,11 @@ html[data-theme="light"] .navbar--scrolled {
 .custom-select-trigger:hover {
     border-color: var(--sep-default);
     background: var(--bg-tertiary);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.custom-select-trigger:active {
+    transform: scale(0.97);
 }
 
 .custom-select-trigger:focus {
@@ -729,7 +736,19 @@ html[data-theme="dark"] .capsule-icon--moon {
     font-weight: 600;
     letter-spacing: -0.03em;
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
+}
+
+.section-kicker {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+    opacity: 0.85;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -904,7 +923,7 @@ html[data-theme="dark"] .capsule-icon--moon {
    ═══════════════════════════════════════════════════════════════════════════ */
 .upload-zone {
     border: 2px dashed var(--sep-default);
-    border-radius: var(--r-lg);
+    border-radius: var(--r-xl);
     min-height: 240px;
     display: flex;
     align-items: center;
@@ -912,15 +931,16 @@ html[data-theme="dark"] .capsule-icon--moon {
     cursor: pointer;
     transition: border-color var(--dur-normal) var(--ease-out),
                 background var(--dur-normal) var(--ease-out),
-                transform var(--dur-fast) var(--ease-out);
+                transform var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-normal) var(--ease-out);
     background: var(--bg-system);
 }
 
 .upload-zone:hover {
     border-color: var(--accent);
-    border-style: solid;  /* 虚线 → 实线 */
+    border-style: solid;
     background: rgba(41, 151, 255, 0.04);
-    box-shadow: 0 0 24px var(--accent-dim);
+    box-shadow: 0 0 0 4px var(--accent-dim), 0 12px 32px rgba(41, 151, 255, 0.10);
 }
 
 .upload-zone:active {
@@ -1134,45 +1154,48 @@ html[data-theme="dark"] .capsule-icon--moon {
 .btn-inference {
     appearance: none;
     -webkit-appearance: none;
-    background: var(--accent);
+    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
     color: #ffffff;
     border: none;
-    border-radius: var(--r-md);
+    border-radius: 999px;
     padding: 10px 28px;
     font-family: var(--font-body);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: background var(--dur-fast) var(--ease-out),
+    box-shadow: 0 4px 14px rgba(41, 151, 255, 0.28);
+    transition: filter var(--dur-fast) var(--ease-out),
                 transform 0.35s var(--ease-spring),
                 box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .btn-inference:hover:not(:disabled) {
-    background: var(--accent-hover);
-    box-shadow: var(--shadow-glow);
+    filter: brightness(1.06);
+    box-shadow: 0 6px 20px rgba(41, 151, 255, 0.38);
     transform: translateY(-1px);
 }
 
 .btn-inference:active:not(:disabled) {
-    background: var(--accent-pressed);
-    transform: scale(0.96);
-    transition: transform 0.1s var(--ease-out), background var(--dur-fast) var(--ease-out);
+    transform: scale(0.97);
+    transition: transform 0.1s var(--ease-out), filter var(--dur-fast) var(--ease-out);
 }
 
 .btn-inference:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
     transform: none;
+    filter: grayscale(0.2);
 }
 
 .btn-inference.done {
-    background: var(--ok);
+    background: linear-gradient(180deg, #35d45c 0%, var(--ok) 100%);
+    box-shadow: 0 4px 14px rgba(48, 209, 88, 0.28);
 }
 
 .btn-inference.error {
-    background: var(--bad);
+    background: linear-gradient(180deg, #ff5e55 0%, var(--bad) 100%);
+    box-shadow: 0 4px 14px rgba(255, 69, 58, 0.28);
 }
 
 /* ── 按钮内 spinner ── */
@@ -1208,20 +1231,28 @@ html[data-theme="dark"] .capsule-icon--moon {
     -webkit-appearance: none;
     background: transparent;
     border: 1px solid var(--sep-default);
-    border-radius: var(--r-sm);
+    border-radius: 999px;
     color: var(--text-secondary);
     font-family: var(--font-body);
     font-size: 13px;
-    padding: 10px 16px;
+    font-weight: 500;
+    padding: 10px 18px;
     cursor: pointer;
     white-space: nowrap;
     transition: border-color var(--dur-fast) var(--ease-out),
-                color var(--dur-fast) var(--ease-out);
+                color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                transform 0.2s var(--ease-out);
 }
 
 .btn-reset:hover {
     border-color: var(--accent);
     color: var(--accent);
+    background: rgba(41, 151, 255, 0.06);
+}
+
+.btn-reset:active {
+    transform: scale(0.96);
 }
 
 /* ── 进度条 ── */
@@ -1927,28 +1958,28 @@ html[data-theme="dark"] .capsule-icon--moon {
     margin: 0 auto 24px;
     appearance: none;
     -webkit-appearance: none;
-    background: var(--accent);
+    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
     color: #ffffff;
     border: none;
-    border-radius: var(--r-md);
+    border-radius: 999px;
     padding: 14px 36px;
     font-family: var(--font-body);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-out),
+    box-shadow: 0 4px 16px rgba(41, 151, 255, 0.28);
+    transition: filter var(--dur-fast) var(--ease-out),
                 transform 0.35s var(--ease-spring),
                 box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .btn-compare:hover:not(:disabled) {
-    background: var(--accent-hover);
-    box-shadow: var(--shadow-glow);
+    filter: brightness(1.06);
+    box-shadow: 0 6px 22px rgba(41, 151, 255, 0.38);
     transform: translateY(-1px);
 }
 
 .btn-compare:active:not(:disabled) {
-    background: var(--accent-pressed);
     transform: scale(0.97);
 }
 
@@ -2326,13 +2357,18 @@ html[data-theme="dark"] .capsule-icon--moon {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    padding: 10px 20px;
-    background: var(--bg-secondary);
+    padding: 8px 20px;
+    background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
-    border-radius: var(--r-md);
-    margin-bottom: 20px;
+    border-radius: 999px;
+    margin: 0 auto 20px;
     font-size: 13px;
     flex-wrap: wrap;
+    width: fit-content;
+    max-width: min(760px, 92vw);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .compare-summary-icon {

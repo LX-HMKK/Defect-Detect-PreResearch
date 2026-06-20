@@ -18,7 +18,8 @@ def _make_image_bytes():
 def client():
     """共享的 TestClient，导入 server 模块时会触发 heavy import。"""
     from modules.ui.server import app
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
 def test_upload_samples_accepts_images(client):

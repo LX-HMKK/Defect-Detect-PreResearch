@@ -1,0 +1,7 @@
+fix(ci,tests,server): 修复 test_training_api.py 在 CI 中失败的问题
+
+- CI 工作流与 requirements.txt 补充 httpx，满足 fastapi.testclient.TestClient 依赖
+- TestClient fixture 改为上下文管理器使用方式，确保资源正确释放
+- server.py 在 pytest 运行时跳过 stdout/stderr 重定向，避免破坏 pytest capture 机制
+
+本地验证：python -m pytest tests/ -v 全部 32 项通过

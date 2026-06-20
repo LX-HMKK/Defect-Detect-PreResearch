@@ -26,8 +26,10 @@ from typing import Any, Dict, List
 import numpy as np
 
 # ── Windows UTF-8 编码设置（必须在任何导入之前）──
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# pytest 运行时跳过，避免破坏其 stdout/stderr capture 机制
+if "pytest" not in sys.modules:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # ── 项目根路径 ──
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

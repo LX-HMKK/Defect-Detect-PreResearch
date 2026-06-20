@@ -1,0 +1,4 @@
+fix(ci): 为 CI 补充 opencv-python-headless
+
+server.py 顶层 import cv2，CI 轻量环境未安装导致 test_training_api.py
+导入失败。工作流安装命令追加 opencv-python-headless。

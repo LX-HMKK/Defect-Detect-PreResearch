@@ -187,12 +187,15 @@ document.addEventListener('alpine:init', function () {
                 }
 
                 // ── IntersectionObserver 检测当前 section ──
-                var sections = [];
-                if (self.$refs.section0) sections.push(self.$refs.section0);
-                if (self.$refs.section1) sections.push(self.$refs.section1);
-                if (self.$refs.section2) sections.push(self.$refs.section2);
+                // 通过 class 选择所有 .snap-page，避免嵌套 x-data 导致 $refs 不可见
+                var sections = container === window
+                    ? Array.prototype.slice.call(document.querySelectorAll('.snap-page'))
+                    : Array.prototype.slice.call(container.querySelectorAll('.snap-page'));
 
                 if (sections.length === 0) return;
+
+                // 同步页码总数（label 使用）
+                self.sectionCount = sections.length;
 
                 var observer = new IntersectionObserver(
                     function (entries) {
@@ -269,10 +272,10 @@ document.addEventListener('alpine:init', function () {
             },
 
             scrollToSection: function (idx) {
-                var sections = [];
-                if (this.$refs.section0) sections.push(this.$refs.section0);
-                if (this.$refs.section1) sections.push(this.$refs.section1);
-                if (this.$refs.section2) sections.push(this.$refs.section2);
+                var container = this.$refs.snapContainer;
+                var sections = container
+                    ? Array.prototype.slice.call(container.querySelectorAll('.snap-page'))
+                    : Array.prototype.slice.call(document.querySelectorAll('.snap-page'));
 
                 var target = sections[idx];
                 if (target) {

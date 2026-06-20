@@ -10,7 +10,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -218,6 +218,54 @@ class TrainingTaskManager:
 training_manager = TrainingTaskManager()
 
 
+def _move_excluded_samples(dataset_path: Path, excluded_samples: List[str]) -> List[Tuple[Path, Path]]:
+    """
+    将被排除的样本从 train/good 临时移出，避免参与训练。
+
+    Returns:
+        移动记录列表，每项为 (原始路径, 临时路径)，供训练结束后恢复。
+    """
+    if not excluded_samples:
+        return []
+
+    train_dir = dataset_path / 'train' / 'good'
+    excluded_dir = dataset_path / '.excluded'
+    excluded_dir.mkdir(parents=True, exist_ok=True)
+
+    moved: List[Tuple[Path, Path]] = []
+    for name in excluded_samples:
+        src = train_dir / name
+        if not src.exists():
+            continue
+        dst = excluded_dir / name
+        # 处理文件名冲突
+        counter = 1
+        stem = dst.stem
+        suffix = dst.suffix
+        while dst.exists():
+            dst = excluded_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+        shutil.move(str(src), str(dst))
+        moved.append((src, dst))
+
+    return moved
+
+
+def _restore_excluded_samples(moved: List[Tuple[Path, Path]]) -> None:
+    """训练结束后将被排除样本恢复至 train/good。"""
+    for src, dst in moved:
+        if dst.exists():
+            src.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(dst), str(src))
+
+    if moved:
+        excluded_dir = moved[0][1].parent
+        try:
+            excluded_dir.rmdir()
+        except OSError:
+            pass
+
+
 def run_training_job(
     model_name: str,
     dataset_path: Path,
@@ -227,13 +275,18 @@ def run_training_job(
     learning_rate: float,
     seed: int,
     metrics_queue: queue.Queue,
+    excluded_samples: Optional[List[str]] = None,
 ) -> Dict:
     output_dir = resolve_project_path(cfg_get('paths.results_dir', './results'))
     base_config_path = Path(__file__).resolve().parents[2] / 'configs' / f'{model_name}.yaml'
 
     config = None
     temp_config_path: Optional[Path] = None
+    moved_samples: List[Tuple[Path, Path]] = []
     try:
+        # 训练前将被排除样本从 train/good 移出
+        moved_samples = _move_excluded_samples(dataset_path, excluded_samples or [])
+
         # 上传数据集目录本身就是 MVTec AD 格式的类别目录（train/good + test/good）。
         # 因此 data_path 应为其父目录，category 为其目录名。
         data_root = str(dataset_path.parent)
@@ -248,7 +301,7 @@ def run_training_job(
                 config['data']['init_args']['train_batch_size'] = batch_size
                 config['data']['init_args']['eval_batch_size'] = batch_size
 
-        print(f"[TRAIN] 请求 learning_rate={learning_rate}，实际由各模型 YAML 决定")
+        print(f"[TRAIN] 使用 learning_rate={learning_rate}（DRAEM/FRE 生效；PatchCore/PaDiM 忽略）")
 
         # 若未读取到配置，构造最小配置避免 None 崩溃
         # 上传数据集无 ground_truth，实际由 get_datamodule_from_config 识别为 Folder
@@ -285,6 +338,7 @@ def run_training_job(
             seed=seed,
             extra_callbacks=[metrics_callback],
             enable_pixel_metrics=enable_pixel_metrics,
+            learning_rate=learning_rate,
         )
 
         metrics_queue.put({
@@ -331,5 +385,6 @@ def run_training_job(
             'message': str(e),
         }
     finally:
+        _restore_excluded_samples(moved_samples)
         if temp_config_path is not None:
             temp_config_path.unlink(missing_ok=True)

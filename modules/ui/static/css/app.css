@@ -73,6 +73,24 @@
     --shadow-md: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 32px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.5);
     --shadow-glow: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 32px var(--accent-glow);
+
+    /* ── Training Studio 组件变量 ── */
+    --training-glass-bg: rgba(255, 255, 255, 0.06);
+    --training-glass-border: rgba(255, 255, 255, 0.10);
+    --training-pill-bg: rgba(255, 255, 255, 0.05);
+    --training-input-bg: rgba(0, 0, 0, 0.20);
+    --training-input-border: rgba(255, 255, 255, 0.08);
+    --training-input-focus-border: rgba(255, 255, 255, 0.25);
+    --training-uploader-bg: rgba(0, 0, 0, 0.18);
+    --training-uploader-border: rgba(255, 255, 255, 0.25);
+    --training-uploader-dragover-bg: rgba(41, 151, 255, 0.08);
+    --training-thumb-bg: rgba(0, 0, 0, 0.20);
+    --training-chart-bg: rgba(0, 0, 0, 0.20);
+    --training-chart-grid: rgba(255, 255, 255, 0.06);
+    --training-chart-axis: rgba(255, 255, 255, 0.40);
+    --training-metric-bg: rgba(0, 0, 0, 0.20);
+    --training-stop-bg: rgba(255, 69, 58, 0.15);
+    --training-stop-border: rgba(255, 69, 58, 0.30);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -96,6 +114,24 @@ html[data-theme="light"] {
     --shadow-md: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12);
     --shadow-glow: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 32px rgba(41, 151, 255, 0.20);
+
+    /* Training Studio 亮色覆盖 */
+    --training-glass-bg: rgba(255, 255, 255, 0.72);
+    --training-glass-border: rgba(0, 0, 0, 0.08);
+    --training-pill-bg: rgba(0, 0, 0, 0.04);
+    --training-input-bg: rgba(0, 0, 0, 0.04);
+    --training-input-border: rgba(0, 0, 0, 0.08);
+    --training-input-focus-border: rgba(0, 0, 0, 0.25);
+    --training-uploader-bg: rgba(0, 0, 0, 0.03);
+    --training-uploader-border: rgba(0, 0, 0, 0.20);
+    --training-uploader-dragover-bg: rgba(41, 151, 255, 0.10);
+    --training-thumb-bg: rgba(0, 0, 0, 0.05);
+    --training-chart-bg: rgba(0, 0, 0, 0.04);
+    --training-chart-grid: rgba(0, 0, 0, 0.08);
+    --training-chart-axis: rgba(0, 0, 0, 0.40);
+    --training-metric-bg: rgba(0, 0, 0, 0.04);
+    --training-stop-bg: rgba(255, 69, 58, 0.10);
+    --training-stop-border: rgba(255, 69, 58, 0.25);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2740,8 +2776,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 .training-config-card,
 .training-gallery-card,
 .training-monitor-card {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--training-glass-bg);
+    border: 1px solid var(--training-glass-border);
     border-radius: 24px;
     padding: 24px;
     backdrop-filter: blur(20px) saturate(160%);
@@ -2798,8 +2834,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     border-radius: 999px;
     font-size: 13px;
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--training-pill-bg);
+    border: 1px solid var(--training-glass-border);
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -2812,10 +2848,10 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 .training-uploader {
     padding: 18px;
-    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border: 1px dashed var(--training-uploader-border);
     border-radius: 16px;
     text-align: center;
-    background: rgba(0, 0, 0, 0.18);
+    background: var(--training-uploader-bg);
     cursor: pointer;
     position: relative;
     transition: all 0.2s ease;
@@ -2823,7 +2859,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 .training-uploader.is-dragover {
     border-color: var(--accent);
-    background: rgba(41, 151, 255, 0.08);
+    background: var(--training-uploader-dragover-bg);
 }
 
 .training-uploader-input {
@@ -2859,8 +2895,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 .training-input {
     width: 100%;
     padding: 10px 12px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--training-input-bg);
+    border: 1px solid var(--training-input-border);
     border-radius: 12px;
     color: var(--text);
     font-size: 14px;
@@ -2869,7 +2905,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 }
 
 .training-input:focus {
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--training-input-focus-border);
 }
 
 .training-start-btn {
@@ -2894,8 +2930,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     width: 100%;
     margin-top: 10px;
     padding: 10px;
-    background: rgba(255, 69, 58, 0.15);
-    border: 1px solid rgba(255, 69, 58, 0.3);
+    background: var(--training-stop-bg);
+    border: 1px solid var(--training-stop-border);
     border-radius: 999px;
     color: #ff453a;
     font-size: 13px;
@@ -2917,7 +2953,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     flex-shrink: 0;
     position: relative;
     cursor: pointer;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--training-thumb-bg);
 }
 
 .training-thumb img {
@@ -2949,7 +2985,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 .training-chart-area {
     flex: 1;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--training-chart-bg);
     border-radius: 16px;
     position: relative;
     overflow: hidden;
@@ -2979,7 +3015,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 .training-metric {
     flex: 1;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--training-metric-bg);
     border-radius: 16px;
     padding: 14px;
     display: flex;

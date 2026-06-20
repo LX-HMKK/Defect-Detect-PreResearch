@@ -185,6 +185,7 @@ class TrainRequest(BaseModel):
     batch_size: int = 32
     learning_rate: float = 0.0001
     seed: int = 42
+    excluded_samples: List[str] = []  # 被排除的样本文件名列表
 
 
 def _is_safe_category(category: str) -> bool:
@@ -294,6 +295,7 @@ async def train(request: TrainRequest):
                     batch_size=request.batch_size,
                     learning_rate=request.learning_rate,
                     seed=request.seed,
+                    excluded_samples=request.excluded_samples,
                     metrics_queue=metrics_queue,
                 )
                 result_container["result"] = result

@@ -19,6 +19,12 @@ var TrainingRunner = {
             body: JSON.stringify(payload),
             signal: signal,
         }).then(function (response) {
+            // 校验 HTTP 状态码，避免将 400/409 等错误响应当作 SSE 流解析
+            if (!response.ok) {
+                return response.text().then(function (text) {
+                    if (handlers.onError) handlers.onError(text || ('HTTP ' + response.status));
+                });
+            }
             var reader = response.body.getReader();
             var decoder = new TextDecoder();
             var buffer = '';
@@ -217,6 +223,9 @@ document.addEventListener('alpine:init', function () {
                     batch_size: parseInt(self.batchSize, 10),
                     learning_rate: parseFloat(self.learningRate),
                     seed: parseInt(self.seed, 10),
+                    excluded_samples: self.samples
+                        .filter(function (s) { return s.excluded; })
+                        .map(function (s) { return s.name; }),
                 }, {
                     onMetric: function (data) {
                         self.currentEpoch = data.epoch;
@@ -265,6 +274,12 @@ document.addEventListener('alpine:init', function () {
                 var h = rect.height;
                 var padding = 30;
 
+                // 从 CSS 变量读取当前主题颜色
+                var style = getComputedStyle(canvas);
+                var gridColor = style.getPropertyValue('--training-chart-grid').trim() || 'rgba(128,128,128,0.2)';
+                var lineColor = style.getPropertyValue('--accent').trim() || '#5ac8fa';
+                var axisColor = style.getPropertyValue('--training-chart-axis').trim() || 'rgba(128,128,128,0.5)';
+
                 ctx.clearRect(0, 0, w, h);
 
                 if (this.metricsHistory.length < 2) return;
@@ -279,7 +294,7 @@ document.addEventListener('alpine:init', function () {
                 var range = Math.max(0.001, maxLoss - minLoss);
 
                 // 网格线
-                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.strokeStyle = gridColor;
                 ctx.lineWidth = 1;
                 for (var i = 0; i <= 4; i++) {
                     var y = padding + (h - 2 * padding) * i / 4;
@@ -290,7 +305,7 @@ document.addEventListener('alpine:init', function () {
                 }
 
                 // Loss 曲线
-                ctx.strokeStyle = '#5ac8fa';
+                ctx.strokeStyle = lineColor;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 losses.forEach(function (loss, idx) {
@@ -302,7 +317,7 @@ document.addEventListener('alpine:init', function () {
                 ctx.stroke();
 
                 // 轴标签
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillStyle = axisColor;
                 ctx.font = '10px sans-serif';
                 ctx.fillText('Loss', padding, padding - 8);
                 ctx.fillText('Epoch', w - padding - 28, h - padding + 16);

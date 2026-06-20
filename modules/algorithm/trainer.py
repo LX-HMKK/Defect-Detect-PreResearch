@@ -52,6 +52,7 @@ from anomalib.models import (
     Padim,
 )
 from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
+from pytorch_lightning.callbacks import Callback
 
 # monkey-patch 兼容层 — anomalib 2.3.0 与 PyTorch Lightning 1.9.5
 from . import _anomalib_compat
@@ -254,11 +255,12 @@ def get_datamodule_from_config(
         )
     else:
         # 使用 Folder 格式
+        # 上传数据集仅含正常样本：train/good 为训练集，test/good 为测试集。
+        # 不设置 abnormal_dir，避免 anomalib 将 test/good 同时当作异常样本。
         return Folder(
             name=category,
             root=str(category_path),
             normal_dir='train/good',
-            abnormal_dir='test',
             normal_test_dir='test/good',
             train_batch_size=train_batch_size,
             eval_batch_size=eval_batch_size,
@@ -296,6 +298,25 @@ def _require_config(config: Optional[Dict[str, Any]], model_defaults: Dict[str, 
         f"配置缺失: 请在 configs/config.yaml 的 models.{model_name} 部分或 "
         f"configs/{model_name}.yaml 的 model.init_args 部分设置 {key}"
     )
+
+
+class _LearningRateSetter(Callback):
+    """
+    Lightning 回调：在训练开始时覆盖优化器学习率。
+
+    用于 Training Studio 前端传入自定义 learning_rate 的场景。
+    不 patch 模型的 configure_optimizers，避免 checkpoint 保存时无法 pickle。
+    """
+
+    def __init__(self, lr: float):
+        self.lr = lr
+
+    def on_train_start(self, trainer, pl_module):
+        for optimizer in trainer.optimizers:
+            for group in optimizer.param_groups:
+                group['lr'] = self.lr
+                group.setdefault('initial_lr', self.lr)
+        print(f"   [INFO] 优化器学习率已设置为: {self.lr}")
 
 
 def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None, enable_pixel_metrics: bool = True):
@@ -421,6 +442,7 @@ class AnomalyDetectionTrainer:
         seed: int = 42,
         extra_callbacks: Optional[List] = None,
         enable_pixel_metrics: bool = True,
+        learning_rate: Optional[float] = None,
     ):
         """
         初始化训练器
@@ -435,6 +457,7 @@ class AnomalyDetectionTrainer:
             seed: 随机种子
             extra_callbacks: 额外的 PyTorch Lightning 回调列表（可选，默认 []）
             enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
+            learning_rate: 覆盖模型默认学习率（仅 DRAEM/FRE 生效；PatchCore/PaDiM 忽略）
         """
         if model_name not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型: {model_name}。请选择: {SUPPORTED_MODELS}")
@@ -447,6 +470,7 @@ class AnomalyDetectionTrainer:
         self.seed = seed
         self.extra_callbacks = extra_callbacks or []
         self.enable_pixel_metrics = enable_pixel_metrics
+        self.learning_rate = learning_rate
 
         # 加载 YAML 配置（如果提供）
         self.config = None
@@ -598,6 +622,11 @@ class AnomalyDetectionTrainer:
         if early_stopping_callback:
             callbacks.append(early_stopping_callback)
 
+        # 若显式传入 learning_rate，对需要优化器的模型添加回调覆盖学习率
+        if self.learning_rate is not None and self.model_name in ('draem', 'fre'):
+            print(f"   [INFO] 使用自定义学习率: {self.learning_rate}")
+            callbacks.append(_LearningRateSetter(self.learning_rate))
+
         self.engine = Engine(
             max_epochs=max_epochs,
             accelerator=self.device,
@@ -608,7 +637,7 @@ class AnomalyDetectionTrainer:
             # 显式传入 None 而非空列表，避免 anomalib Engine 对空列表的解析行为差异
             callbacks=callbacks if callbacks else None,
         )
-        
+
         # 训练
         self.engine.fit(
             datamodule=self.datamodule,

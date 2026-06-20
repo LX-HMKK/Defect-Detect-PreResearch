@@ -425,6 +425,7 @@ class AnomalyDetectionTrainer:
             config_path: 配置文件路径（可选，保留参数兼容性）
             device: 计算设备 (auto/cpu/cuda)
             seed: 随机种子
+            extra_callbacks: 额外的 PyTorch Lightning 回调列表（可选，默认 []）
         """
         if model_name not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型: {model_name}。请选择: {SUPPORTED_MODELS}")
@@ -583,7 +584,7 @@ class AnomalyDetectionTrainer:
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
 
         # 创建 Engine
-        callbacks = list(self.extra_callbacks)
+        callbacks = list(self.extra_callbacks or [])
         if early_stopping_callback:
             callbacks.append(early_stopping_callback)
 
@@ -594,6 +595,7 @@ class AnomalyDetectionTrainer:
             default_root_dir=str(self.output_dir / self.model_name),
             logger=False,
             enable_progress_bar=False,  # 禁用 rich 进度条
+            # 显式传入 None 而非空列表，避免 anomalib Engine 对空列表的解析行为差异
             callbacks=callbacks if callbacks else None,
         )
         

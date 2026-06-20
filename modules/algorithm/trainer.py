@@ -238,9 +238,13 @@ def get_datamodule_from_config(
     
     # 检测数据集格式
     category_path = data_path / category
-    
-    # 如果是 MVTec AD 格式（有 train, test, ground_truth 目录）
-    if (category_path / 'train').exists() and (category_path / 'test').exists():
+
+    # 如果是 MVTec AD 格式（有 train、test、ground_truth 目录）
+    if (
+        (category_path / 'train').exists()
+        and (category_path / 'test').exists()
+        and (category_path / 'ground_truth').exists()
+    ):
         return MVTec(
             root=str(data_path),
             category=category,
@@ -251,6 +255,7 @@ def get_datamodule_from_config(
     else:
         # 使用 Folder 格式
         return Folder(
+            name=category,
             root=str(category_path),
             normal_dir='train/good',
             abnormal_dir='test',
@@ -258,7 +263,6 @@ def get_datamodule_from_config(
             train_batch_size=train_batch_size,
             eval_batch_size=eval_batch_size,
             num_workers=num_workers,
-            task='segmentation',
         )
 
 
@@ -294,31 +298,34 @@ def _require_config(config: Optional[Dict[str, Any]], model_defaults: Dict[str, 
     )
 
 
-def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None):
+def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None, enable_pixel_metrics: bool = True):
     """
     根据配置创建模型 - 严格从 YAML 读取，缺配置直接报错
-    
+
     Args:
         model_name: 模型名称
         config: 模型配置参数（来自 YAML 的 model.init_args）
-    
+        enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
+
     Returns:
         模型实例
-        
+
     Raises:
         ValueError: 配置缺失时抛出
     """
-    # 创建 evaluator，启用 AUPR 和 PRO 指标（PatchCore 和 Draem 支持像素级指标）
-    evaluator = Evaluator(
-        test_metrics=[
-            AUROC(fields=["pred_score", "gt_label"]),
-            AUPR(fields=["pred_score", "gt_label"]),
-            F1Score(fields=["pred_label", "gt_label"]),
+    # 创建 evaluator
+    test_metrics = [
+        AUROC(fields=["pred_score", "gt_label"]),
+        AUPR(fields=["pred_score", "gt_label"]),
+        F1Score(fields=["pred_label", "gt_label"]),
+    ]
+    if enable_pixel_metrics:
+        test_metrics.extend([
             AUROC(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
             PRO(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
             F1Score(fields=["pred_mask", "gt_mask"], prefix="pixel_"),
-        ]
-    )
+        ])
+    evaluator = Evaluator(test_metrics=test_metrics)
     
     # 从配置管理系统获取模型默认配置
     model_defaults = get_model_config(model_name)
@@ -413,10 +420,11 @@ class AnomalyDetectionTrainer:
         device: str = 'auto',
         seed: int = 42,
         extra_callbacks: Optional[List] = None,
+        enable_pixel_metrics: bool = True,
     ):
         """
         初始化训练器
-        
+
         Args:
             model_name: 模型名称 (fre/patchcore/draem/padim)
             data_path: 数据集路径（MVTec AD 格式）
@@ -426,10 +434,11 @@ class AnomalyDetectionTrainer:
             device: 计算设备 (auto/cpu/cuda)
             seed: 随机种子
             extra_callbacks: 额外的 PyTorch Lightning 回调列表（可选，默认 []）
+            enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
         """
         if model_name not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型: {model_name}。请选择: {SUPPORTED_MODELS}")
-        
+
         self.model_name = model_name
         self.data_path = Path(data_path)
         self.category = category
@@ -437,6 +446,7 @@ class AnomalyDetectionTrainer:
         self.device = device
         self.seed = seed
         self.extra_callbacks = extra_callbacks or []
+        self.enable_pixel_metrics = enable_pixel_metrics
 
         # 加载 YAML 配置（如果提供）
         self.config = None
@@ -493,7 +503,7 @@ class AnomalyDetectionTrainer:
         print(f"   测试集样本数: {len(self.datamodule.test_data)}")
         
         print(f"\n[BUILD] 创建 {self.model_name} 模型...")
-        self.model = get_model_from_config(self.model_name, model_config)
+        self.model = get_model_from_config(self.model_name, model_config, self.enable_pixel_metrics)
     
     def _load_required_config(self, config_key: str, config_section: str = None, error_msg: str = None) -> Any:
         """

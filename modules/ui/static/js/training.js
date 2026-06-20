@@ -30,6 +30,8 @@ var TrainingRunner = {
                         return;
                     }
                     buffer += decoder.decode(result.value, { stream: true });
+                    // SSE 规范使用 CRLF 换行，统一归一化为 LF 再解析
+                    buffer = buffer.replace(/\r\n/g, '\n');
                     var lines = buffer.split('\n');
                     buffer = lines.pop();
 
@@ -219,10 +221,10 @@ document.addEventListener('alpine:init', function () {
                     onMetric: function (data) {
                         self.currentEpoch = data.epoch;
                         self.totalEpochs = data.total_epochs;
-                        if (data.train_loss !== undefined) self.latestLoss = data.train_loss.toFixed(4);
-                        if (data.learning_rate !== undefined) self.latestLR = data.learning_rate.toExponential(2);
-                        if (data.val_image_AUROC !== undefined) self.latestAUROC = (data.val_image_AUROC * 100).toFixed(1) + '%';
-                        if (data.eta_seconds !== undefined) self.etaSeconds = data.eta_seconds;
+                        if (data.train_loss !== undefined && data.train_loss !== null) self.latestLoss = data.train_loss.toFixed(4);
+                        if (data.learning_rate !== undefined && data.learning_rate !== null) self.latestLR = data.learning_rate.toExponential(2);
+                        if (data.val_image_AUROC !== undefined && data.val_image_AUROC !== null) self.latestAUROC = (data.val_image_AUROC * 100).toFixed(1) + '%';
+                        if (data.eta_seconds !== undefined && data.eta_seconds !== null) self.etaSeconds = data.eta_seconds;
                         self.metricsHistory.push(data);
                         self.drawChart();
                     },

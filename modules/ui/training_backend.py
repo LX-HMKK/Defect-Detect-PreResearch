@@ -138,7 +138,12 @@ def format_uploaded_samples(
     test_dir.mkdir(parents=True, exist_ok=True)
 
     random.shuffle(unique_files)
-    n_test = min(max(1, int(len(unique_files) * 0.1)), len(unique_files) - 1)
+    # 大样本时至少保留 2 个测试样本，避免 val split 除零；小样本按原始比例
+    n_total = len(unique_files)
+    if n_total >= 4:
+        n_test = min(max(2, int(n_total * 0.1)), n_total - 2)
+    else:
+        n_test = min(max(1, int(n_total * 0.1)), n_total - 1)
     test_files = unique_files[:n_test]
     train_files = unique_files[n_test:]
 
@@ -229,26 +234,31 @@ def run_training_job(
     config = None
     temp_config_path: Optional[Path] = None
     try:
+        # 上传数据集目录本身就是 MVTec AD 格式的类别目录（train/good + test/good）。
+        # 因此 data_path 应为其父目录，category 为其目录名。
+        data_root = str(dataset_path.parent)
+        data_category = dataset_path.name
+
         if base_config_path.exists():
             with open(base_config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             if config and 'data' in config and 'init_args' in config['data']:
+                config['data']['init_args']['root'] = data_root
+                config['data']['init_args']['category'] = data_category
                 config['data']['init_args']['train_batch_size'] = batch_size
                 config['data']['init_args']['eval_batch_size'] = batch_size
 
         print(f"[TRAIN] 请求 learning_rate={learning_rate}，实际由各模型 YAML 决定")
 
         # 若未读取到配置，构造最小配置避免 None 崩溃
+        # 上传数据集无 ground_truth，实际由 get_datamodule_from_config 识别为 Folder
         if config is None:
             config = {
                 'data': {
                     'class_path': 'anomalib.data.Folder',
                     'init_args': {
-                        'root': str(dataset_path),
-                        'normal_dir': 'train/good',
-                        'abnormal_dir': 'test/good',
-                        'normal_test_dir': 'test/good',
-                        'task': 'segmentation',
+                        'root': data_root,
+                        'category': data_category,
                         'train_batch_size': batch_size,
                         'eval_batch_size': batch_size,
                         'num_workers': 0,
@@ -263,14 +273,18 @@ def run_training_job(
 
         metrics_callback = TrainingMetricsCallback(metrics_queue, training_manager.stop_event)
 
+        # 上传数据集通常不含 ground_truth，关闭像素级指标避免评估时 gt_mask 缺失
+        enable_pixel_metrics = (dataset_path / 'ground_truth').exists()
+
         trainer = AnomalyDetectionTrainer(
             model_name=model_name,
-            data_path=str(dataset_path),
-            category=category,
+            data_path=data_root,
+            category=data_category,
             output_dir=str(output_dir),
             config_path=str(temp_config_path),
             seed=seed,
             extra_callbacks=[metrics_callback],
+            enable_pixel_metrics=enable_pixel_metrics,
         )
 
         metrics_queue.put({

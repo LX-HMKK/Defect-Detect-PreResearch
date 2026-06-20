@@ -411,7 +411,8 @@ class AnomalyDetectionTrainer:
         output_dir: str = './results',
         config_path: Optional[str] = None,
         device: str = 'auto',
-        seed: int = 42
+        seed: int = 42,
+        extra_callbacks: Optional[List] = None,
     ):
         """
         初始化训练器
@@ -434,7 +435,8 @@ class AnomalyDetectionTrainer:
         self.output_dir = Path(output_dir)
         self.device = device
         self.seed = seed
-        
+        self.extra_callbacks = extra_callbacks or []
+
         # 加载 YAML 配置（如果提供）
         self.config = None
         if config_path:
@@ -579,8 +581,12 @@ class AnomalyDetectionTrainer:
         print("\n[WAIT] 开始训练...")
         if self.model_name in ('patchcore', 'padim'):
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
-        
+
         # 创建 Engine
+        callbacks = list(self.extra_callbacks)
+        if early_stopping_callback:
+            callbacks.append(early_stopping_callback)
+
         self.engine = Engine(
             max_epochs=max_epochs,
             accelerator=self.device,
@@ -588,7 +594,7 @@ class AnomalyDetectionTrainer:
             default_root_dir=str(self.output_dir / self.model_name),
             logger=False,
             enable_progress_bar=False,  # 禁用 rich 进度条
-            callbacks=[early_stopping_callback] if early_stopping_callback else None,
+            callbacks=callbacks if callbacks else None,
         )
         
         # 训练

@@ -270,8 +270,9 @@ class MetricsEvaluator:
         fpr_grid = np.linspace(0, self.pro_integration_limit, 100)
         pro_interp = np.interp(fpr_grid, sorted_fpr, sorted_pro)
         
-        # 计算积分 (梯形法则)
-        pro_score = np.trapz(pro_interp, fpr_grid) / self.pro_integration_limit
+        # 计算积分 (梯形法则)，兼容 NumPy 1.x (trapz) 与 2.x (trapezoid)
+        _trapz = np.trapezoid if hasattr(np, 'trapezoid') else np.trapz
+        pro_score = _trapz(pro_interp, fpr_grid) / self.pro_integration_limit
         
         return float(np.clip(pro_score, 0.0, 1.0))
     

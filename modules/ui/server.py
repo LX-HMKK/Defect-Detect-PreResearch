@@ -15,6 +15,7 @@ import asyncio
 import base64
 import io
 import json
+import queue
 import sys
 import uuid
 from datetime import datetime
@@ -42,6 +43,7 @@ from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from sse_starlette.sse import EventSourceResponse
 
@@ -51,7 +53,12 @@ from anomalib.data import PredictDataset
 # ── 复用现有 Gradio 模块中的核心组件 ──
 from modules.ui.demo import detector, MODEL_CONFIGS, get_available_datasets
 from modules.ui import theme
-from modules.ui.training_backend import format_uploaded_samples
+from modules.ui.training_backend import (
+    format_uploaded_samples,
+    run_training_job,
+    training_manager,
+    MAX_TRAIN_SAMPLES,
+)
 from modules.config import get as cfg_get, get_threshold, get_data_config
 from modules._runtime import resolve_project_path
 
@@ -91,6 +98,11 @@ app.add_middleware(CacheControlMiddleware)
 # ── 静态文件挂载 ──
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# ── 上传样本目录挂载 ──
+upload_root = resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads'
+upload_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(upload_root)), name="uploads")
 
 
 # ============================================================================
@@ -160,6 +172,175 @@ async def get_light_css():
 
 
 # ============================================================================
+# Pydantic 请求模型
+# ============================================================================
+
+class TrainRequest(BaseModel):
+    """训练请求体。"""
+    model: str
+    dataset_path: str
+    category: str
+    epochs: int = 100
+    batch_size: int = 32
+    learning_rate: float = 0.0001
+    seed: int = 42
+
+
+# ============================================================================
+# 路由：训练状态查询
+# ============================================================================
+
+@app.get("/api/train-status")
+async def train_status():
+    """查询当前训练状态。"""
+    return training_manager.to_dict()
+
+
+# ============================================================================
+# 路由：训练停止
+# ============================================================================
+
+@app.post("/api/train/stop")
+async def train_stop():
+    """请求停止当前训练任务。"""
+    if not training_manager.is_running:
+        return {"status": "idle"}
+    training_manager.stop_event.set()
+    return {"status": "stop_requested"}
+
+
+# ============================================================================
+# 路由：SSE 流式训练
+# ============================================================================
+
+@app.post("/api/train")
+async def train(request: TrainRequest):
+    """
+    SSE 流式训练端点。
+    接收训练参数，通过 SSE 推送状态、指标、日志和结果。
+    """
+    # 1. 尝试获取全局训练锁
+    started = training_manager.try_start(
+        request.model, request.category, request.epochs
+    )
+    if not started:
+        raise HTTPException(status_code=409, detail="已有训练任务正在运行")
+
+    # 2. 创建指标队列
+    metrics_queue = queue.Queue(maxsize=200)
+    result_container: Dict[str, any] = {}
+
+    # 3. 在独立线程中执行训练
+    def _training_thread():
+        try:
+            dataset_path = Path(request.dataset_path)
+            result = run_training_job(
+                model_name=request.model,
+                dataset_path=dataset_path,
+                category=request.category,
+                epochs=request.epochs,
+                batch_size=request.batch_size,
+                learning_rate=request.learning_rate,
+                seed=request.seed,
+                metrics_queue=metrics_queue,
+            )
+            result_container["result"] = result
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            metrics_queue.put({
+                "event": "error",
+                "message": str(e),
+                "code": "TRAINING_EXCEPTION",
+            })
+        finally:
+            metrics_queue.put({"event": "done"})
+
+    thread = threading.Thread(target=_training_thread, daemon=True)
+    thread.start()
+
+    # 4. SSE 生成器
+    async def event_generator():
+        try:
+            while True:
+                # 使用 to_thread 避免在协程中阻塞队列 get
+                payload = await asyncio.to_thread(metrics_queue.get)
+                event_type = payload.get("event")
+
+                if event_type == "done":
+                    # 训练结束，推送 completed 事件（如果有结果）
+                    if "result" in result_container:
+                        result = result_container["result"]
+                        yield {
+                            "event": "completed",
+                            "data": json.dumps({
+                                "status": result.get("status"),
+                                "model": result.get("model"),
+                                "category": result.get("category"),
+                                "results": result.get("results"),
+                            }, ensure_ascii=False),
+                        }
+                    break
+
+                elif event_type == "error":
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({
+                            "message": payload.get("message"),
+                            "code": payload.get("code", "UNKNOWN"),
+                        }, ensure_ascii=False),
+                    }
+
+                elif event_type == "status":
+                    yield {
+                        "event": "status",
+                        "data": json.dumps({
+                            "status": payload.get("status"),
+                            "message": payload.get("message"),
+                        }, ensure_ascii=False),
+                    }
+
+                elif event_type == "metric":
+                    yield {
+                        "event": "metric",
+                        "data": json.dumps({
+                            "epoch": payload.get("epoch"),
+                            "total_epochs": payload.get("total_epochs"),
+                            "train_loss": payload.get("train_loss"),
+                            "learning_rate": payload.get("learning_rate"),
+                            "val_image_AUROC": payload.get("val_image_AUROC"),
+                            "eta_seconds": payload.get("eta_seconds"),
+                        }, ensure_ascii=False),
+                    }
+
+                elif event_type == "log":
+                    yield {
+                        "event": "log",
+                        "data": json.dumps({
+                            "message": payload.get("message"),
+                            "level": payload.get("level", "info"),
+                            "timestamp": payload.get("timestamp"),
+                        }, ensure_ascii=False),
+                    }
+
+                elif event_type == "completed":
+                    # run_training_job 内部也会推送 completed，兼容处理
+                    yield {
+                        "event": "completed",
+                        "data": json.dumps({
+                            "status": payload.get("status"),
+                            "model": payload.get("model"),
+                            "category": payload.get("category"),
+                            "results": payload.get("results"),
+                        }, ensure_ascii=False),
+                    }
+
+        finally:
+            # 确保释放训练锁
+            training_manager.stop()
+            training_manager.finish()
+
+    return EventSourceResponse(event_generator())
 # /api/upload-samples — 上传训练样本并格式化为 MVTec AD 临时结构
 # ============================================================================
 

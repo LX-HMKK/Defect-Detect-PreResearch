@@ -73,6 +73,24 @@
     --shadow-md: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.3), 0 8px 32px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 4px 16px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.5);
     --shadow-glow: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 32px var(--accent-glow);
+
+    /* ── Training Studio 组件变量 ── */
+    --training-glass-bg: rgba(255, 255, 255, 0.06);
+    --training-glass-border: rgba(255, 255, 255, 0.10);
+    --training-pill-bg: rgba(255, 255, 255, 0.05);
+    --training-input-bg: rgba(0, 0, 0, 0.20);
+    --training-input-border: rgba(255, 255, 255, 0.08);
+    --training-input-focus-border: rgba(255, 255, 255, 0.25);
+    --training-uploader-bg: rgba(0, 0, 0, 0.18);
+    --training-uploader-border: rgba(255, 255, 255, 0.25);
+    --training-uploader-dragover-bg: rgba(41, 151, 255, 0.08);
+    --training-thumb-bg: rgba(0, 0, 0, 0.20);
+    --training-chart-bg: rgba(0, 0, 0, 0.20);
+    --training-chart-grid: rgba(255, 255, 255, 0.06);
+    --training-chart-axis: rgba(255, 255, 255, 0.40);
+    --training-metric-bg: rgba(0, 0, 0, 0.20);
+    --training-stop-bg: rgba(255, 69, 58, 0.15);
+    --training-stop-border: rgba(255, 69, 58, 0.30);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -96,6 +114,24 @@ html[data-theme="light"] {
     --shadow-md: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12);
     --shadow-glow: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 32px rgba(41, 151, 255, 0.20);
+
+    /* Training Studio 亮色覆盖 */
+    --training-glass-bg: rgba(255, 255, 255, 0.72);
+    --training-glass-border: rgba(0, 0, 0, 0.08);
+    --training-pill-bg: rgba(0, 0, 0, 0.04);
+    --training-input-bg: rgba(0, 0, 0, 0.04);
+    --training-input-border: rgba(0, 0, 0, 0.08);
+    --training-input-focus-border: rgba(0, 0, 0, 0.25);
+    --training-uploader-bg: rgba(0, 0, 0, 0.03);
+    --training-uploader-border: rgba(0, 0, 0, 0.20);
+    --training-uploader-dragover-bg: rgba(41, 151, 255, 0.10);
+    --training-thumb-bg: rgba(0, 0, 0, 0.05);
+    --training-chart-bg: rgba(0, 0, 0, 0.04);
+    --training-chart-grid: rgba(0, 0, 0, 0.08);
+    --training-chart-axis: rgba(0, 0, 0, 0.40);
+    --training-metric-bg: rgba(0, 0, 0, 0.04);
+    --training-stop-bg: rgba(255, 69, 58, 0.10);
+    --training-stop-border: rgba(255, 69, 58, 0.25);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2696,3 +2732,378 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     .flowchart-card h3 { font-size: 16px; }
     .flowchart-svg { max-height: 220px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Training Studio
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.training-studio {
+    padding-top: 80px;
+    padding-bottom: 40px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+.training-hero {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.training-title {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 600;
+    margin: 8px 0 6px;
+    letter-spacing: -0.02em;
+}
+
+.training-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+}
+
+.training-workspace {
+    display: flex;
+    gap: 24px;
+    flex: 1;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    align-items: flex-start;
+}
+
+.training-config-card,
+.training-gallery-card,
+.training-monitor-card {
+    background: var(--training-glass-bg);
+    border: 1px solid var(--training-glass-border);
+    border-radius: 24px;
+    padding: 24px;
+    backdrop-filter: blur(20px) saturate(160%);
+}
+
+.training-config-card {
+    flex: 0 0 320px;
+}
+
+.training-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.training-card-title {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 16px;
+}
+
+.training-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.training-card-header .training-card-title {
+    margin: 0;
+}
+
+.training-field {
+    margin-bottom: 16px;
+}
+
+.training-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.training-algo-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.training-algo-pill {
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--training-pill-bg);
+    border: 1px solid var(--training-glass-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.training-algo-pill.is-active {
+    color: var(--algo-color, var(--accent));
+    background: color-mix(in srgb, var(--algo-color, var(--accent)) 15%, transparent);
+    border-color: color-mix(in srgb, var(--algo-color, var(--accent)) 50%, transparent);
+}
+
+.training-uploader {
+    padding: 18px;
+    border: 1px dashed var(--training-uploader-border);
+    border-radius: 16px;
+    text-align: center;
+    background: var(--training-uploader-bg);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.training-uploader.is-dragover {
+    border-color: var(--accent);
+    background: var(--training-uploader-dragover-bg);
+}
+
+.training-uploader-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.training-uploader-icon {
+    font-size: 28px;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.training-uploader-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.training-uploader-count {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+
+.training-params-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.training-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--training-input-bg);
+    border: 1px solid var(--training-input-border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.training-input:focus {
+    border-color: var(--training-input-focus-border);
+}
+
+.training-start-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #2997ff, #5ac8fa);
+    border: none;
+    border-radius: 999px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.training-start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.training-stop-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--training-stop-bg);
+    border: 1px solid var(--training-stop-border);
+    border-radius: 999px;
+    color: #ff453a;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.training-gallery {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.training-thumb {
+    width: 96px;
+    height: 96px;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+    background: var(--training-thumb-bg);
+}
+
+.training-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.training-thumb.is-excluded img {
+    opacity: 0.35;
+}
+
+.training-thumb-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.training-monitor-body {
+    display: flex;
+    gap: 20px;
+    height: 200px;
+}
+
+.training-chart-area {
+    flex: 1;
+    background: var(--training-chart-bg);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.training-chart {
+    width: 100%;
+    height: 100%;
+}
+
+.training-chart-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+}
+
+.training-metrics {
+    flex: 0 0 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.training-metric {
+    flex: 1;
+    background: var(--training-metric-bg);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.training-metric-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+}
+
+.training-metric-value {
+    font-size: 26px;
+    font-weight: 600;
+}
+
+.training-metric-delim {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin: 0 4px;
+}
+
+.training-status-badge {
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: rgba(48, 209, 88, 0.15);
+    color: #30d158;
+}
+
+.training-status-badge.is-training {
+    background: rgba(41, 151, 255, 0.15);
+    color: #5ac8fa;
+}
+
+.training-status-badge.is-error {
+    background: rgba(255, 69, 58, 0.15);
+    color: #ff453a;
+}
+
+/* 导航栏训练跳转按钮 */
+.navbar-jump-btn {
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.navbar-jump-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--text);
+}
+
+/* Training Studio 移动端适配 */
+@media (max-width: 960px) {
+    .training-workspace {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .training-config-card {
+        flex: 1 1 auto;
+    }
+    .training-monitor-body {
+        flex-direction: column;
+        height: auto;
+        min-height: 360px;
+    }
+    .training-metrics {
+        flex: 1 1 auto;
+        flex-direction: row;
+    }
+}
+
+@media (max-width: 640px) {
+    .training-workspace {
+        padding: 0 16px;
+    }
+    .training-params-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .training-metrics {
+        flex-direction: column;
+    }
+}
+

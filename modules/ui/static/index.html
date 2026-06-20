@@ -207,6 +207,9 @@
             </div>
 
             <div class="navbar-right">
+                <!-- 训练页快捷跳转 -->
+                <button class="navbar-jump-btn" @click="scrollToSection(1)">训练</button>
+
                 <!-- 数据集选择器 -->
                 <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
                     <button class="custom-select-trigger"
@@ -563,6 +566,133 @@
                         <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <span>向下滚动</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- Section 1: Training Studio -->
+        <!-- ============================================== -->
+        <section id="s1-training" class="snap-page" x-ref="section1">
+            <div class="snap-page-inner training-studio" x-data="training" x-init="init()">
+                <div class="training-hero">
+                    <div class="label">TRAINING STUDIO</div>
+                    <h2 class="training-title">训练你的检测模型</h2>
+                    <p class="training-subtitle">选择算法、上传正常样本，让模型只学习“什么是正常”。</p>
+                </div>
+
+                <div class="training-workspace">
+                    <!-- 左侧配置卡 -->
+                    <div class="training-config-card">
+                        <h3 class="training-card-title">配置</h3>
+
+                        <div class="training-field">
+                            <div class="training-label">算法</div>
+                            <div class="training-algo-pills">
+                                <template x-for="m in models" :key="m.key">
+                                    <div class="training-algo-pill"
+                                         :class="{ 'is-active': selectedModel === m.key }"
+                                         :style="`--algo-color: ${m.color}`"
+                                         @click="selectedModel = m.key"
+                                         x-text="m.name"></div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="training-field">
+                            <div class="training-label">训练样本</div>
+                            <div class="training-uploader"
+                                 :class="{ 'is-dragover': isDragOver }"
+                                 @dragover.prevent="isDragOver = true"
+                                 @dragleave.prevent="isDragOver = false"
+                                 @drop.prevent="onDropSamples($event)">
+                                <div class="training-uploader-icon">+</div>
+                                <div class="training-uploader-text">拖拽图片或点击上传</div>
+                                <div class="training-uploader-count" x-text="`已选 ${sampleCount} / 150 张`"></div>
+                                <input type="file" multiple accept="image/*" class="training-uploader-input"
+                                       @change="onSelectSamples($event)" x-ref="sampleInput">
+                            </div>
+                        </div>
+
+                        <div class="training-params-grid">
+                            <div class="training-field">
+                                <div class="training-label">Epoch</div>
+                                <input type="number" class="training-input" x-model="epochs" min="1">
+                            </div>
+                            <div class="training-field">
+                                <div class="training-label">Batch</div>
+                                <input type="number" class="training-input" x-model="batchSize" min="1">
+                            </div>
+                            <div class="training-field">
+                                <div class="training-label">LR</div>
+                                <input type="number" class="training-input" x-model="learningRate" step="0.0001">
+                            </div>
+                            <div class="training-field">
+                                <div class="training-label">Seed</div>
+                                <input type="number" class="training-input" x-model="seed">
+                            </div>
+                        </div>
+
+                        <button class="training-start-btn"
+                                :disabled="trainingState === 'training' || sampleCount === 0"
+                                @click="startTraining()">
+                            <span x-show="trainingState !== 'training'">开始训练</span>
+                            <span x-show="trainingState === 'training'">训练中...</span>
+                        </button>
+                        <button class="training-stop-btn" x-show="trainingState === 'training'" @click="stopTraining()">停止</button>
+                    </div>
+
+                    <!-- 右侧工作区 -->
+                    <div class="training-right">
+                        <div class="training-gallery-card">
+                            <div class="training-card-header">
+                                <h3 class="training-card-title">样本画廊</h3>
+                                <span class="training-count" x-text="`已选择 ${sampleCount} 张`"></span>
+                            </div>
+                            <div class="training-gallery">
+                                <template x-for="(sample, idx) in samples" :key="idx">
+                                    <div class="training-thumb" :class="{ 'is-excluded': sample.excluded }"
+                                         @click="toggleExclude(idx)">
+                                        <img :src="sample.url" :alt="sample.name">
+                                        <div class="training-thumb-overlay" x-show="sample.excluded">已排除</div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="training-monitor-card">
+                            <div class="training-card-header">
+                                <h3 class="training-card-title">实时监控</h3>
+                                <span class="training-status-badge"
+                                      :class="`is-${trainingState}`"
+                                      x-text="statusText"></span>
+                            </div>
+                            <div class="training-monitor-body">
+                                <div class="training-chart-area">
+                                    <canvas class="training-chart" x-ref="trainingChart"></canvas>
+                                    <div class="training-chart-placeholder" x-show="!hasMetrics">训练开始后显示曲线</div>
+                                </div>
+                                <div class="training-metrics">
+                                    <div class="training-metric">
+                                        <div class="training-metric-label">Epoch</div>
+                                        <div class="training-metric-value"><span x-text="currentEpoch"></span><span class="training-metric-delim">/</span><span x-text="totalEpochs"></span></div>
+                                    </div>
+                                    <div class="training-metric">
+                                        <div class="training-metric-label">Loss</div>
+                                        <div class="training-metric-value" x-text="latestLoss ?? '—'"></div>
+                                    </div>
+                                    <div class="training-metric">
+                                        <div class="training-metric-label">LR</div>
+                                        <div class="training-metric-value" x-text="latestLR ?? '—'"></div>
+                                    </div>
+                                    <div class="training-metric">
+                                        <div class="training-metric-label">val AUROC</div>
+                                        <div class="training-metric-value" x-text="latestAUROC ?? '—'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -966,6 +1096,7 @@
     <script src="/static/js/cursor-glow.js"></script>
     <script src="/static/js/inference.js"></script>
     <script src="/static/js/compare.js"></script>
+    <script src="/static/js/training.js"></script>
     <script src="/static/js/app.js"></script>
     <script src="/static/js/flowchart.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>

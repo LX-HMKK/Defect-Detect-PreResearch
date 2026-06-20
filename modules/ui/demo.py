@@ -151,16 +151,37 @@ MODEL_CONFIGS = {
 
 
 def get_available_datasets():
-    """自动检测可用的数据集"""
+    """自动检测可用的数据集（支持 MVTec AD 与 Folder 两种输出结构）。"""
     results_dir = Path("./results")
     datasets = set()
-    for model_key in ["fre", "patchcore", "draem", "padim"]:
-        for subdir in ["Fre", "Patchcore", "Draem", "Padim"]:
-            model_path = results_dir / model_key / subdir / "MVTec"
-            if model_path.exists():
-                for cat_dir in model_path.iterdir():
-                    if cat_dir.is_dir() and cat_dir.name not in ["__pycache__"]:
-                        datasets.add(cat_dir.name)
+    model_dirs = {
+        "fre": "Fre",
+        "patchcore": "Patchcore",
+        "draem": "Draem",
+        "padim": "Padim",
+    }
+    for model_key, subdir in model_dirs.items():
+        model_path = results_dir / model_key / subdir
+        if not model_path.exists():
+            continue
+
+        # 1) MVTec AD 结构: results/{model}/Patchcore/MVTec/{category}
+        mvtec_path = model_path / "MVTec"
+        if mvtec_path.exists():
+            for cat_dir in mvtec_path.iterdir():
+                if cat_dir.is_dir() and cat_dir.name not in ["__pycache__"]:
+                    datasets.add(cat_dir.name)
+
+        # 2) Folder 结构: results/{model}/Patchcore/{category}/v0/weights
+        for cat_dir in model_path.iterdir():
+            if not cat_dir.is_dir() or cat_dir.name in ["__pycache__", "MVTec"]:
+                continue
+            if any(
+                child.is_dir() and child.name.startswith("v")
+                for child in cat_dir.iterdir()
+            ):
+                datasets.add(cat_dir.name)
+
     return sorted(list(datasets))
 
 

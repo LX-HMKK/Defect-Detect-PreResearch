@@ -15,9 +15,13 @@ import asyncio
 import base64
 import io
 import json
+import queue
 import sys
+import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -36,13 +40,11 @@ configure_runtime_temp()
 # ── cv2 必须在 anomalib 之前导入 ──
 import cv2
 
-from datetime import datetime
-from typing import Dict, List
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from sse_starlette.sse import EventSourceResponse
 
@@ -52,6 +54,12 @@ from anomalib.data import PredictDataset
 # ── 复用现有 Gradio 模块中的核心组件 ──
 from modules.ui.demo import detector, MODEL_CONFIGS, get_available_datasets
 from modules.ui import theme
+from modules.ui.training_backend import (
+    format_uploaded_samples,
+    run_training_job,
+    training_manager,
+    MAX_TRAIN_SAMPLES,
+)
 from modules.config import get as cfg_get, get_threshold, get_data_config
 from modules._runtime import resolve_project_path
 
@@ -91,6 +99,11 @@ app.add_middleware(CacheControlMiddleware)
 # ── 静态文件挂载 ──
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# ── 上传样本目录挂载 ──
+upload_root = resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads'
+upload_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(upload_root)), name="uploads")
 
 
 # ============================================================================
@@ -157,6 +170,338 @@ async def get_light_css():
     """返回亮色模式 CSS 变量（用于前端动态加载）。"""
     css = theme.get_light_css()
     return Response(content=css, media_type="text/css")
+
+
+# ============================================================================
+# Pydantic 请求模型
+# ============================================================================
+
+class TrainRequest(BaseModel):
+    """训练请求体。"""
+    model: str
+    dataset_path: str
+    category: str
+    epochs: int = 100
+    batch_size: int = 32
+    learning_rate: float = 0.0001
+    seed: int = 42
+    excluded_samples: List[str] = []  # 被排除的样本文件名列表
+
+
+def _is_safe_category(category: str) -> bool:
+    """category 只允许字母、数字、下划线、连字符。"""
+    if not category:
+        return False
+    return all(c.isalnum() or c in ('_', '-') for c in category)
+
+
+def _resolve_upload_dataset_path(dataset_path: str) -> Path:
+    """
+    解析训练请求中的数据集路径，并校验其必须位于上传目录下。
+
+    Args:
+        dataset_path: 请求传入的路径（相对或绝对）。
+
+    Returns:
+        Path: 绝对路径。
+
+    Raises:
+        HTTPException: 路径越界或不存在时抛出 400。
+    """
+    path = Path(dataset_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    path = path.resolve()
+
+    upload_root = (resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads').resolve()
+    try:
+        path.relative_to(upload_root)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="数据集路径不在允许的上传目录内")
+
+    if not path.exists():
+        raise HTTPException(status_code=400, detail="数据集路径不存在")
+    return path
+
+
+# ============================================================================
+# 路由：训练状态查询
+# ============================================================================
+
+@app.get("/api/train-status")
+async def train_status():
+    """查询当前训练状态。"""
+    return training_manager.to_dict()
+
+
+# ============================================================================
+# 路由：训练停止
+# ============================================================================
+
+@app.post("/api/train/stop")
+async def train_stop():
+    """请求停止当前训练任务。"""
+    if not training_manager.is_running:
+        return {"status": "idle"}
+    training_manager.stop_event.set()
+    return {"status": "stop_requested"}
+
+
+# ============================================================================
+# 路由：SSE 流式训练
+# ============================================================================
+
+@app.post("/api/train")
+async def train(request: TrainRequest):
+    """
+    SSE 流式训练端点。
+    接收训练参数，通过 SSE 推送状态、指标、日志和结果。
+    """
+    # 1. 参数校验
+    if request.model not in MODEL_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"不支持的模型: {request.model}")
+    if not _is_safe_category(request.category):
+        raise HTTPException(status_code=400, detail="category 只能包含字母、数字、下划线和连字符")
+    if request.epochs < 1 or request.epochs > 1000:
+        raise HTTPException(status_code=400, detail="epochs 必须在 1-1000 之间")
+    if request.batch_size < 1 or request.batch_size > 128:
+        raise HTTPException(status_code=400, detail="batch_size 必须在 1-128 之间")
+    if request.learning_rate <= 0 or request.learning_rate >= 1.0:
+        raise HTTPException(status_code=400, detail="learning_rate 必须在 (0, 1) 之间")
+
+    # 2. 解析并校验数据集路径
+    dataset_path = _resolve_upload_dataset_path(request.dataset_path)
+
+    # 3. 尝试获取全局训练锁
+    started = training_manager.try_start(
+        request.model, request.category, request.epochs
+    )
+    if not started:
+        raise HTTPException(status_code=409, detail="已有训练任务正在运行")
+
+    try:
+        # 4. 创建指标队列
+        metrics_queue = queue.Queue(maxsize=200)
+        result_container: Dict[str, Any] = {}
+
+        # 5. 在独立线程中执行训练
+        def _training_thread():
+            try:
+                result = run_training_job(
+                    model_name=request.model,
+                    dataset_path=dataset_path,
+                    category=request.category,
+                    epochs=request.epochs,
+                    batch_size=request.batch_size,
+                    learning_rate=request.learning_rate,
+                    seed=request.seed,
+                    excluded_samples=request.excluded_samples,
+                    metrics_queue=metrics_queue,
+                )
+                result_container["result"] = result
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                metrics_queue.put({
+                    "event": "error",
+                    "message": str(e),
+                    "code": "TRAINING_EXCEPTION",
+                })
+            finally:
+                metrics_queue.put({"event": "done"})
+
+        thread = threading.Thread(target=_training_thread, daemon=True)
+        thread.start()
+
+        # 6. SSE 生成器
+        async def event_generator():
+            try:
+                while True:
+                    # 带超时的队列读取，避免训练线程异常时永久阻塞
+                    try:
+                        payload = await asyncio.to_thread(
+                            metrics_queue.get, timeout=1.0
+                        )
+                    except queue.Empty:
+                        if not thread.is_alive() and metrics_queue.empty():
+                            break
+                        continue
+
+                    event_type = payload.get("event")
+
+                    if event_type == "done":
+                        # 训练结束，推送 completed 事件（如果有结果）
+                        if "result" in result_container:
+                            result = result_container["result"]
+                            yield {
+                                "event": "completed",
+                                "data": json.dumps({
+                                    "status": result.get("status"),
+                                    "model": result.get("model"),
+                                    "category": result.get("category"),
+                                    "results": result.get("results"),
+                                }, ensure_ascii=False),
+                            }
+                        break
+
+                    elif event_type == "error":
+                        yield {
+                            "event": "error",
+                            "data": json.dumps({
+                                "message": payload.get("message"),
+                                "code": payload.get("code", "UNKNOWN"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "status":
+                        yield {
+                            "event": "status",
+                            "data": json.dumps({
+                                "status": payload.get("status"),
+                                "message": payload.get("message"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "metric":
+                        yield {
+                            "event": "metric",
+                            "data": json.dumps({
+                                "epoch": payload.get("epoch"),
+                                "total_epochs": payload.get("total_epochs"),
+                                "train_loss": payload.get("train_loss"),
+                                "learning_rate": payload.get("learning_rate"),
+                                "val_image_AUROC": payload.get("val_image_AUROC"),
+                                "eta_seconds": payload.get("eta_seconds"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "log":
+                        yield {
+                            "event": "log",
+                            "data": json.dumps({
+                                "message": payload.get("message"),
+                                "level": payload.get("level", "info"),
+                                "timestamp": payload.get("timestamp"),
+                            }, ensure_ascii=False),
+                        }
+
+                    elif event_type == "completed":
+                        # run_training_job 内部也会推送 completed，兼容处理
+                        yield {
+                            "event": "completed",
+                            "data": json.dumps({
+                                "status": payload.get("status"),
+                                "model": payload.get("model"),
+                                "category": payload.get("category"),
+                                "results": payload.get("results"),
+                            }, ensure_ascii=False),
+                        }
+
+            finally:
+                # 客户端断开或训练结束均释放训练锁
+                training_manager.finish()
+
+        return EventSourceResponse(event_generator())
+    except Exception:
+        # 创建 EventSourceResponse 或启动线程失败时立即释放锁
+        training_manager.finish()
+        raise
+
+
+# ============================================================================
+# /api/upload-samples — 上传训练样本并格式化为 MVTec AD 临时结构
+# ============================================================================
+
+@app.post("/api/upload-samples")
+async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
+    """
+    接收多张图片上传，保存为临时 MVTec AD 目录结构。
+
+    Args:
+        files: 图片文件列表（multipart/form-data）。
+
+    Returns:
+        JSONResponse: 包含 session_id、dataset_path、category、total、max_allowed、samples。
+
+    Raises:
+        HTTPException: 400 — 未上传文件、包含非图片文件、或没有有效图片。
+    """
+    # 1. 校验必须上传文件
+    if not files:
+        raise HTTPException(status_code=400, detail="未上传文件")
+
+    # 2. 过滤非图片文件
+    for f in files:
+        content_type = f.content_type or ""
+        if not content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"非图片文件: {f.filename} (type={content_type})",
+            )
+
+    # 3. 超过最大样本数时截断
+    max_allowed = MAX_TRAIN_SAMPLES
+    if len(files) > max_allowed:
+        files = files[:max_allowed]
+
+    # 4. 生成 session_id 与保存路径
+    session_id = f"training_{uuid.uuid4().hex}"
+    temp_dir = resolve_project_path(cfg_get("paths.temp_dir", "./.cache"))
+    upload_dir = temp_dir / "uploads" / session_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # 5. 使用 cv2 读取并保存上传图片，读取失败的跳过
+    saved_paths: List[Path] = []
+    for file in files:
+        try:
+            contents = await file.read()
+            nparr = np.frombuffer(contents, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            del nparr
+            if img is None:
+                continue
+            # 保持原始扩展名，若无则默认 .png
+            suffix = Path(file.filename or "img.png").suffix or ".png"
+            dest_path = upload_dir / f"{uuid.uuid4().hex}{suffix}"
+            cv2.imwrite(str(dest_path), img)
+            saved_paths.append(dest_path)
+        except (cv2.error, ValueError, OSError):
+            continue
+        finally:
+            await file.close()
+
+    # 6. 如果没有有效图片，返回 400
+    if not saved_paths:
+        raise HTTPException(status_code=400, detail="没有有效图片（读取或解码失败）")
+
+    # 7. 调用 format_uploaded_samples 整理为 MVTec AD 结构
+    dataset_path = format_uploaded_samples(
+        upload_dir=upload_dir,
+        image_files=saved_paths,
+        max_samples=max_allowed,
+    )
+
+    # 8. 收集 train/good/ 下的文件名列表
+    train_good_dir = dataset_path / "train" / "good"
+    samples = sorted([p.name for p in train_good_dir.iterdir() if p.is_file()])
+
+    # 9. 返回相对路径（若 temp_dir 在 PROJECT_ROOT 外则回退到绝对路径）
+    try:
+        dataset_path_str = str(dataset_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+    except ValueError:
+        dataset_path_str = str(dataset_path).replace("\\", "/")
+
+    return JSONResponse(
+        content={
+            "session_id": session_id,
+            "dataset_path": dataset_path_str,
+            "category": session_id,
+            "total": len(samples),
+            "max_allowed": max_allowed,
+            "samples": samples,
+        },
+        status_code=200,
+    )
 
 
 # ============================================================================
@@ -298,7 +643,7 @@ async def predict(request: Request):
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
                 {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen)
+        return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -417,7 +762,7 @@ async def compare(request: Request):
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
                 {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen)
+        return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 

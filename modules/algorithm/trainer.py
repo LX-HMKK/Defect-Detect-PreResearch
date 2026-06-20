@@ -52,6 +52,7 @@ from anomalib.models import (
     Padim,
 )
 from anomalib.metrics import Evaluator, AUPR, PRO, AUROC, F1Score
+from pytorch_lightning.callbacks import Callback
 
 # monkey-patch 兼容层 — anomalib 2.3.0 与 PyTorch Lightning 1.9.5
 from . import _anomalib_compat
@@ -238,9 +239,13 @@ def get_datamodule_from_config(
     
     # 检测数据集格式
     category_path = data_path / category
-    
-    # 如果是 MVTec AD 格式（有 train, test, ground_truth 目录）
-    if (category_path / 'train').exists() and (category_path / 'test').exists():
+
+    # 如果是 MVTec AD 格式（有 train、test、ground_truth 目录）
+    if (
+        (category_path / 'train').exists()
+        and (category_path / 'test').exists()
+        and (category_path / 'ground_truth').exists()
+    ):
         return MVTec(
             root=str(data_path),
             category=category,
@@ -250,15 +255,16 @@ def get_datamodule_from_config(
         )
     else:
         # 使用 Folder 格式
+        # 上传数据集仅含正常样本：train/good 为训练集，test/good 为测试集。
+        # 不设置 abnormal_dir，避免 anomalib 将 test/good 同时当作异常样本。
         return Folder(
+            name=category,
             root=str(category_path),
             normal_dir='train/good',
-            abnormal_dir='test',
             normal_test_dir='test/good',
             train_batch_size=train_batch_size,
             eval_batch_size=eval_batch_size,
             num_workers=num_workers,
-            task='segmentation',
         )
 
 
@@ -294,31 +300,53 @@ def _require_config(config: Optional[Dict[str, Any]], model_defaults: Dict[str, 
     )
 
 
-def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None):
+class _LearningRateSetter(Callback):
+    """
+    Lightning 回调：在训练开始时覆盖优化器学习率。
+
+    用于 Training Studio 前端传入自定义 learning_rate 的场景。
+    不 patch 模型的 configure_optimizers，避免 checkpoint 保存时无法 pickle。
+    """
+
+    def __init__(self, lr: float):
+        self.lr = lr
+
+    def on_train_start(self, trainer, pl_module):
+        for optimizer in trainer.optimizers:
+            for group in optimizer.param_groups:
+                group['lr'] = self.lr
+                group.setdefault('initial_lr', self.lr)
+        print(f"   [INFO] 优化器学习率已设置为: {self.lr}")
+
+
+def get_model_from_config(model_name: str, config: Optional[Dict[str, Any]] = None, enable_pixel_metrics: bool = True):
     """
     根据配置创建模型 - 严格从 YAML 读取，缺配置直接报错
-    
+
     Args:
         model_name: 模型名称
         config: 模型配置参数（来自 YAML 的 model.init_args）
-    
+        enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
+
     Returns:
         模型实例
-        
+
     Raises:
         ValueError: 配置缺失时抛出
     """
-    # 创建 evaluator，启用 AUPR 和 PRO 指标（PatchCore 和 Draem 支持像素级指标）
-    evaluator = Evaluator(
-        test_metrics=[
-            AUROC(fields=["pred_score", "gt_label"]),
-            AUPR(fields=["pred_score", "gt_label"]),
-            F1Score(fields=["pred_label", "gt_label"]),
+    # 创建 evaluator
+    test_metrics = [
+        AUROC(fields=["pred_score", "gt_label"]),
+        AUPR(fields=["pred_score", "gt_label"]),
+        F1Score(fields=["pred_label", "gt_label"]),
+    ]
+    if enable_pixel_metrics:
+        test_metrics.extend([
             AUROC(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
             PRO(fields=["anomaly_map", "gt_mask"], prefix="pixel_"),
             F1Score(fields=["pred_mask", "gt_mask"], prefix="pixel_"),
-        ]
-    )
+        ])
+    evaluator = Evaluator(test_metrics=test_metrics)
     
     # 从配置管理系统获取模型默认配置
     model_defaults = get_model_config(model_name)
@@ -411,11 +439,14 @@ class AnomalyDetectionTrainer:
         output_dir: str = './results',
         config_path: Optional[str] = None,
         device: str = 'auto',
-        seed: int = 42
+        seed: int = 42,
+        extra_callbacks: Optional[List] = None,
+        enable_pixel_metrics: bool = True,
+        learning_rate: Optional[float] = None,
     ):
         """
         初始化训练器
-        
+
         Args:
             model_name: 模型名称 (fre/patchcore/draem/padim)
             data_path: 数据集路径（MVTec AD 格式）
@@ -424,17 +455,23 @@ class AnomalyDetectionTrainer:
             config_path: 配置文件路径（可选，保留参数兼容性）
             device: 计算设备 (auto/cpu/cuda)
             seed: 随机种子
+            extra_callbacks: 额外的 PyTorch Lightning 回调列表（可选，默认 []）
+            enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
+            learning_rate: 覆盖模型默认学习率（仅 DRAEM/FRE 生效；PatchCore/PaDiM 忽略）
         """
         if model_name not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型: {model_name}。请选择: {SUPPORTED_MODELS}")
-        
+
         self.model_name = model_name
         self.data_path = Path(data_path)
         self.category = category
         self.output_dir = Path(output_dir)
         self.device = device
         self.seed = seed
-        
+        self.extra_callbacks = extra_callbacks or []
+        self.enable_pixel_metrics = enable_pixel_metrics
+        self.learning_rate = learning_rate
+
         # 加载 YAML 配置（如果提供）
         self.config = None
         if config_path:
@@ -490,7 +527,7 @@ class AnomalyDetectionTrainer:
         print(f"   测试集样本数: {len(self.datamodule.test_data)}")
         
         print(f"\n[BUILD] 创建 {self.model_name} 模型...")
-        self.model = get_model_from_config(self.model_name, model_config)
+        self.model = get_model_from_config(self.model_name, model_config, self.enable_pixel_metrics)
     
     def _load_required_config(self, config_key: str, config_section: str = None, error_msg: str = None) -> Any:
         """
@@ -579,8 +616,17 @@ class AnomalyDetectionTrainer:
         print("\n[WAIT] 开始训练...")
         if self.model_name in ('patchcore', 'padim'):
             print("   [TIP] PatchCore 无需训练 epoch，正在构建特征记忆库...")
-        
+
         # 创建 Engine
+        callbacks = list(self.extra_callbacks or [])
+        if early_stopping_callback:
+            callbacks.append(early_stopping_callback)
+
+        # 若显式传入 learning_rate，对需要优化器的模型添加回调覆盖学习率
+        if self.learning_rate is not None and self.model_name in ('draem', 'fre'):
+            print(f"   [INFO] 使用自定义学习率: {self.learning_rate}")
+            callbacks.append(_LearningRateSetter(self.learning_rate))
+
         self.engine = Engine(
             max_epochs=max_epochs,
             accelerator=self.device,
@@ -588,9 +634,10 @@ class AnomalyDetectionTrainer:
             default_root_dir=str(self.output_dir / self.model_name),
             logger=False,
             enable_progress_bar=False,  # 禁用 rich 进度条
-            callbacks=[early_stopping_callback] if early_stopping_callback else None,
+            # 显式传入 None 而非空列表，避免 anomalib Engine 对空列表的解析行为差异
+            callbacks=callbacks if callbacks else None,
         )
-        
+
         # 训练
         self.engine.fit(
             datamodule=self.datamodule,

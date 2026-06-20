@@ -58,6 +58,11 @@ document.addEventListener('alpine:init', function () {
                 // 启动健康检查轮询
                 self.startHealthCheck();
 
+                // 训练完成后刷新模型/数据集列表
+                window.addEventListener('training-completed', function () {
+                    self.fetchModels();
+                });
+
                 // 设置全局异常处理
                 self.setupErrorHandling();
 
@@ -161,10 +166,10 @@ document.addEventListener('alpine:init', function () {
             scrolled: false,
             currentSection: 0,
             snapProgress: 0,  // 0.0 ~ 1.0，表示两页之间的滚动进度（驱动进度环填充）
-            sectionCount: 3,
+            sectionCount: 4,
 
             /** 导航点 tooltip 标签 */
-            sectionNames: ['算法介绍', '单模型推理', '四模型对比'],
+            sectionNames: ['算法介绍', '训练工作室', '单模型推理', '四模型对比'],
 
             setupScrollObserver: function () {
                 var self = this;

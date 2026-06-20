@@ -128,28 +128,30 @@ modules/
   evaluation/metrics.py        # MetricsEvaluator（从零实现 AUROC/AUPR/PRO）
   evaluation/post_processor.py # AnomalyMapProcessor: 异常热力图后处理（7 种配方）
   ui/
-    server.py                  # FastAPI 服务器 — Phase 2 核心：REST API + SSE 流式推理
+    server.py                  # FastAPI 服务器 — Phase 2 核心：REST API + SSE 流式推理 + Training Studio 训练端点
+    training_backend.py        # Training Studio 后端：任务锁、样本格式化、SSE 指标回调、run_training_job
     demo.py                    # [Legacy] Gradio UI：AnomalyDetector + create_interface
     theme.py                   # 主题管理器：色板定义 + CSS 生成 + Favicon
     styles.css                 # [Legacy] Gradio 专用 CSS（Phase 2 使用 static/css/app.css）
     static/
-      index.html               # Alpine.js SPA 入口（CSS snap 全屏滚动，三页吸附）
+      index.html               # Alpine.js SPA 入口（CSS snap 全屏滚动，四页吸附）
       theme.js                 # 主题切换交互（localStorage + data-theme）
       inference-interact.js    # [Legacy] Gradio 推理结果交互增强
       css/
         app.css                # Phase 2 主样式表（亮/暗双模式，~2700 行）
         flowchart.css          # SVG 流程图动画样式
       js/
-        app.js                 # Alpine 全局状态：主题/snap 导航/进度环/推理/健康检查
+        app.js                 # Alpine 全局状态：主题/snap 导航/进度环/推理/健康检查/训练完成监听
         inference.js           # InferenceRunner (SSE) + imageCompare 滑块 + tooltip + bbox
         compare.js             # CompareRunner (SSE) + Alpine compare 组件
+        training.js            # TrainingRunner (SSE) + Alpine training 状态机 + 样本上传/参数/loss 曲线
         animations.js          # 滚动驱动淡入动画 (ScrollReveal) + snap 过渡编排（JS WAAPI 统一驱动进出，CSS 退出动画已移除）
         cursor-glow.js         # 鼠标光晕跟随效果
         flowchart.js           # SVG 流程图绘制动画
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
-tests/                          # 测试套件（config 单例、metrics 指标、trainer 烟雾测试）
+tests/                          # 测试套件（config 单例、metrics 指标、trainer 烟雾测试、Training Studio API）
 tools/                          # 分析工具（小样本/消融/基准/混淆矩阵/数据验证/统计/报告/后处理）
 results/                        # 训练结果
 docs/
@@ -162,11 +164,13 @@ memory/                         # Claude Code 会话记忆
 
 ### 关键类及其职责
 
-- **`AnomalyDetectionTrainer`** (`modules/algorithm/trainer.py`) — 核心调度器。`setup()` 创建 datamodule + model，`train()` 运行 anomalib `Engine.fit()`，`evaluate()` 运行 `Engine.test()` 并通过 Youden's J 统计量在 [0,1] 全范围搜索计算最优阈值，`_save_results()` 将 JSON 写入 `results/comparison/`，`_update_results_json_threshold()` 将阈值回写已有结果文件。静态方法 `compare_models()` 生成对比 CSV/Markdown。内部使用两个 helper 工厂函数 `get_model_from_config()` 和 `get_datamodule_from_config()`，严格从 YAML 读取所有参数，缺失配置时抛出 `ValueError`。
+- **`AnomalyDetectionTrainer`** (`modules/algorithm/trainer.py`) — 核心调度器。`setup()` 创建 datamodule + model，`train()` 运行 anomalib `Engine.fit()`，`evaluate()` 运行 `Engine.test()` 并通过 Youden's J 统计量在 [0,1] 全范围搜索计算最优阈值，`_save_results()` 将 JSON 写入 `results/comparison/`，`_update_results_json_threshold()` 将阈值回写已有结果文件。静态方法 `compare_models()` 生成对比 CSV/Markdown。内部使用两个 helper 工厂函数 `get_model_from_config()` 和 `get_datamodule_from_config()`，严格从 YAML 读取所有参数，缺失配置时抛出 `ValueError`。支持 `enable_pixel_metrics`（无 `ground_truth` 时关闭像素级指标）和 `learning_rate`（通过 Lightning 回调覆盖 DRAEM/FRE 优化器学习率）。
+
+- **`TrainingTaskManager` / `TrainingMetricsCallback` / `format_uploaded_samples` / `run_training_job`** (`modules/ui/training_backend.py`) — Training Studio 后端。`TrainingTaskManager` 提供全局单训练任务锁；`format_uploaded_samples` 将上传图片整理为临时 MVTec/Folder 结构；`run_training_job` 在线程中执行训练并通过 SSE 队列推送状态/指标/日志；`TrainingMetricsCallback`（PyTorch Lightning Callback）在每个 epoch 结束时将 loss、learning_rate、val_image_AUROC 写入队列。
 
 - **`get_model_from_config(model_name, config)`** — 始终附加 `anomalib.metrics.Evaluator`，包含 6 个指标（图像级 AUROC/AUPR/F1Score + 像素级 AUROC/PRO/F1Score）。参数严格从配置读取——缺失键抛出 `ValueError`。先查 `configs/config.yaml` 的 `models.{name}` section，然后接受传入 config 的覆盖。
 
-- **`get_datamodule_from_config(data_path, category, model_name, config)`** — 自动检测 MVTec AD 与通用 Folder 格式。Folder 格式始终设置 `task='segmentation'`。train_batch_size/eval_batch_size/num_workers 严格从配置读取。
+- **`get_datamodule_from_config(data_path, category, model_name, config)`** — 自动检测 MVTec AD 与通用 Folder 格式。仅当存在 `train`、`test`、`ground_truth` 三个目录时走 MVTec；否则回退到 `Folder`（`normal_dir='train/good'`，`normal_test_dir='test/good'`）。train_batch_size/eval_batch_size/num_workers 严格从配置读取。
 
 - **`modules/algorithm/_anomalib_compat.py`** — 猴子补丁兼容层，修复 anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 回调签名不匹配。详见下文「Trainer 兼容性补丁」。
 
@@ -182,9 +186,11 @@ memory/                         # Claude Code 会话记忆
 
 ### Phase 2 UI（FastAPI + Alpine.js SPA）
 
-- **`modules/ui/server.py`** → FastAPI 应用 — Phase 2 核心。`/api/predict` (SSE 流式单模型推理) 和 `/api/compare` (SSE 流式四模型并行推理) 通过 `asyncio.to_thread` 在线程池执行 `_run_prediction()`，避免阻塞事件循环。`CacheControlMiddleware` 为 `/static/*` 资源添加 `no-cache` 头（ETag 验证）。`/api/models` 返回可用模型和数据集列表。`/api/theme/light-css` 返回亮色 CSS 变量。
+- **`modules/ui/server.py`** → FastAPI 应用 — Phase 2 核心。`/api/predict` (SSE 流式单模型推理)、`/api/compare` (SSE 流式四模型并行推理)、`/api/upload-samples`（训练样本上传）、`/api/train`（SSE 流式训练）、`/api/train-status`、`/api/train/stop` 等端点。推理与训练通过 `asyncio.to_thread` 在线程池执行，避免阻塞事件循环。`CacheControlMiddleware` 为 `/static/*` 资源添加 `no-cache` 头（ETag 验证）。`/api/models` 返回可用模型和数据集列表。`/api/theme/light-css` 返回亮色 CSS 变量。
 
-- **`Alpine.data('app')`** (`modules/ui/static/js/app.js`) — 全局状态。主题切换（`toggleTheme` + `prefers-color-scheme` 跟随）、导航滚动（`IntersectionObserver`（以 `.snap-container` 为 `root`）+ 键盘 ↑↓）、数据集/模型列表获取、推理状态机（`idle→uploaded→loading→inferring→done|error`）、SSE 流式推理调度、健康检查轮询（30s）。导航下拉选择器使用 Alpine 内联 `x-data="{ open: false }"` 模式（仅遮蔽 `open`，父作用域属性自动透传），替代了原生 `<select>`。
+- **`Alpine.data('app')`** (`modules/ui/static/js/app.js`) — 全局状态。主题切换（`toggleTheme` + `prefers-color-scheme` 跟随）、导航滚动（`IntersectionObserver`（以 `.snap-container` 为 `root`）+ 键盘 ↑↓）、数据集/模型列表获取、推理状态机（`idle→uploaded→loading→inferring→done|error`）、SSE 流式推理调度、健康检查轮询（30s）、训练完成后刷新模型/数据集列表。导航下拉选择器使用 Alpine 内联 `x-data="{ open: false }"` 模式（仅遮蔽 `open`，父作用域属性自动透传），替代了原生 `<select>`。
+
+- **`Alpine.data('training')`** (`modules/ui/static/js/training.js`) — Training Studio 组件。样本上传画廊（支持拖拽/点击）、排除样本切换、训练参数配置（epochs/batch_size/learning_rate/seed）、药丸算法选择器、`TrainingRunner.run()` 消费 `/api/train` SSE 流并绘制实时 loss 曲线、训练完成触发全局刷新。
 
 - **`Alpine.data('compare')`** (`modules/ui/static/js/compare.js`) — 四模型对比组件。`compareSlots` 状态机（`pending→active→done|error`）、`CompareRunner.run()` 消费 `/api/compare` SSE 流、`setupCompareBbox()` 为每个槽位创建 bbox overlay 并监听 ResizeObserver 实时定位。
 
@@ -222,6 +228,7 @@ memory/                         # Claude Code 会话记忆
 4. `train()` → anomalib `Engine.fit()`（PatchCore/PaDiM：仅 coreset 子采样/高斯建模，1 个 epoch）
 5. `evaluate()` → `Engine.test()` → 提取 6 个指标 → `_compute_optimal_threshold()` (Youden's J, [0,1] 全域搜索) → `_save_results()` + `_update_results_json_threshold()` → JSON 输出至 `results/comparison/{model}_{category}_results.json`
 6. UI 通过 FastAPI (`server.py`) 暴露 `/api/predict` 和 `/api/compare` SSE 端点 → `_run_prediction()` 在线程池执行推理 → 返回 `{image_b64, heatmap_b64, bboxes, score, ...}` → 前端 Alpine.js SPA 消费 SSE 流并渲染结果
+7. Training Studio 数据流：前端上传正常样本 → `/api/upload-samples` 调用 `format_uploaded_samples()` 整理为 `train/good + test/good` 临时目录 → `/api/train` 在 `TrainingTaskManager` 锁保护下通过 `run_training_job()` 实例化 `AnomalyDetectionTrainer` → `TrainingMetricsCallback` 经 SSE 推送 epoch loss / learning_rate / val_image_AUROC / ETA → 训练完成写入 `results/comparison/{model}_{category}_results.json` 并触发前端刷新模型/数据集列表
 
 ### 训练器中的三层配置优先级
 
@@ -393,22 +400,24 @@ git log --all --format="%H %B" | grep -i "Co-authored-by"
 
 ### 测试
 
-测试套件位于 `tests/`，共 3 个文件。设计为无 GPU、无 anomalib 导入依赖（烟雾测试使用 AST 解析源码以避免触发 Heavy import）。运行方式：`python -m pytest tests/ -v`。
+测试套件位于 `tests/`，共 4 个文件：`test_config.py`、`test_metrics.py`、`test_trainer_smoke.py`、`test_training_api.py`。设计为无 GPU、无 anomalib 导入依赖（烟雾测试使用 AST 解析源码以避免触发 Heavy import）。运行方式：`python -m pytest tests/ -v`。
 
 ### UI 架构 (Phase 2)
 
 **默认 UI**: FastAPI + Alpine.js SPA (`modules/ui/server.py` + `modules/ui/static/`)。
 
 - 5 层动效体系：环境光呼吸 → 鼠标光晕跟随 → 滚动驱动动画 → 微交互（胶囊开关/数字跳动/弹簧按钮）→ 视图过渡
-- 三页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍 → 单模型推理 → 四模型对比
+- 四页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍 → 单模型推理 → 训练工作室 → 四模型对比
 - 每页 100dvh 全视口，滚动吸附到整页，无半页停留
-- 右侧进度环导航点（SVG 圆环 + 页码"1/3"），实时反映滚动位置
+- 右侧进度环导航点（SVG 圆环 + 页码"1/4"），实时反映滚动位置
 - **进出动画**：统一由 JS WAAPI 驱动（`snapPageEnter` / `snapPageExit`），方向向下推送（与滚动方向一致），CSS 退出动画已删除以避免双动画竞争
 - **S1 布局**：三列流水线（上传→选择→推理）→ 完成后收缩为 `.pipeline-summary` 步骤摘要 → 一体化仪表盘卡片 `.result-dashboard`（标题栏 + 全宽对比滑块 + 三列指标行 + 底部判决/操作）
-- **S2（S3）布局**：共享原图居中显示（max-height: 200px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
+- **S2（训练工作室）布局**：左侧样本上传与参数配置，右侧实时监控曲线与指标面板；上传后生成可排除样本的画廊，训练完成触发全局模型列表刷新
+- **S3（S4）布局**：共享原图居中显示（max-height: 200px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
 - 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
 - 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
 - 布局精修规范：`docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md`
+- Training Studio 规范：`docs/superpowers/specs/2026-06-20-training-studio-design.md`
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
 
@@ -478,7 +487,7 @@ curl http://127.0.0.1:8000/api/models
 
 # 浏览器控制台验证 snap 状态
 document.querySelector('.snap-container').style.scrollSnapType  // "y mandatory"
-document.querySelector('.snap-dot-label').textContent           // "1 / 3"
+document.querySelector('.snap-dot-label').textContent           // "1 / 4"
 ```
 
 **Gradio 6 CSS 作用域问题（仅影响 legacy Gradio UI）**：`gr.Blocks(css=...)` 传入的 CSS 会被 Gradio 6 做选择器作用域处理——在所有选择器前加 `.gradio-container.xxx .contain`。这会导致 `@media` 查询内的 `:root` 选择器失效（变成 `.contain :root`，无法匹配文档根）。**解决方案**：需要通过 CSS `@media` 动态切换的变量（如亮色模式色板），必须通过 `gr.HTML("<style>…</style>")` 注入，绕过 Gradio 的 CSS 处理器。顶层 `:root` 块（暗色默认值）不受影响。
@@ -493,5 +502,7 @@ document.querySelector('.snap-dot-label').textContent           // "1 / 3"
 - [requirements.txt](requirements.txt) — 固定版本依赖清单
 - [configs/config.yaml](configs/config.yaml) — 主配置（所有可调参数集中管理）
 - [docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md](docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md) — Phase 2 UI 设计规范（FastAPI + Alpine.js SPA）
+- [docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md](docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md) — Phase 2 布局精修规范（药丸按钮、玻璃选择器、四模型对比卡片、进度环导航）
+- [docs/superpowers/specs/2026-06-20-training-studio-design.md](docs/superpowers/specs/2026-06-20-training-studio-design.md) — Training Studio 设计规范（上传样本、SSE 训练流、实时监控、排除样本）
 - [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Phase 1 Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
 - [memory/](memory/) — Claude Code 会话记忆目录

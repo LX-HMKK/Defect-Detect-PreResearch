@@ -17,7 +17,9 @@ import io
 import json
 import sys
 import uuid
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List
 
 import numpy as np
 
@@ -35,9 +37,6 @@ configure_runtime_temp()
 
 # ── cv2 必须在 anomalib 之前导入 ──
 import cv2
-
-from datetime import datetime
-from typing import Dict, List
 
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -165,7 +164,7 @@ async def get_light_css():
 # ============================================================================
 
 @app.post("/api/upload-samples")
-async def upload_samples(files: List[UploadFile] = File(...)):
+async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
     """
     接收多张图片上传，保存为临时 MVTec AD 目录结构。
 
@@ -173,7 +172,7 @@ async def upload_samples(files: List[UploadFile] = File(...)):
         files: 图片文件列表（multipart/form-data）。
 
     Returns:
-        JSON: 包含 session_id、dataset_path、category、total、max_allowed、samples。
+        JSONResponse: 包含 session_id、dataset_path、category、total、max_allowed、samples。
 
     Raises:
         HTTPException: 400 — 未上传文件、包含非图片文件、或没有有效图片。
@@ -209,6 +208,7 @@ async def upload_samples(files: List[UploadFile] = File(...)):
             contents = await file.read()
             nparr = np.frombuffer(contents, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            del nparr
             if img is None:
                 continue
             # 保持原始扩展名，若无则默认 .png
@@ -216,28 +216,36 @@ async def upload_samples(files: List[UploadFile] = File(...)):
             dest_path = upload_dir / f"{uuid.uuid4().hex}{suffix}"
             cv2.imwrite(str(dest_path), img)
             saved_paths.append(dest_path)
-        except Exception:
+        except (cv2.error, ValueError, OSError):
             continue
+        finally:
+            await file.close()
 
-    # 7. 如果没有有效图片，返回 400
+    # 6. 如果没有有效图片，返回 400
     if not saved_paths:
         raise HTTPException(status_code=400, detail="没有有效图片（读取或解码失败）")
 
-    # 8. 调用 format_uploaded_samples 整理为 MVTec AD 结构
+    # 7. 调用 format_uploaded_samples 整理为 MVTec AD 结构
     dataset_path = format_uploaded_samples(
         upload_dir=upload_dir,
         image_files=saved_paths,
         max_samples=max_allowed,
     )
 
-    # 9. 收集 train/good/ 下的文件名列表
+    # 8. 收集 train/good/ 下的文件名列表
     train_good_dir = dataset_path / "train" / "good"
     samples = sorted([p.name for p in train_good_dir.iterdir() if p.is_file()])
+
+    # 9. 返回相对路径（若 temp_dir 在 PROJECT_ROOT 外则回退到绝对路径）
+    try:
+        dataset_path_str = str(dataset_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+    except ValueError:
+        dataset_path_str = str(dataset_path).replace("\\", "/")
 
     return JSONResponse(
         content={
             "session_id": session_id,
-            "dataset_path": str(dataset_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+            "dataset_path": dataset_path_str,
             "category": session_id,
             "total": len(samples),
             "max_allowed": max_allowed,

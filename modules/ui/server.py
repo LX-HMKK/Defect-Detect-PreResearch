@@ -17,10 +17,11 @@ import io
 import json
 import queue
 import sys
+import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -228,7 +229,7 @@ async def train(request: TrainRequest):
 
     # 2. 创建指标队列
     metrics_queue = queue.Queue(maxsize=200)
-    result_container: Dict[str, any] = {}
+    result_container: Dict[str, Any] = {}
 
     # 3. 在独立线程中执行训练
     def _training_thread():

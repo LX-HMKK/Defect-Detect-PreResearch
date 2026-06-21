@@ -252,35 +252,6 @@ def _is_safe_category(name: str) -> bool:
     return bool(_CATEGORY_RE.match(name))
 
 
-def _resolve_upload_dataset_path(dataset_path: str) -> Path:
-    """
-    解析训练请求中的数据集路径，并校验其必须位于上传目录下。
-
-    Args:
-        dataset_path: 请求传入的路径（相对或绝对）。
-
-    Returns:
-        Path: 绝对路径。
-
-    Raises:
-        HTTPException: 路径越界或不存在时抛出 400。
-    """
-    path = Path(dataset_path)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
-    path = path.resolve()
-
-    upload_root = (resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads').resolve()
-    try:
-        path.relative_to(upload_root)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="数据集路径不在允许的上传目录内")
-
-    if not path.exists():
-        raise HTTPException(status_code=400, detail="数据集路径不存在")
-    return path
-
-
 # ============================================================================
 # 路由：训练状态查询
 # ============================================================================

@@ -222,6 +222,45 @@ async def api_test_images(dataset: str = Query(...)) -> dict:
     return {"images": sorted(images)}
 
 
+@app.get("/api/train-samples")
+async def api_train_samples(dataset: str = Query(...)) -> dict:
+    """
+    返回指定数据集训练目录（train/good/）下的图片相对路径列表。
+
+    Args:
+        dataset: 数据集名称（如 bottle、region1 等）。
+
+    Returns:
+        dict: {"samples": ["train/good/001.png", ...], "total": N}。
+
+    Raises:
+        HTTPException: 400 — 数据集名称包含非法字符、数据集不存在或缺少 train/good 时抛出。
+    """
+    if not _is_safe_category(dataset):
+        raise HTTPException(status_code=400, detail=f"非法数据集名称: {dataset}")
+
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    dataset_dir = data_root / dataset
+    if not dataset_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {dataset}")
+
+    train_good_dir = dataset_dir / "train" / "good"
+    if not train_good_dir.exists():
+        return {"samples": [], "total": 0}
+
+    allowed_suffixes = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
+    samples = []
+    for img_path in train_good_dir.iterdir():
+        if img_path.is_file() and img_path.suffix.lower() in allowed_suffixes:
+            try:
+                rel = img_path.relative_to(dataset_dir).as_posix()
+                samples.append(rel)
+            except ValueError:
+                continue
+
+    return {"samples": sorted(samples), "total": len(samples)}
+
+
 @app.get("/api/theme/light-css")
 async def get_light_css():
     """返回亮色模式 CSS 变量（用于前端动态加载）。"""

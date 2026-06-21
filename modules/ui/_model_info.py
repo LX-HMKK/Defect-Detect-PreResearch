@@ -6,7 +6,6 @@ anomalib 模型类，因此将该映射独立出来，使 API 测试可在无 GP
 环境下导入。
 """
 from pathlib import Path
-
 from typing import Any
 
 from modules._runtime import resolve_project_path

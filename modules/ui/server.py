@@ -256,13 +256,6 @@ def _is_safe_category(name: str) -> bool:
     return bool(_CATEGORY_RE.match(name))
 
 
-def _is_safe_category_legacy(category: str) -> bool:
-    """category 只允许字母、数字、下划线、连字符。"""
-    if not category:
-        return False
-    return all(c.isalnum() or c in ('_', '-') for c in category)
-
-
 def _resolve_upload_dataset_path(dataset_path: str) -> Path:
     """
     解析训练请求中的数据集路径，并校验其必须位于上传目录下。

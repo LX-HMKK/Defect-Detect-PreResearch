@@ -41,7 +41,7 @@ configure_runtime_temp()
 # third-party — cv2 必须在 anomalib 之前导入
 import cv2
 import numpy as np
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -250,6 +250,46 @@ _CATEGORY_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 def _is_safe_category(name: str) -> bool:
     """校验数据集/类别名称是否仅包含合法字符（字母、数字、下划线、连字符）。"""
     return bool(_CATEGORY_RE.match(name))
+
+
+def _safe_test_image_path(dataset: str, image: str) -> Path:
+    """校验 image 是否落在 dataset/test/ 下，返回绝对路径。"""
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    dataset_dir = data_root / dataset
+    if not dataset_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {dataset}")
+
+    test_dir = dataset_dir / "test"
+    requested = (dataset_dir / image).resolve()
+    test_resolved = test_dir.resolve()
+    try:
+        requested.relative_to(test_resolved)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="图片路径不在 test/ 目录内")
+
+    if not requested.is_file():
+        raise HTTPException(status_code=400, detail=f"图片不存在: {image}")
+    return requested
+
+
+def _safe_self_trained_path(model: str, path: str) -> Path:
+    """校验自训练模型路径是否合法且包含 checkpoint。"""
+    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
+    model_dirs = {"fre": "Fre", "patchcore": "Patchcore", "draem": "Draem", "padim": "Padim"}
+    subdir = model_dirs.get(model)
+    if not subdir:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+
+    expected_prefix = (results_dir / model / subdir / "user").resolve()
+    requested = Path(path).resolve()
+    try:
+        requested.relative_to(expected_prefix)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="自训练模型路径不合法")
+
+    if not requested.is_dir() or not list(requested.glob("*.ckpt")):
+        raise HTTPException(status_code=400, detail="自训练模型 checkpoint 不存在")
+    return requested
 
 
 # ============================================================================
@@ -568,7 +608,7 @@ def _parse_dataset(dataset: str) -> Tuple[str, str]:
     return 'default', dataset or 'bottle'
 
 
-def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
+def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Path = None) -> dict:
     """
     执行单模型推理的共享逻辑，供 /api/predict 和 /api/compare 复用。
 
@@ -576,6 +616,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
         img: RGB 格式的输入图片 (H, W, C)。
         model_key: 模型标识 (patchcore/padim/fre/draem)。
         dataset: 数据集名称。
+        model_dir: 自训练模型目录（含 .ckpt 文件），为 None 时使用预训练模型。
 
     Returns:
         dict: 包含 score/label/heatmap_b64/bboxes 等的结果数据。
@@ -589,7 +630,10 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
     from modules.ui.demo import detector
 
     # 加载模型
-    success, msg = detector.load_model(model_key, dataset)
+    if model_dir is not None:
+        success, msg = detector.load_self_trained_model(model_key, model_dir)
+    else:
+        success, msg = detector.load_model(model_key, dataset)
     if not success:
         raise ValueError(msg)
 
@@ -684,37 +728,48 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
 # ============================================================================
 
 @app.post("/api/predict")
-async def predict(request: Request):
+async def api_predict(
+    model: str = Form(...),
+    dataset: str = Form(...),
+    image: str = Form(...),
+    source: str = Form("pretrained"),
+    self_trained_path: str = Form(""),
+):
     """
     SSE 流式推理端点。
-    接收上传图片，通过 SSE 推送加载进度、推理进度和最终结果。
+    接收指定 test/ 图片，通过 SSE 推送加载进度、推理进度和最终结果。
+
+    Args:
+        model: 模型标识 (patchcore/padim/fre/draem)。
+        dataset: 数据集名称。
+        image: 测试图片相对路径（如 test/good/001.png）。
+        source: 模型来源，"pretrained" 使用预训练模型，"self_trained" 使用自训练模型。
+        self_trained_path: 自训练模型目录路径（source="self_trained" 时必填）。
     """
-    form = await request.form()
-    image_file = form.get("image")
-    model_key = form.get("model", "patchcore")
-    dataset = form.get("dataset", "bottle")
+    if model not in MODEL_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+    if source not in ("pretrained", "self_trained"):
+        raise HTTPException(status_code=400, detail="source 必须是 pretrained 或 self_trained")
 
-    if image_file is None:
-        async def error_gen():
-            yield {"event": "error", "data": json.dumps(
-                {"message": "未上传图片"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen())
+    image_path = _safe_test_image_path(dataset, image)
 
-    # 读取上传图片
-    contents = await image_file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if source == "self_trained":
+        model_dir = _safe_self_trained_path(model, self_trained_path)
+    else:
+        model_dir = None
+
+    # 读取图片
+    img = cv2.imread(str(image_path))
     if img is None:
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
-                {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
+                {"message": "无法读取图片，请确认文件格式正确"}, ensure_ascii=False)}
         return EventSourceResponse(error_gen())
-
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     async def event_generator():
         # ── 阶段 1: 加载模型 ──
-        model_name = MODEL_CONFIGS.get(model_key, MODEL_CONFIGS['patchcore']).name
+        model_name = MODEL_CONFIGS.get(model, MODEL_CONFIGS['patchcore']).name
         yield {
             "event": "progress",
             "data": json.dumps({
@@ -749,7 +804,7 @@ async def predict(request: Request):
             await asyncio.sleep(0.1)
 
             # 调用共享推理逻辑（线程池执行，避免阻塞事件循环导致 SSE 断流）
-            result_data = await asyncio.to_thread(_run_prediction, img, model_key, dataset)
+            result_data = await asyncio.to_thread(_run_prediction, img, model, dataset, model_dir)
 
             # ── 阶段 4: 后处理 ──
             yield {

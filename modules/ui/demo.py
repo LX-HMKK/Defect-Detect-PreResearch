@@ -206,26 +206,26 @@ class AnomalyDetector:
     def load_model(self, model_key: str, dataset: str = None) -> Tuple[bool, str]:
         """
         加载指定模型
-        
+
         Args:
             model_key: 模型标识 (fre/patchcore/draem)
             dataset: 数据集名称 (region1/bottle)
-        
+
         Returns:
             Tuple[bool, str]: (是否成功, 状态信息)
         """
         if dataset is None:
             dataset = "default/region1"
-        
+
         # 如果模型和数据都已加载，直接返回
         if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
             return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name} ({dataset})"
-        
+
         ui_config = MODEL_CONFIGS.get(model_key)
         config = ui_config
         if ui_config is None:
             return False, f"[FAIL] 未知模型: {model_key}"
-        
+
         # 查找权重文件 - 优先查找对应数据集的权重
         weight_path = self._resolve_weight_path(model_key, dataset)
 
@@ -278,30 +278,57 @@ class AnomalyDetector:
                 f"python modules/algorithm/trainer.py --model {model_key} --category <your_category> --data_path <data_path>\n"
                 f"```"
             )
-        
+
         try:
             # 创建模型实例（使用配置的自定义参数）
             from modules.algorithm import get_model_from_config
             model_config = get_model_config(model_key) or None
             self.model = get_model_from_config(model_key, model_config)
-            
+
             temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
             self.engine = Engine(
                 default_root_dir=str(temp_dir / "lightning_logs"),
                 logger=False,
                 enable_progress_bar=False,
             )
-            
+
             self.model.eval()
             self.current_model = model_key
             self.current_dataset = dataset
-            
+
             self.current_checkpoint = weight_path
             return True, f"[OK] 成功加载 {config.name} ({dataset})"
-        
+
         except Exception as e:
             return False, f"[FAIL] 模型加载失败: {str(e)}"
-    
+
+    def load_self_trained_model(self, model_key: str, model_dir: Path) -> Tuple[bool, str]:
+        """从自训练目录加载模型。"""
+        from modules.algorithm.trainer import AnomalyDetectionTrainer
+
+        config_path = resolve_project_path(f"configs/{model_key}.yaml")
+        trainer = AnomalyDetectionTrainer(
+            model_name=model_key,
+            category=None,
+            data_path=None,
+            config_path=str(config_path),
+            source="user",
+        )
+        trainer.setup()
+
+        ckpt_path = next(iter(model_dir.glob("*.ckpt")))
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
+
+        self.model = trainer.model
+        self.model_key = model_key
+        self.current_dataset = model_dir.parent.name  # category
+        self.current_model = model_key
+        self.engine = trainer.engine
+        self.datamodule = trainer.datamodule
+        self.current_checkpoint = ckpt_path
+        return True, f"[OK] 成功加载自训练模型 {model_key} ({model_dir})"
+
     def predict(self, image: np.ndarray) -> Tuple[np.ndarray, np.ndarray, str]:
         """
         执行异常检测

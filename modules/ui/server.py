@@ -284,6 +284,21 @@ class TrainRequest(BaseModel):
     advanced_params: Dict[str, Any] = {}  # 模型特定高级参数
 
 
+class PredictRequest(BaseModel):
+    """单模型推理请求体。"""
+    model: str
+    dataset: str
+    image: str
+    source: str = "pretrained"
+    self_trained_path: str = ""
+
+
+class CompareRequest(BaseModel):
+    """四模型对比请求体。"""
+    dataset: str
+    image: str
+
+
 _CATEGORY_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
 def _is_safe_category(name: str) -> bool:
@@ -767,24 +782,20 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Op
 # ============================================================================
 
 @app.post("/api/predict")
-async def api_predict(
-    model: str = Form(...),
-    dataset: str = Form(...),
-    image: str = Form(...),
-    source: str = Form("pretrained"),
-    self_trained_path: str = Form(""),
-):
+async def api_predict(request: PredictRequest):
     """
     SSE 流式推理端点。
     接收指定 test/ 图片，通过 SSE 推送加载进度、推理进度和最终结果。
 
     Args:
-        model: 模型标识 (patchcore/padim/fre/draem)。
-        dataset: 数据集名称。
-        image: 测试图片相对路径（如 test/good/001.png）。
-        source: 模型来源，"pretrained" 使用预训练模型，"self_trained" 使用自训练模型。
-        self_trained_path: 自训练模型目录路径（source="self_trained" 时必填）。
+        request: JSON 请求体，包含 model、dataset、image、source、self_trained_path。
     """
+    model = request.model
+    dataset = request.dataset
+    image = request.image
+    source = request.source
+    self_trained_path = request.self_trained_path
+
     if model not in MODEL_CONFIGS:
         raise HTTPException(status_code=400, detail=f"未知模型: {model}")
     if source not in ("pretrained", "self_trained"):
@@ -899,30 +910,23 @@ async def api_predict(
 # ============================================================================
 
 @app.post("/api/compare")
-async def compare(request: Request):
+async def compare(request: CompareRequest):
     """
     四模型对比 SSE 端点。
-    接收上传图片，依次对 4 种算法执行推理，
+    接收数据集与 test/ 图片相对路径，依次对 4 种算法执行推理，
     通过 SSE 推送每个模型的结果和最终排名摘要。
     """
-    form = await request.form()
-    image_file = form.get("image")
-    dataset = form.get("dataset", "bottle")
+    dataset = request.dataset
+    image = request.image
 
-    if image_file is None:
-        async def error_gen():
-            yield {"event": "error", "data": json.dumps(
-                {"message": "未上传图片"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen())
+    image_path = _safe_test_image_path(dataset, image)
 
-    # 读取上传图片（与 /api/predict 相同）
-    contents = await image_file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    # 读取测试图片
+    img = cv2.imread(str(image_path))
     if img is None:
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
-                {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
+                {"message": "无法读取图片，请确认文件路径正确"}, ensure_ascii=False)}
         return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

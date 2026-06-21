@@ -202,7 +202,7 @@ def test_predict_rejects_image_outside_test_folder(client):
     """请求 test/ 外的图片路径应返回 400。"""
     response = client.post(
         '/api/predict',
-        data={
+        json={
             'model': 'patchcore',
             'dataset': 'bottle',
             'image': '../train/good/000.png',

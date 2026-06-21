@@ -49,6 +49,10 @@ document.addEventListener('alpine:init', function () {
                     }
                 });
 
+                // 暴露全局引用，供子作用域（如 compare）访问
+                Alpine.store('app', self);
+                window.app = self;
+
                 // 获取模型列表
                 self.fetchModels();
 

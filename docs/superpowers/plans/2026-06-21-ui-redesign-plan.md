@@ -1,6 +1,8 @@
 # UI 重设计实现计划
 
-> **For agentic workers:** REQUIRED SUB-LEVEL SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **状态：已完成** — 已于 2026-06-21 合并至 `main`（合并提交 `e2ac124`），所有任务已验收。
+>
+> **For agentic workers:** REQUIRED SUB-LEVEL SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 将训练工作室改为选择 `/data` 下标准数据集并移除上传；在单模型推理页增加自训练模型分支；单模型推理图片只能从对应数据集 `test/` 中选择。
 
@@ -31,7 +33,7 @@
 - Modify: `modules/ui/_model_info.py`
 - Test: `tests/test_training_api.py`（后续 task 再写）
 
-- [ ] **Step 1: 在 `_model_info.py` 新增 `get_self_trained_models()`**
+- [x] **Step 1: 在 `_model_info.py` 新增 `get_self_trained_models()`**
 
 在文件末尾 `get_available_datasets()` 之后添加：
 
@@ -83,7 +85,7 @@ def get_self_trained_models(model_key: str) -> list:
     return sorted(models, key=lambda m: (m['category'], m['version']))
 ```
 
-- [ ] **Step 2: 在 `server.py` 导入新增函数**
+- [x] **Step 2: 在 `server.py` 导入新增函数**
 
 找到 `from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets`，改为：
 
@@ -91,7 +93,7 @@ def get_self_trained_models(model_key: str) -> list:
 from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets, get_self_trained_models
 ```
 
-- [ ] **Step 3: 新增 `POST /api/self-trained-models` 端点**
+- [x] **Step 3: 新增 `POST /api/self-trained-models` 端点**
 
 在 `/api/models` 端点之后添加：
 
@@ -103,7 +105,7 @@ async def api_self_trained_models(model: str = Query(...)):
     return {"models": get_self_trained_models(model)}
 ```
 
-- [ ] **Step 4: 新增 `POST /api/test-images` 端点**
+- [x] **Step 4: 新增 `POST /api/test-images` 端点**
 
 在 `/api/self-trained-models` 之后添加：
 
@@ -132,7 +134,7 @@ async def api_test_images(dataset: str = Query(...)):
     return {"images": sorted(images)}
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/ui/_model_info.py modules/ui/server.py
@@ -147,7 +149,7 @@ git commit -m "feat(ui,api): 新增自训练模型与测试图片列表端点"
 - Modify: `modules/ui/server.py`
 - Modify: `modules/ui/training_backend.py`
 
-- [ ] **Step 1: 修改 `TrainRequest` Pydantic 模型**
+- [x] **Step 1: 修改 `TrainRequest` Pydantic 模型**
 
 将 `modules/ui/server.py` 中的：
 
@@ -178,7 +180,7 @@ class TrainRequest(BaseModel):
     advanced_params: Dict[str, Any] = {}
 ```
 
-- [ ] **Step 2: 修改 `/api/train` 端点中的校验与路径构造**
+- [x] **Step 2: 修改 `/api/train` 端点中的校验与路径构造**
 
 原校验 `dataset_path` 的代码块：
 
@@ -203,7 +205,7 @@ if not train_good_dir.is_dir():
     raise HTTPException(status_code=400, detail=f"数据集格式错误，缺少 train/good: {request.dataset}")
 ```
 
-- [ ] **Step 3: 修改 `run_training_job()` 调用参数**
+- [x] **Step 3: 修改 `run_training_job()` 调用参数**
 
 在 `/api/train` 中找到 `run_training_job` 调用：
 
@@ -227,11 +229,11 @@ run_training_job(
 )
 ```
 
-- [ ] **Step 4: 修改 `training_backend.py` 中 `run_training_job()` 的签名调用**
+- [x] **Step 4: 修改 `training_backend.py` 中 `run_training_job()` 的签名调用**
 
 该函数签名保持不变，但调用者传入的 `category` 已经是数据集名。确认 `display_name` 的生成逻辑：当前函数内有 `display_name = display_name or f"{model_name}-custom-{batch:03d}"`，无需改动。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add modules/ui/server.py modules/ui/training_backend.py
@@ -245,7 +247,7 @@ git commit -m "feat(ui,training): 训练接口改为使用标准数据集路径"
 **Files:**
 - Modify: `modules/ui/server.py`
 
-- [ ] **Step 1: 新增路径安全校验辅助函数**
+- [x] **Step 1: 新增路径安全校验辅助函数**
 
 在 `server.py` 的 `UPLOAD_ROOT` 常量附近添加：
 
@@ -290,7 +292,7 @@ def _safe_self_trained_path(model: str, path: str) -> Path:
     return requested
 ```
 
-- [ ] **Step 2: 修改 `/api/predict` 端点接受表单新字段**
+- [x] **Step 2: 修改 `/api/predict` 端点接受表单新字段**
 
 原端点可能类似：
 
@@ -323,7 +325,7 @@ async def api_predict(
         model_dir = None
 ```
 
-- [ ] **Step 3: 将安全路径传给 `_run_prediction()`**
+- [x] **Step 3: 将安全路径传给 `_run_prediction()`**
 
 需要修改 `_run_prediction()` 签名以接受 `model_dir: Path | None`。
 
@@ -348,7 +350,7 @@ def load_self_trained_model(self, model_key: str, model_dir: Path):
 
 > 注：此处需要查看 `modules/algorithm/trainer.py` 中已有的 checkpoint 加载方式，可能已有 `load_model` 或类似方法。若不存在，需在 Task 3 中补充最小实现。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add modules/ui/server.py
@@ -362,7 +364,7 @@ git commit -m "feat(ui,inference): 推理接口支持自训练模型与 test/ �
 **Files:**
 - Modify: `tests/test_training_api.py`
 
-- [ ] **Step 1: 更新 `/api/train` 相关测试**
+- [x] **Step 1: 更新 `/api/train` 相关测试**
 
 将原来使用 `dataset_path` 的测试请求改为使用 `dataset`：
 
@@ -383,7 +385,7 @@ response = client.post("/api/train", json={
 })
 ```
 
-- [ ] **Step 2: 替换“dataset_path 越界”测试为“数据集不存在”测试**
+- [x] **Step 2: 替换“dataset_path 越界”测试为“数据集不存在”测试**
 
 原测试：
 
@@ -416,7 +418,7 @@ def test_train_rejects_missing_dataset(client):
     assert response.status_code == 400
 ```
 
-- [ ] **Step 3: 新增 `/api/test-images` 测试**
+- [x] **Step 3: 新增 `/api/test-images` 测试**
 
 ```python
 def test_test_images_returns_test_folder_images(client):
@@ -433,7 +435,7 @@ def test_test_images_rejects_missing_dataset(client):
     assert response.status_code == 400
 ```
 
-- [ ] **Step 4: 新增 `/api/self-trained-models` 测试**
+- [x] **Step 4: 新增 `/api/self-trained-models` 测试**
 
 ```python
 def test_self_trained_models_rejects_invalid_model(client):
@@ -448,7 +450,7 @@ def test_self_trained_models_returns_list(client):
     assert "models" in data
 ```
 
-- [ ] **Step 5: 运行测试**
+- [x] **Step 5: 运行测试**
 
 ```bash
 python -m pytest tests/test_training_api.py -v
@@ -456,7 +458,7 @@ python -m pytest tests/test_training_api.py -v
 
 Expected: 全部通过。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/test_training_api.py
@@ -471,7 +473,7 @@ git commit -m "test(ui,api): 更新训练与推理接口测试"
 - Modify: `modules/ui/static/js/training.js`
 - Modify: `modules/ui/static/index.html`（第二步配合）
 
-- [ ] **Step 1: 修改 `training` 状态**
+- [x] **Step 1: 修改 `training` 状态**
 
 移除与上传相关的状态：`samples`、`isDragOver`、`sessionId`、`displayName`、`datasetPath`、`category`。
 
@@ -483,7 +485,7 @@ trainSamples: [],
 trainSampleCount: 0,
 ```
 
-- [ ] **Step 2: 新增加载训练样本预览方法**
+- [x] **Step 2: 新增加载训练样本预览方法**
 
 在 `training` 组件中添加：
 
@@ -510,7 +512,7 @@ loadTrainSamples: function () {
 
 > 注：同步在后端新增 `/api/train-samples` 端点（可在 Task 1 中一并添加），或复用已有逻辑。为减少接口，也可在 `/api/models` 扩展或让前端直接构造图片 URL（但不推荐，因需知道具体文件名）。最简方案：在 Task 1 已新增 `/api/test-images` 后，再新增 `GET /api/train-samples?dataset=bottle` 返回 `train/good/` 下图片列表。
 
-- [ ] **Step 3: 改造 `init()` 与数据集监听**
+- [x] **Step 3: 改造 `init()` 与数据集监听**
 
 ```javascript
 init: function () {
@@ -538,11 +540,11 @@ init: function () {
 },
 ```
 
-- [ ] **Step 4: 移除上传相关函数**
+- [x] **Step 4: 移除上传相关函数**
 
 删除 `onSelectSamples`、`onDropSamples`、`_scanDroppedItems`、`_readEntry`、`_uploadFiles`、`toggleExclude`。
 
-- [ ] **Step 5: 改造 `startTraining()`**
+- [x] **Step 5: 改造 `startTraining()`**
 
 ```javascript
 startTraining: function () {
@@ -567,7 +569,7 @@ startTraining: function () {
 },
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add modules/ui/static/js/training.js
@@ -581,7 +583,7 @@ git commit -m "feat(ui,training): 训练工作室移除上传并绑定数据集"
 **Files:**
 - Modify: `modules/ui/server.py`
 
-- [ ] **Step 1: 在 `/api/test-images` 旁边新增 `/api/train-samples`**
+- [x] **Step 1: 在 `/api/test-images` 旁边新增 `/api/train-samples`**
 
 ```python
 @app.get("/api/train-samples")
@@ -605,7 +607,7 @@ async def api_train_samples(dataset: str = Query(...)):
     return {"samples": sorted(samples), "total": len(samples)}
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add modules/ui/server.py
@@ -619,7 +621,7 @@ git commit -m "feat(ui,api): 新增训练样本预览端点"
 **Files:**
 - Modify: `modules/ui/static/js/app.js`
 
-- [ ] **Step 1: 新增推理相关状态**
+- [x] **Step 1: 新增推理相关状态**
 
 在 `app` 的 `return` 对象中新增：
 
@@ -635,7 +637,7 @@ selectedTestImage: '',
 testImagePreviewUrl: '',
 ```
 
-- [ ] **Step 2: 新增加载测试图片方法**
+- [x] **Step 2: 新增加载测试图片方法**
 
 ```javascript
 loadTestImages: function () {
@@ -673,7 +675,7 @@ updateTestImagePreview: function () {
 },
 ```
 
-- [ ] **Step 3: 新增加载自训练模型方法**
+- [x] **Step 3: 新增加载自训练模型方法**
 
 ```javascript
 loadSelfTrainedModels: function () {
@@ -701,11 +703,11 @@ syncDatasetFromSelfTrained: function () {
 },
 ```
 
-- [ ] **Step 4: 修改 `fetchModels()` 以加载自训练模型**
+- [x] **Step 4: 修改 `fetchModels()` 以加载自训练模型**
 
 在 `fetchModels()` 成功回调末尾调用 `self.loadSelfTrainedModels()`。
 
-- [ ] **Step 5: 修改 `startInference()`**
+- [x] **Step 5: 修改 `startInference()`**
 
 将原来读取 `uploadedFile` 的逻辑改为使用 `selectedTestImage`，并构造新的 payload：
 
@@ -739,11 +741,11 @@ startInference: function () {
 
 > 注：`InferenceRunner.run()` 当前可能接受 `FormData`。因为图片路径已在服务端解析，payload 可改为 JSON；需要同步修改 `InferenceRunner` 以支持 JSON POST（当前 `inference.js` 中可能是 `FormData` + `multipart/form-data`）。
 
-- [ ] **Step 6: 移除上传相关状态与方法**
+- [x] **Step 6: 移除上传相关状态与方法**
 
 删除 `uploadedFile`、`uploadPreviewUrl`、`onFileSelected`、`onDrop`、`resetInference` 中 revoke upload URL 的逻辑。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add modules/ui/static/js/app.js
@@ -757,7 +759,7 @@ git commit -m "feat(ui,inference): 扩展全局推理状态支持自训练模型
 **Files:**
 - Modify: `modules/ui/static/js/inference.js`
 
-- [ ] **Step 1: 修改 `InferenceRunner.run()` 支持对象 payload**
+- [x] **Step 1: 修改 `InferenceRunner.run()` 支持对象 payload**
 
 将 `run(url, file, model, dataset, handlers)` 签名改为 `run(url, payload, handlers)`。内部根据 `payload` 类型决定使用 `FormData` 还是 `JSON`：
 
@@ -785,7 +787,7 @@ run: function (url, payload, handlers) {
 },
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add modules/ui/static/js/inference.js
@@ -799,7 +801,7 @@ git commit -m "feat(ui,inference): InferenceRunner 支持 JSON payload"
 **Files:**
 - Modify: `modules/ui/static/index.html`
 
-- [ ] **Step 1: 替换第二页左侧上传区为数据集选择与样本预览**
+- [x] **Step 1: 替换第二页左侧上传区为数据集选择与样本预览**
 
 找到第二页 `section#s1-training` 中的上传区域（通常包含 `x-on:dragover`、`x-on:drop`、`input type="file"` 的元素），替换为：
 
@@ -835,11 +837,11 @@ git commit -m "feat(ui,inference): InferenceRunner 支持 JSON payload"
 </div>
 ```
 
-- [ ] **Step 2: 调整第二页右侧参数区**
+- [x] **Step 2: 调整第二页右侧参数区**
 
 保持现有参数表单，但确保在视觉上填充左侧释放的空间。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add modules/ui/static/index.html
@@ -853,7 +855,7 @@ git commit -m "feat(ui,training): 重排训练工作室 HTML 布局"
 **Files:**
 - Modify: `modules/ui/static/index.html`
 
-- [ ] **Step 1: 替换第三页上传区为图片来源分支 + 图片选择**
+- [x] **Step 1: 替换第三页上传区为图片来源分支 + 图片选择**
 
 找到第三页 `section#s1` 中的上传区域，替换为：
 
@@ -913,11 +915,11 @@ git commit -m "feat(ui,training): 重排训练工作室 HTML 布局"
 </div>
 ```
 
-- [ ] **Step 2: 移除旧的文件上传 input 与拖拽区域**
+- [x] **Step 2: 移除旧的文件上传 input 与拖拽区域**
 
 删除原 `input type="file"`、拖拽提示、上传预览 img 等元素。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add modules/ui/static/index.html
@@ -931,7 +933,7 @@ git commit -m "feat(ui,inference): 重排单模型推理页 HTML 布局"
 **Files:**
 - Modify: `modules/ui/static/css/app.css`
 
-- [ ] **Step 1: 添加训练工作室数据集面板样式**
+- [x] **Step 1: 添加训练工作室数据集面板样式**
 
 ```css
 .training-dataset-panel {
@@ -975,7 +977,7 @@ git commit -m "feat(ui,inference): 重排单模型推理页 HTML 布局"
 }
 ```
 
-- [ ] **Step 2: 添加推理来源 tab 与图片选择样式**
+- [x] **Step 2: 添加推理来源 tab 与图片选择样式**
 
 ```css
 .inference-source-tabs {
@@ -1023,7 +1025,7 @@ git commit -m "feat(ui,inference): 重排单模型推理页 HTML 布局"
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add modules/ui/static/css/app.css
@@ -1037,7 +1039,7 @@ git commit -m "style(ui): 训练与推理新布局样式"
 **Files:**
 - Modify: `modules/ui/static/index.html`
 
-- [ ] **Step 1: 修改导航栏数据集下拉**
+- [x] **Step 1: 修改导航栏数据集下拉**
 
 将导航栏数据集 `<select>` 的选项改为只显示 `source === 'default'` 的数据集：
 
@@ -1049,7 +1051,7 @@ git commit -m "style(ui): 训练与推理新布局样式"
 </select>
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add modules/ui/static/index.html
@@ -1060,13 +1062,13 @@ git commit -m "feat(ui,nav): 导航栏数据集下拉仅显示标准数据集"
 
 ## Task 13: 集成测试与最终验证
 
-- [ ] **Step 1: 启动 UI 开发服务器**
+- [x] **Step 1: 启动 UI 开发服务器**
 
 ```bash
 python scripts/run_ui.py --no-browser
 ```
 
-- [ ] **Step 2: 手动验证第二页**
+- [x] **Step 2: 手动验证第二页**
 
 1. 打开 http://127.0.0.1:8000
 2. 切换到第二页（训练工作室）
@@ -1074,14 +1076,14 @@ python scripts/run_ui.py --no-browser
 4. 切换数据集，确认预览同步更新
 5. 调整参数后点击训练，确认 SSE 正常推送
 
-- [ ] **Step 3: 手动验证第三页**
+- [x] **Step 3: 手动验证第三页**
 
 1. 切换到第三页（单模型推理）
 2. 分支 A：选择标准数据集，从 `test/` 下拉选图，确认缩略图预览，点击推理
 3. 分支 B：切换到“自训练模型”，选择已训练模型，确认数据集自动同步，从 `test/` 选图推理
 4. 尝试在浏览器控制台修改 `selectedTestImage` 为 `../train/good/xxx.png`，确认后端返回 400
 
-- [ ] **Step 4: 运行全量测试**
+- [x] **Step 4: 运行全量测试**
 
 ```bash
 python -m pytest tests/ -v
@@ -1089,7 +1091,7 @@ python -m pytest tests/ -v
 
 Expected: 全部通过。
 
-- [ ] **Step 5: 最终 Commit**
+- [x] **Step 5: 最终 Commit**
 
 ```bash
 git add .

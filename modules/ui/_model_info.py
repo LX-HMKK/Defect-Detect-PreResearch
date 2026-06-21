@@ -114,3 +114,50 @@ def get_available_datasets():
     datasets = list(unique.values())
 
     return sorted(datasets, key=lambda d: (d['source'] != 'default', d['label']))
+
+
+def get_self_trained_models(model_key: str) -> list:
+    """扫描指定算法下所有用户自训练模型。
+
+    路径结构: results/{model_key}/{ModelName}/user/{category}/vX
+    返回对象包含 path、category、version、display_name。
+    """
+    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
+    model_dirs = {
+        "fre": "Fre",
+        "patchcore": "Patchcore",
+        "draem": "Draem",
+        "padim": "Padim",
+    }
+    subdir = model_dirs.get(model_key)
+    if not subdir:
+        return []
+
+    user_root = results_dir / model_key / subdir / "user"
+    if not user_root.exists():
+        return []
+
+    models = []
+    for cat_dir in user_root.iterdir():
+        if not cat_dir.is_dir() or cat_dir.name == '__pycache__':
+            continue
+        for version_dir in sorted(cat_dir.iterdir()):
+            if not version_dir.is_dir() or not version_dir.name.startswith('v'):
+                continue
+            try:
+                version = int(version_dir.name[1:])
+            except ValueError:
+                continue
+            # 要求目录下存在有效的 lightning checkpoint
+            ckpts = list(version_dir.glob('*.ckpt'))
+            if not ckpts:
+                continue
+            display_name = _resolve_display_name(model_key, cat_dir.name, 'user', results_dir)
+            models.append({
+                'path': str(version_dir),
+                'category': cat_dir.name,
+                'version': version,
+                'display_name': display_name,
+            })
+
+    return sorted(models, key=lambda m: (m['category'], m['version']))

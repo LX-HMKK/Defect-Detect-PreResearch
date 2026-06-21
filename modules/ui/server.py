@@ -236,8 +236,7 @@ async def get_light_css():
 class TrainRequest(BaseModel):
     """训练请求体。"""
     model: str
-    dataset_path: str
-    category: str
+    dataset: str
     epochs: int = 100
     batch_size: int = 32
     learning_rate: float = 0.0001
@@ -313,13 +312,14 @@ async def train_stop():
 async def train(request: TrainRequest):
     """
     SSE 流式训练端点。
-    接收训练参数，通过 SSE 推送状态、指标、日志和结果。
+    接收训练参数（model, dataset, epochs, batch_size, learning_rate, seed, excluded_samples, advanced_params），
+    通过 SSE 推送状态、指标、日志和结果。
     """
     # 1. 参数校验
     if request.model not in MODEL_CONFIGS:
         raise HTTPException(status_code=400, detail=f"不支持的模型: {request.model}")
-    if not _is_safe_category(request.category):
-        raise HTTPException(status_code=400, detail="category 只能包含字母、数字、下划线和连字符")
+    if not _is_safe_category(request.dataset):
+        raise HTTPException(status_code=400, detail="dataset 只能包含字母、数字、下划线和连字符")
     if request.epochs < 1 or request.epochs > 1000:
         raise HTTPException(status_code=400, detail="epochs 必须在 1-1000 之间")
     if request.batch_size < 1 or request.batch_size > 128:
@@ -327,25 +327,18 @@ async def train(request: TrainRequest):
     if request.learning_rate <= 0 or request.learning_rate >= 1.0:
         raise HTTPException(status_code=400, detail="learning_rate 必须在 (0, 1) 之间")
 
-    # 2. 解析并校验数据集路径
-    dataset_path = _resolve_upload_dataset_path(request.dataset_path)
-
-    # 2.1 读取上传时生成的计数器，并按 {模型名}-custom-{批次} 格式生成最终显示名称
-    upload_dir = dataset_path.parents[1]
-    display_name = request.category
-    counter_file = upload_dir / ".counter"
-    if counter_file.exists():
-        try:
-            counter = int(counter_file.read_text(encoding="utf-8").strip() or "1")
-            display_name = f"{request.model}-custom-{counter:03d}"
-        except ValueError:
-            pass
-    display_name_file = upload_dir / ".display_name"
-    display_name_file.write_text(display_name, encoding="utf-8")
+    # 2. 解析并校验数据集路径（使用标准数据集目录）
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    train_dataset_path = data_root / request.dataset
+    if not train_dataset_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {request.dataset}")
+    train_good_dir = train_dataset_path / "train" / "good"
+    if not train_good_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集格式错误，缺少 train/good: {request.dataset}")
 
     # 3. 尝试获取全局训练锁
     started = training_manager.try_start(
-        request.model, request.category, request.epochs
+        request.model, request.dataset, request.epochs
     )
     if not started:
         raise HTTPException(status_code=409, detail="已有训练任务正在运行")
@@ -361,15 +354,14 @@ async def train(request: TrainRequest):
                 from modules.ui.training_backend import run_training_job
                 result = run_training_job(
                     model_name=request.model,
-                    dataset_path=dataset_path,
-                    category=request.category,
+                    dataset_path=train_dataset_path,
+                    category=request.dataset,
                     epochs=request.epochs,
                     batch_size=request.batch_size,
                     learning_rate=request.learning_rate,
                     seed=request.seed,
                     excluded_samples=request.excluded_samples,
                     advanced_params=request.advanced_params,
-                    display_name=display_name,
                     metrics_queue=metrics_queue,
                 )
                 result_container["result"] = result

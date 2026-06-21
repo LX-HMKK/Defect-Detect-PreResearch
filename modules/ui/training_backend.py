@@ -291,6 +291,22 @@ def run_training_job(
 
         results = trainer.evaluate()
 
+        # 将 checkpoint 转换为仅含 state_dict 的安全格式，避免推理时使用 weights_only=False
+        try:
+            import torch
+            from modules.algorithm.trainer import find_latest_checkpoint
+
+            ckpt_path = find_latest_checkpoint(output_dir, model_name, data_category, source='user')
+            if ckpt_path and ckpt_path.exists() and trainer.model is not None:
+                safe_ckpt = {'state_dict': trainer.model.state_dict()}
+                tmp_path = ckpt_path.with_suffix('.ckpt.tmp')
+                torch.save(safe_ckpt, tmp_path)
+                tmp_path.replace(ckpt_path)
+        except Exception:
+            # 转换失败不影响训练结果，仅记录异常；后续推理可能回退到旧格式
+            import traceback
+            traceback.print_exc()
+
         # 将人性化显示名称回写结果 JSON，供 UI 下拉菜单读取
         if display_name:
             try:

@@ -152,36 +152,48 @@ def find_latest_checkpoint(
     if not model_root.exists():
         return None
 
-    if category:
-        if source:
-            # 精确到 default/user 子目录
-            patterns: List[str] = [
-                f"**/{source}/{category}/**/weights/lightning/model.ckpt",
-                f"**/{source}/{category}/**/model.ckpt",
-                f"**/{source}/{category}/**/*.ckpt",
-            ]
-        else:
-            # 兼容旧结构：未指定 source 时全目录搜索（包含历史 MVTec/ 路径）
-            patterns = [
-                f"**/{category}/**/weights/lightning/model.ckpt",
-                f"**/{category}/**/model.ckpt",
-                f"**/{category}/**/*.ckpt",
-                f"**/MVTec/{category}/**/weights/lightning/model.ckpt",
-                f"**/MVTec/{category}/**/model.ckpt",
-                f"**/MVTec/{category}/**/*.ckpt",
-            ]
-    else:
-        patterns = [
-            "**/weights/lightning/model.ckpt",
-            "**/model.ckpt",
-            "**/*.ckpt",
-        ]
+    # 模型结果子目录命名（与 UI 扫描逻辑保持一致）
+    subdirs = {
+        'fre': 'Fre',
+        'patchcore': 'Patchcore',
+        'draem': 'Draem',
+        'padim': 'Padim',
+    }
+    model_subdir = subdirs.get(model_name)
+    if not model_subdir:
+        return None
 
     candidates: List[Path] = []
-    for pattern in patterns:
-        for path in model_root.glob(pattern):
-            if path.is_file():
-                candidates.append(path)
+
+    def _collect(base: Path) -> None:
+        """收集 base 下所有 v*/weights/lightning/model.ckpt，不跟随符号链接。"""
+        if not base.exists():
+            return
+        for version_dir in base.iterdir():
+            # 忽略损坏的符号链接与非目录项
+            try:
+                if not version_dir.is_dir() or not version_dir.name.startswith('v'):
+                    continue
+            except OSError:
+                continue
+            ckpt = version_dir / 'weights' / 'lightning' / 'model.ckpt'
+            if ckpt.is_file():
+                candidates.append(ckpt)
+
+    # 构造搜索根目录，避免使用递归 glob 导致遇到损坏符号链接时崩溃
+    if category:
+        if source:
+            _collect(model_root / model_subdir / source / category)
+            # 兼容历史 MVTec/ 结构
+            _collect(model_root / model_subdir / 'MVTec' / source / category)
+        else:
+            for src in ('default', 'user'):
+                _collect(model_root / model_subdir / src / category)
+            _collect(model_root / model_subdir / 'MVTec' / category)
+    else:
+        for src in ('default', 'user'):
+            _collect(model_root / model_subdir / src)
+        _collect(model_root / model_subdir / 'MVTec')
 
     if not candidates:
         return None

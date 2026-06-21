@@ -674,7 +674,7 @@ def _parse_dataset(dataset: str) -> Tuple[str, str]:
     return 'default', dataset or 'bottle'
 
 
-def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Optional[Path] = None) -> dict:
+def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Optional[Path] = None, source: str = 'pretrained') -> dict:
     """
     执行单模型推理的共享逻辑，供 /api/predict 和 /api/compare 复用。
 
@@ -699,7 +699,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Op
     if model_dir is not None:
         success, msg = detector.load_self_trained_model(model_key, model_dir, dataset)
     else:
-        success, msg = detector.load_model(model_key, dataset)
+        success, msg = detector.load_model(model_key, dataset, source=source)
     if not success:
         raise ValueError(msg)
 
@@ -719,10 +719,13 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Op
         )
 
         # 执行推理
+        # 自训练模型已在 load_self_trained_model 中手动加载 state_dict，
+        # 因此不再传入 ckpt_path，避免 Lightning 重新加载仅含 state_dict 的安全 checkpoint。
+        ckpt_path = str(detector.current_checkpoint) if model_dir is None else None
         predictions = detector.engine.predict(
             model=detector.model,
             dataset=dataset_obj,
-            ckpt_path=str(detector.current_checkpoint),
+            ckpt_path=ckpt_path,
         )
 
         if not isinstance(predictions, list):
@@ -868,7 +871,7 @@ async def api_predict(request: PredictRequest):
             await asyncio.sleep(0.1)
 
             # 调用共享推理逻辑（线程池执行，避免阻塞事件循环导致 SSE 断流）
-            result_data = await asyncio.to_thread(_run_prediction, img, model, dataset, model_dir)
+            result_data = await asyncio.to_thread(_run_prediction, img, model, dataset, model_dir, source)
 
             # ── 阶段 4: 后处理 ──
             yield {

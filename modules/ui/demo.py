@@ -171,6 +171,7 @@ class AnomalyDetector:
     def __init__(self):
         self.current_model: Optional[str] = None
         self.current_dataset: Optional[str] = None
+        self.current_source: Optional[str] = None
         self.current_checkpoint: Optional[Path] = None
         self.model = None
         self.engine = None
@@ -205,13 +206,14 @@ class AnomalyDetector:
 
         return None
 
-    def load_model(self, model_key: str, dataset: str = None) -> Tuple[bool, str]:
+    def load_model(self, model_key: str, dataset: str = None, source: str = 'pretrained') -> Tuple[bool, str]:
         """
         加载指定模型
 
         Args:
             model_key: 模型标识 (fre/patchcore/draem)
             dataset: 数据集名称 (region1/bottle)
+            source: 模型来源 (pretrained/self_trained)，用于区分缓存
 
         Returns:
             Tuple[bool, str]: (是否成功, 状态信息)
@@ -219,8 +221,11 @@ class AnomalyDetector:
         if dataset is None:
             dataset = "default/region1"
 
-        # 如果模型和数据都已加载，直接返回
-        if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
+        # 如果模型、来源和数据都已加载，直接返回
+        if (model_key == self.current_model
+                and self.current_dataset == dataset
+                and self.current_source == source
+                and self.model is not None):
             return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name} ({dataset})"
 
         ui_config = MODEL_CONFIGS.get(model_key)
@@ -297,6 +302,7 @@ class AnomalyDetector:
             self.model.eval()
             self.current_model = model_key
             self.current_dataset = dataset
+            self.current_source = source
 
             self.current_checkpoint = weight_path
             return True, f"[OK] 成功加载 {config.name} ({dataset})"
@@ -333,16 +339,13 @@ class AnomalyDetector:
         if not ckpt_files:
             return False, "自训练模型目录缺少 checkpoint 文件"
         ckpt_path = ckpt_files[0]
-        try:
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-        except Exception:
-            # 部分 anomalib checkpoint 包含非张量对象，回退到完整反序列化（本地可信文件）
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
         trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
 
         self.model = trainer.model
         self.model_key = model_key
         self.current_dataset = category
+        self.current_source = 'self_trained'
         self.current_model = model_key
         self.engine = engine
         self.datamodule = trainer.datamodule

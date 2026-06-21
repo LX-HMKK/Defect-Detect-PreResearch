@@ -16,16 +16,15 @@ const InferenceRunner = {
 
     /**
      * 发起 SSE 推理请求
-     * @param {File} imageFile - 上传的图片文件
-     * @param {string} model - 模型 key (patchcore/padim/fre/draem)
-     * @param {string} dataset - 数据集名称
+     * @param {string} url - API 端点路径（如 /api/predict）
+     * @param {Object} payload - JSON 请求体，包含 model / dataset / image 等字段
      * @param {Object} callbacks
      * @param {Function} callbacks.onProgress - 进度回调 ({stage, message, pct})
      * @param {Function} callbacks.onResult - 结果回调 (resultData)
      * @param {Function} callbacks.onError - 错误回调 (message)
      * @param {Function} callbacks.onDone - 完成回调
      */
-    async run(imageFile, model, dataset, callbacks) {
+    async run(url, payload, callbacks) {
         const { onProgress, onResult, onError, onDone } = callbacks;
 
         // 取消已有请求
@@ -34,20 +33,17 @@ const InferenceRunner = {
         }
         this.abortController = new AbortController();
 
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        formData.append('model', model);
-        formData.append('dataset', dataset);
-
         try {
-            const response = await fetch('/api/predict', {
+            const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
                 signal: this.abortController.signal,
             });
 
             if (!response.ok) {
-                onError(`HTTP ${response.status}: ${response.statusText}`);
+                const text = await response.text().catch(function () { return ''; });
+                onError(`HTTP ${response.status}: ${text || response.statusText}`);
                 return;
             }
 

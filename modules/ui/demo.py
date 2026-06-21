@@ -171,9 +171,12 @@ class AnomalyDetector:
     def __init__(self):
         self.current_model: Optional[str] = None
         self.current_dataset: Optional[str] = None
+        self.current_source: Optional[str] = None
         self.current_checkpoint: Optional[Path] = None
         self.model = None
         self.engine = None
+        self.model_key = None
+        self.datamodule = None
 
     def _parse_dataset(self, dataset: str) -> Tuple[str, str]:
         """解析数据集标识，支持 'default/bottle' 或 'user/session_id' 格式。"""
@@ -203,29 +206,33 @@ class AnomalyDetector:
 
         return None
 
-    def load_model(self, model_key: str, dataset: str = None) -> Tuple[bool, str]:
+    def load_model(self, model_key: str, dataset: str = None, source: str = 'pretrained') -> Tuple[bool, str]:
         """
         加载指定模型
-        
+
         Args:
             model_key: 模型标识 (fre/patchcore/draem)
             dataset: 数据集名称 (region1/bottle)
-        
+            source: 模型来源 (pretrained/self_trained)，用于区分缓存
+
         Returns:
             Tuple[bool, str]: (是否成功, 状态信息)
         """
         if dataset is None:
             dataset = "default/region1"
-        
-        # 如果模型和数据都已加载，直接返回
-        if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
+
+        # 如果模型、来源和数据都已加载，直接返回
+        if (model_key == self.current_model
+                and self.current_dataset == dataset
+                and self.current_source == source
+                and self.model is not None):
             return True, f"[OK] 模型已加载: {MODEL_CONFIGS[model_key].name} ({dataset})"
-        
+
         ui_config = MODEL_CONFIGS.get(model_key)
         config = ui_config
         if ui_config is None:
             return False, f"[FAIL] 未知模型: {model_key}"
-        
+
         # 查找权重文件 - 优先查找对应数据集的权重
         weight_path = self._resolve_weight_path(model_key, dataset)
 
@@ -278,30 +285,73 @@ class AnomalyDetector:
                 f"python modules/algorithm/trainer.py --model {model_key} --category <your_category> --data_path <data_path>\n"
                 f"```"
             )
-        
+
         try:
             # 创建模型实例（使用配置的自定义参数）
             from modules.algorithm import get_model_from_config
             model_config = get_model_config(model_key) or None
             self.model = get_model_from_config(model_key, model_config)
-            
+
             temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
             self.engine = Engine(
                 default_root_dir=str(temp_dir / "lightning_logs"),
                 logger=False,
                 enable_progress_bar=False,
             )
-            
+
             self.model.eval()
             self.current_model = model_key
             self.current_dataset = dataset
-            
+            self.current_source = source
+
             self.current_checkpoint = weight_path
             return True, f"[OK] 成功加载 {config.name} ({dataset})"
-        
+
         except Exception as e:
             return False, f"[FAIL] 模型加载失败: {str(e)}"
-    
+
+    def load_self_trained_model(self, model_key: str, model_dir: Path, category: str) -> Tuple[bool, str]:
+        """从自训练目录加载模型。"""
+        from modules.algorithm.trainer import AnomalyDetectionTrainer
+
+        data_root = resolve_project_path(get('paths.data_root', './data'))
+        config_path = resolve_project_path(f"configs/{model_key}.yaml")
+        trainer = AnomalyDetectionTrainer(
+            model_name=model_key,
+            category=category,
+            data_path=str(data_root),
+            config_path=str(config_path),
+            source="user",
+        )
+        trainer.setup()
+
+        # 创建推理引擎（setup 不创建 Engine）
+        temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
+        engine = Engine(
+            default_root_dir=str(temp_dir / "lightning_logs"),
+            logger=False,
+            enable_progress_bar=False,
+        )
+
+        # checkpoint 保存在 weights/lightning/ 下
+        ckpt_dir = Path(model_dir) / 'weights' / 'lightning'
+        ckpt_files = sorted(ckpt_dir.glob("*.ckpt")) if ckpt_dir.exists() else sorted(Path(model_dir).glob("*.ckpt"))
+        if not ckpt_files:
+            return False, "自训练模型目录缺少 checkpoint 文件"
+        ckpt_path = ckpt_files[0]
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
+
+        self.model = trainer.model
+        self.model_key = model_key
+        self.current_dataset = category
+        self.current_source = 'self_trained'
+        self.current_model = model_key
+        self.engine = engine
+        self.datamodule = trainer.datamodule
+        self.current_checkpoint = ckpt_path
+        return True, f"[OK] 成功加载自训练模型 {model_key} ({model_dir})"
+
     def predict(self, image: np.ndarray) -> Tuple[np.ndarray, np.ndarray, str]:
         """
         执行异常检测

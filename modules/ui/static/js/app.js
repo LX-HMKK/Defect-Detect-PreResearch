@@ -49,8 +49,22 @@ document.addEventListener('alpine:init', function () {
                     }
                 });
 
+                // 暴露全局引用，供子作用域（如 compare）访问
+                Alpine.store('app', self);
+                window.app = self;
+
                 // 获取模型列表
                 self.fetchModels();
+
+                // 切换模型时刷新自训练模型列表
+                self.$watch('selectedModel', function () {
+                    self.loadSelfTrainedModels();
+                });
+
+                // 切换推理来源时刷新测试图片
+                self.$watch('inferenceSource', function () {
+                    self.loadTestImages();
+                });
 
                 // 设置滚动监听（用于导航点更新）
                 self.setupScrollObserver();
@@ -327,64 +341,108 @@ document.addEventListener('alpine:init', function () {
                         var defaultFirst = this.datasets.find(function (d) { return d.source === 'default'; });
                         this.selectedDataset = defaultFirst ? defaultFirst.value : this.datasets[0].value;
                     }
+                    this.loadSelfTrainedModels();
+                    this.loadTestImages();
                 } catch (e) {
                     console.warn('[app] 获取模型列表失败:', e);
                 }
             },
 
+            loadTestImages: function () {
+                var self = this;
+                var dataset = self.inferenceSource === 'pretrained'
+                    ? self.selectedDataset
+                    : (self.selectedSelfTrainedModel ? self.selectedSelfTrainedModel.category : '');
+
+                if (!dataset) {
+                    self.testImages = [];
+                    self.selectedTestImage = '';
+                    self.testImagePreviewUrl = '';
+                    return;
+                }
+
+                fetch('/api/test-images?dataset=' + encodeURIComponent(dataset))
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        self.testImages = data.images || [];
+                        self.selectedTestImage = self.testImages[0] || '';
+                        self.updateTestImagePreview();
+                    })
+                    .catch(function (e) {
+                        console.warn('[app] 加载测试图片失败:', e);
+                        self.testImages = [];
+                        self.selectedTestImage = '';
+                        self.testImagePreviewUrl = '';
+                    });
+            },
+
+            updateTestImagePreview: function () {
+                var self = this;
+                if (!self.selectedTestImage) {
+                    self.testImagePreviewUrl = '';
+                    return;
+                }
+                var dataset = self.inferenceSource === 'pretrained'
+                    ? self.selectedDataset
+                    : (self.selectedSelfTrainedModel ? self.selectedSelfTrainedModel.category : '');
+                if (!dataset) {
+                    self.testImagePreviewUrl = '';
+                    return;
+                }
+                self.testImagePreviewUrl = '/data/' + dataset + '/' + self.selectedTestImage;
+            },
+
+            loadSelfTrainedModels: function () {
+                var self = this;
+                fetch('/api/self-trained-models?model=' + encodeURIComponent(self.selectedModel))
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        self.selfTrainedModels = data.models || [];
+                        if (!self.selfTrainedModels.find(function (m) {
+                            return self.selectedSelfTrainedModel && m.path === self.selectedSelfTrainedModel.path;
+                        })) {
+                            self.selectedSelfTrainedModel = self.selfTrainedModels[0] || null;
+                        }
+                        if (self.inferenceSource === 'self_trained') {
+                            self.syncDatasetFromSelfTrained();
+                            self.loadTestImages();
+                        }
+                    })
+                    .catch(function (e) {
+                        console.warn('[app] 加载自训练模型失败:', e);
+                        self.selfTrainedModels = [];
+                        self.selectedSelfTrainedModel = null;
+                    });
+            },
+
+            syncDatasetFromSelfTrained: function () {
+                if (this.selectedSelfTrainedModel) {
+                    this.selectedDataset = this.selectedSelfTrainedModel.category;
+                }
+            },
+
             // ─────────────────────────────────────────────
-            // 推理状态（P1 实现）
+            // 推理状态
             // ─────────────────────────────────────────────
-            inferenceState: 'idle',  // idle | uploaded | loading | inferring | done | error
+            inferenceState: 'idle',  // idle | loading | inferring | done | error
             inferenceProgress: { stage: '', message: '', pct: 0 },
-            resultData: {},  // 初始为空对象，避免 Alpine 模板在 x-show 中读取 null 属性报错
-            uploadedFile: null,
-            uploadPreviewUrl: null,
+            resultData: {},
             errorMessage: '',
 
-            /** 文件选择回调 */
-            onFileSelected: function (event) {
-                var file = event.target.files[0];
-                if (!file) return;
-                if (!file.type.startsWith('image/')) {
-                    alert('请上传图片文件 (PNG/JPG/BMP)');
-                    return;
-                }
-                this.uploadedFile = file;
-                if (this.uploadPreviewUrl) URL.revokeObjectURL(this.uploadPreviewUrl);
-                this.uploadPreviewUrl = URL.createObjectURL(file);
-                this.inferenceState = 'uploaded';
-                this.resultData = null;
-                this.errorMessage = '';
-                // 共享图片给四模型对比组件
-                window._compareImageFile = file;
-                window._appDataset = this.selectedDataset;
-            },
+            // 推理来源
+            inferenceSource: 'pretrained', // 'pretrained' | 'self_trained'
+            selfTrainedModels: [],
+            selectedSelfTrainedModel: null,
 
-            /** 拖拽放置回调 */
-            onDrop: function (event) {
-                event.preventDefault();
-                var file = event.dataTransfer.files[0];
-                if (!file) return;
-                if (!file.type.startsWith('image/')) {
-                    alert('请上传图片文件 (PNG/JPG/BMP)');
-                    return;
-                }
-                this.uploadedFile = file;
-                if (this.uploadPreviewUrl) URL.revokeObjectURL(this.uploadPreviewUrl);
-                this.uploadPreviewUrl = URL.createObjectURL(file);
-                this.inferenceState = 'uploaded';
-                this.resultData = null;
-                this.errorMessage = '';
-                // 共享图片给四模型对比组件
-                window._compareImageFile = file;
-                window._appDataset = this.selectedDataset;
-            },
+            // 图片选择（从 test/）
+            testImages: [],
+            selectedTestImage: '',
+            testImagePreviewUrl: '',
 
             /** 开始推理 */
             startInference: function () {
                 var self = this;
-                if (!self.uploadedFile) return;
+                if (!self.selectedTestImage) return;
                 if (self.inferenceState === 'loading' || self.inferenceState === 'inferring') return;
 
                 // 清理上一次的可视化元素
@@ -393,7 +451,19 @@ document.addEventListener('alpine:init', function () {
                 self.inferenceState = 'loading';
                 self.inferenceProgress = { stage: 'loading_model', message: '正在加载模型...', pct: 10 };
 
-                InferenceRunner.run(self.uploadedFile, self.selectedModel, self.selectedDataset, {
+                var payload = {
+                    model: self.selectedModel,
+                    dataset: self.inferenceSource === 'pretrained'
+                        ? self.selectedDataset
+                        : self.selectedSelfTrainedModel.category,
+                    image: self.selectedTestImage,
+                    source: self.inferenceSource,
+                };
+                if (self.inferenceSource === 'self_trained') {
+                    payload.self_trained_path = self.selectedSelfTrainedModel.path;
+                }
+
+                InferenceRunner.run('/api/predict', payload, {
                     onProgress: function (data) {
                         self.inferenceState = 'inferring';
                         self.inferenceProgress = data;
@@ -467,21 +537,14 @@ document.addEventListener('alpine:init', function () {
                 this.inferenceState = 'idle';
             },
 
-            /** 重置：清除结果，返回上传状态 */
+            /** 重置：清除结果 */
             resetInference: function () {
                 InferenceRunner.cancel();
                 runAllCleanups();
-                if (this.uploadPreviewUrl) URL.revokeObjectURL(this.uploadPreviewUrl);
-                this.uploadedFile = null;
-                this.uploadPreviewUrl = null;
                 this.resultData = null;
                 this.inferenceState = 'idle';
                 this.inferenceProgress = { stage: '', message: '', pct: 0 };
                 this.errorMessage = '';
-
-                // 重置文件 input
-                var fileInput = this.$refs.fileInput;
-                if (fileInput) fileInput.value = '';
             },
 
         };

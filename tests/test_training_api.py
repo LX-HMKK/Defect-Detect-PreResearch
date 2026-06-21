@@ -67,8 +67,7 @@ def test_train_rejects_invalid_model(client):
         '/api/train',
         json={
             'model': 'notamodel',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -84,8 +83,7 @@ def test_train_rejects_invalid_category(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training/test',
+            'dataset': 'training/test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -101,8 +99,7 @@ def test_train_rejects_out_of_bounds_epochs(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 0,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -118,8 +115,7 @@ def test_train_rejects_out_of_bounds_batch_size(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 0,
             'learning_rate': 0.0001,
@@ -135,8 +131,7 @@ def test_train_rejects_invalid_learning_rate(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 1.0,
@@ -146,18 +141,72 @@ def test_train_rejects_invalid_learning_rate(client):
     assert response.status_code == 400
 
 
-def test_train_rejects_path_outside_upload_root(client):
-    """dataset_path 不在上传目录下应返回 400。"""
+def test_train_rejects_missing_dataset(client):
+    """dataset 不存在时应返回 400。"""
     response = client.post(
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': './data/bottle',
-            'category': 'training_test',
+            'dataset': 'nonexistent_dataset_xyz',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,
             'seed': 42,
+        },
+    )
+    assert response.status_code == 400
+
+
+# ── /api/test-images ──
+
+def test_test_images_returns_test_folder_images(client):
+    """返回 dataset/test/ 下的图片列表，且路径均以 test/ 开头。"""
+    response = client.get('/api/test-images?dataset=bottle')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'images' in data
+    assert all(img.startswith('test/') for img in data['images'])
+
+
+def test_test_images_rejects_missing_dataset(client):
+    """请求不存在的数据集应返回 400。"""
+    response = client.get('/api/test-images?dataset=not_a_real_dataset_12345')
+    assert response.status_code == 400
+
+
+def test_test_images_rejects_invalid_dataset_name(client):
+    """非法数据集名称应返回 400。"""
+    response = client.get('/api/test-images?dataset=../data')
+    assert response.status_code == 400
+
+
+# ── /api/self-trained-models ──
+
+def test_self_trained_models_returns_list(client):
+    """请求有效模型应返回 200 且包含 models 字段。"""
+    response = client.get('/api/self-trained-models?model=patchcore')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'models' in data
+
+
+def test_self_trained_models_rejects_invalid_model(client):
+    """请求无效模型应返回 400。"""
+    response = client.get('/api/self-trained-models?model=notamodel')
+    assert response.status_code == 400
+
+
+# ── /api/predict path safety ──
+
+def test_predict_rejects_image_outside_test_folder(client):
+    """请求 test/ 外的图片路径应返回 400。"""
+    response = client.post(
+        '/api/predict',
+        json={
+            'model': 'patchcore',
+            'dataset': 'bottle',
+            'image': '../train/good/000.png',
+            'source': 'pretrained',
         },
     )
     assert response.status_code == 400

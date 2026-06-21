@@ -152,36 +152,48 @@ def find_latest_checkpoint(
     if not model_root.exists():
         return None
 
-    if category:
-        if source:
-            # 精确到 default/user 子目录
-            patterns: List[str] = [
-                f"**/{source}/{category}/**/weights/lightning/model.ckpt",
-                f"**/{source}/{category}/**/model.ckpt",
-                f"**/{source}/{category}/**/*.ckpt",
-            ]
-        else:
-            # 兼容旧结构：未指定 source 时全目录搜索（包含历史 MVTec/ 路径）
-            patterns = [
-                f"**/{category}/**/weights/lightning/model.ckpt",
-                f"**/{category}/**/model.ckpt",
-                f"**/{category}/**/*.ckpt",
-                f"**/MVTec/{category}/**/weights/lightning/model.ckpt",
-                f"**/MVTec/{category}/**/model.ckpt",
-                f"**/MVTec/{category}/**/*.ckpt",
-            ]
-    else:
-        patterns = [
-            "**/weights/lightning/model.ckpt",
-            "**/model.ckpt",
-            "**/*.ckpt",
-        ]
+    # 模型结果子目录命名（与 UI 扫描逻辑保持一致）
+    subdirs = {
+        'fre': 'Fre',
+        'patchcore': 'Patchcore',
+        'draem': 'Draem',
+        'padim': 'Padim',
+    }
+    model_subdir = subdirs.get(model_name)
+    if not model_subdir:
+        return None
 
     candidates: List[Path] = []
-    for pattern in patterns:
-        for path in model_root.glob(pattern):
-            if path.is_file():
-                candidates.append(path)
+
+    def _collect(base: Path) -> None:
+        """收集 base 下所有 v*/weights/lightning/model.ckpt，不跟随符号链接。"""
+        if not base.exists():
+            return
+        for version_dir in base.iterdir():
+            # 忽略损坏的符号链接与非目录项
+            try:
+                if not version_dir.is_dir() or not version_dir.name.startswith('v'):
+                    continue
+            except OSError:
+                continue
+            ckpt = version_dir / 'weights' / 'lightning' / 'model.ckpt'
+            if ckpt.is_file():
+                candidates.append(ckpt)
+
+    # 构造搜索根目录，避免使用递归 glob 导致遇到损坏符号链接时崩溃
+    if category:
+        if source:
+            _collect(model_root / model_subdir / source / category)
+            # 兼容历史 MVTec/ 结构
+            _collect(model_root / model_subdir / 'MVTec' / source / category)
+        else:
+            for src in ('default', 'user'):
+                _collect(model_root / model_subdir / src / category)
+            _collect(model_root / model_subdir / 'MVTec' / category)
+    else:
+        for src in ('default', 'user'):
+            _collect(model_root / model_subdir / src)
+        _collect(model_root / model_subdir / 'MVTec')
 
     if not candidates:
         return None
@@ -699,56 +711,83 @@ class AnomalyDetectionTrainer:
         
         # 测试
         print("\n[WAIT] 开始测试...")
-        test_results = self.engine.test(
-            datamodule=self.datamodule,
-            model=self.model,
-            ckpt_path=checkpoint_path,
-        )
-        
-        if test_results and len(test_results) > 0:
-            results = test_results[0]
+
+        # 先收集测试集预测，判断是否存在异常样本
+        good_scores, bad_scores, predictions = self._collect_test_predictions(checkpoint_path)
+
+        if not bad_scores:
+            # 测试集仅含正常样本，无法计算有监督指标（AUROC/AUPR/F1）
+            print("\n[INFO] 测试集仅含正常样本，跳过 AUROC/AUPR/F1 等有监督指标")
+            print("       将报告正常样本上的异常分数统计信息。")
+
+            scores_arr = np.array(good_scores, dtype=float) if good_scores else np.array([], dtype=float)
+            self.results = {
+                'image_AUROC': None,
+                'image_AUPR': None,
+                'pixel_AUROC': None,
+                'pixel_PRO': None,
+                'mean_score': float(scores_arr.mean()) if scores_arr.size > 0 else 0.0,
+                'max_score': float(scores_arr.max()) if scores_arr.size > 0 else 0.0,
+                'min_score': float(scores_arr.min()) if scores_arr.size > 0 else 0.0,
+                'std_score': float(scores_arr.std()) if scores_arr.size > 1 else 0.0,
+                'median_score': float(np.median(scores_arr)) if scores_arr.size > 0 else 0.0,
+                'note': '测试集仅含正常样本，无法计算 AUROC/AUPR/F1 等有监督指标',
+            }
         else:
-            results = {}
-        
-        # 提取4个硬性指标（兼容不同模型返回的字段名）
-        # FRE 返回: AUROC, AUPR, pixel_AUROC, pixel_PRO
-        # PatchCore/DRAEM 返回: image_AUROC, image_AUPR, pixel_AUROC, pixel_PRO
-        self.results = {
-            'image_AUROC': results.get('image_AUROC', results.get('AUROC', 0.0)),
-            'image_AUPR': results.get('image_AUPR', results.get('AUPR', 0.0)),
-            'pixel_AUROC': results.get('pixel_AUROC', 0.0),
-            'pixel_PRO': results.get('pixel_PRO', 0.0),
-        }
-        
-        # 打印4个硬性指标
-        print("\n" + "-"*70)
-        print("[STAT] 4个硬性指标评估结果")
-        print("-"*70)
-        
-        # 图像级指标
-        image_auroc = self.results.get('image_AUROC', 0) * 100
-        image_aupr = self.results.get('image_AUPR', 0) * 100
-        
-        print("\n【图像级指标】- 判断图片是否有缺陷")
-        print(f"   [OK] AUROC: {image_auroc:.2f}%")
-        print(f"   [OK] AUPR:  {image_aupr:.2f}%")
-        
-        # 像素级指标
-        pixel_auroc = self.results.get('pixel_AUROC', 0) * 100
-        pixel_pro = self.results.get('pixel_PRO', 0) * 100
-        
-        print("\n【像素级指标】- 判断缺陷具体位置")
-        print(f"   [OK] Pixel AUROC: {pixel_auroc:.2f}%")
-        print(f"   [OK] PRO:          {pixel_pro:.2f}%")
-        
-        print("-"*70)
-        
+            # 标准评估流程：测试集中同时包含正常与异常样本
+            test_results = self.engine.test(
+                datamodule=self.datamodule,
+                model=self.model,
+                ckpt_path=checkpoint_path,
+            )
+
+            if test_results and len(test_results) > 0:
+                results = test_results[0]
+            else:
+                results = {}
+
+            # 提取4个硬性指标（兼容不同模型返回的字段名）
+            # FRE 返回: AUROC, AUPR, pixel_AUROC, pixel_PRO
+            # PatchCore/DRAEM 返回: image_AUROC, image_AUPR, pixel_AUROC, pixel_PRO
+            self.results = {
+                'image_AUROC': results.get('image_AUROC', results.get('AUROC', 0.0)),
+                'image_AUPR': results.get('image_AUPR', results.get('AUPR', 0.0)),
+                'pixel_AUROC': results.get('pixel_AUROC', 0.0),
+                'pixel_PRO': results.get('pixel_PRO', 0.0),
+            }
+
+            # 打印4个硬性指标
+            print("\n" + "-"*70)
+            print("[STAT] 4个硬性指标评估结果")
+            print("-"*70)
+
+            # 图像级指标
+            image_auroc = (self.results.get('image_AUROC') or 0) * 100
+            image_aupr = (self.results.get('image_AUPR') or 0) * 100
+
+            print("\n【图像级指标】- 判断图片是否有缺陷")
+            print(f"   [OK] AUROC: {image_auroc:.2f}%")
+            print(f"   [OK] AUPR:  {image_aupr:.2f}%")
+
+            # 像素级指标
+            pixel_auroc = (self.results.get('pixel_AUROC') or 0) * 100
+            pixel_pro = (self.results.get('pixel_PRO') or 0) * 100
+
+            print("\n【像素级指标】- 判断缺陷具体位置")
+            print(f"   [OK] Pixel AUROC: {pixel_auroc:.2f}%")
+            print(f"   [OK] PRO:          {pixel_pro:.2f}%")
+
+            print("-"*70)
+
         # 计算最优阈值 (Youden's J)
         print("\n[WAIT] 计算最优阈值...")
-        optimal_threshold = self._compute_optimal_threshold(checkpoint_path=checkpoint_path)
+        optimal_threshold = self._compute_optimal_threshold(
+            checkpoint_path=checkpoint_path,
+            predictions=predictions,
+        )
         self.results['optimal_threshold'] = optimal_threshold
         print(f"   [OK] 最优阈值: {optimal_threshold:.3f} (Youden's J)")
-        
+
         # 保存结果
         self._save_results()
 
@@ -793,39 +832,98 @@ class AnomalyDetectionTrainer:
             print(f"\n[REORG] 结果目录已整理: {src} -> {dst}")
             break
     
-    def _compute_optimal_threshold(self, checkpoint_path: Optional[str] = None) -> float:
+    def _collect_test_predictions(
+        self,
+        checkpoint_path: Optional[str] = None,
+    ) -> Tuple[List[float], List[float], List[Any]]:
+        """
+        在测试集上执行 predict，收集正常/异常样本的图像级异常分数。
+
+        Args:
+            checkpoint_path: 可选的 checkpoint 路径。
+
+        Returns:
+            (good_scores, bad_scores, predictions)
+            - good_scores: 正常样本的异常分数列表
+            - bad_scores: 异常样本的异常分数列表
+            - predictions: 原始预测结果列表
+        """
+        good_scores: List[float] = []
+        bad_scores: List[float] = []
+        predictions: List[Any] = []
+
+        if self.engine is None or self.datamodule is None:
+            return good_scores, bad_scores, predictions
+
+        try:
+            raw_predictions = self.engine.predict(
+                datamodule=self.datamodule,
+                model=self.model,
+                ckpt_path=checkpoint_path,
+            )
+            predictions = list(raw_predictions)
+        except Exception as e:
+            print(f"   [WARN] 收集测试集预测失败: {e}")
+            return good_scores, bad_scores, predictions
+
+        for pred in predictions:
+            # pred.pred_score 可能是多元素 tensor（如 DRAEM 返回向量），取最大值作为图像级得分
+            score = float(pred.pred_score.cpu().max().item())
+            # gt_label 可能是多元素 tensor，统一转为标量（取第一个元素）
+            gt_label_tensor = pred.gt_label.cpu()
+            if gt_label_tensor.numel() == 1:
+                gt_label_val = bool(gt_label_tensor.item())
+            else:
+                # 多元素时取第一个元素
+                gt_label_val = bool(gt_label_tensor.flatten()[0].item())
+            # 检查是否为 GOOD 样本 (gt_label = False/0 表示正常)
+            is_good = not gt_label_val
+
+            if is_good:
+                good_scores.append(score)
+            else:
+                bad_scores.append(score)
+
+        return good_scores, bad_scores, predictions
+
+    def _compute_optimal_threshold(
+        self,
+        checkpoint_path: Optional[str] = None,
+        predictions: Optional[List[Any]] = None,
+    ) -> float:
         """
         使用 Youden's J 统计量计算最优阈值
-        
+
         Youden's J = Sensitivity + Specificity - 1
         = TP/(TP+FN) + TN/(TN+FP) - 1
-        
+
         在 0-1 范围内搜索使 J 最大的阈值
+
+        Args:
+            checkpoint_path: 可选的 checkpoint 路径。
+            predictions: 可选的预计算预测结果，避免重复执行 predict。
         """
         # 获取默认阈值（从配置文件）
         default_threshold = get('threshold.default', 0.5)
-        
+
         if self.engine is None or self.datamodule is None:
             return default_threshold
-        
+
         try:
             # 获取阈值搜索配置
             search_config = get('evaluation.threshold_search', {})
             search_steps = search_config.get('steps', 100)
             search_min = search_config.get('min', 0.0)
             search_max = search_config.get('max', 1.0)
-            
+
             # 获取预测结果
-            predictions = self.engine.predict(
-                datamodule=self.datamodule,
-                model=self.model,
-                ckpt_path=checkpoint_path,
-            )
-            
+            if predictions is None:
+                _, _, predictions = self._collect_test_predictions(checkpoint_path)
+
             # 收集得分和标签
             good_scores = []
             bad_scores = []
-            
+
             for pred in predictions:
                 # pred.pred_score 可能是多元素 tensor（如 DRAEM 返回向量），取最大值作为图像级得分
                 score = float(pred.pred_score.cpu().max().item())
@@ -838,12 +936,12 @@ class AnomalyDetectionTrainer:
                     gt_label_val = bool(gt_label_tensor.flatten()[0].item())
                 # 检查是否为 GOOD 样本 (gt_label = False/0 表示正常)
                 is_good = not gt_label_val
-                
+
                 if is_good:
                     good_scores.append(score)
                 else:
                     bad_scores.append(score)
-            
+
             if not good_scores or not bad_scores:
                 return default_threshold
             # Diagnostic: 输出分数分布信息，帮助理解阈值搜索的行为
@@ -857,22 +955,22 @@ class AnomalyDetectionTrainer:
                     )
             except Exception:
                 pass
-            
+
             # 搜索最优阈值
             best_threshold = default_threshold
             best_j = -1
-            
+
             # 在得分范围内搜索
             all_scores = good_scores + bad_scores
             # 使用固定搜索区间 [search_min, search_max]，而不是受实际分数范围限制
             min_score = search_min
             max_score = search_max
-            
+
             # 在范围内均匀采样 search_steps 个点
             step_size = (max_score - min_score) / search_steps
             for i in range(search_steps + 1):
                 threshold = min_score + i * step_size
-                
+
                 # True Positive: BAD 正确分类为异常
                 tp = sum(1 for s in bad_scores if s > threshold)
                 # True Negative: GOOD 正确分类为正常
@@ -881,20 +979,20 @@ class AnomalyDetectionTrainer:
                 fp = sum(1 for s in good_scores if s > threshold)
                 # False Negative: BAD 错误分类为正常
                 fn = sum(1 for s in bad_scores if s <= threshold)
-                
+
                 # 计算 Youden's J
                 sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
                 specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
                 j = sensitivity + specificity - 1
-                
+
                 if j > best_j:
                     best_j = j
                     best_threshold = threshold
-            
+
             # 更新当前数据集的最优阈值到结果 JSON（仅对当前 category 的 JSON 生效）
             self._update_results_json_threshold(best_threshold)
             return round(best_threshold, 3)
-            
+
         except Exception as e:
             print(f"   [WARN] 阈值计算失败: {e}，使用默认值 {default_threshold}")
             return default_threshold
@@ -988,10 +1086,10 @@ def compare_models(results_dir: str, category: str):
                 all_results.append({
                     'Model': model_name.upper(),
                     '方向': info.get('方向', 'N/A'),
-                    'AUROC(%)': metrics.get('image_AUROC', 0) * 100,
-                    'AUPR(%)': metrics.get('image_AUPR', 0) * 100,
-                    'Pixel AUROC(%)': metrics.get('pixel_AUROC', 0) * 100,
-                    'PRO(%)': metrics.get('pixel_PRO', 0) * 100
+                    'AUROC(%)': (metrics.get('image_AUROC') or 0) * 100,
+                    'AUPR(%)': (metrics.get('image_AUPR') or 0) * 100,
+                    'Pixel AUROC(%)': (metrics.get('pixel_AUROC') or 0) * 100,
+                    'PRO(%)': (metrics.get('pixel_PRO') or 0) * 100
                 })
     
     if not all_results:

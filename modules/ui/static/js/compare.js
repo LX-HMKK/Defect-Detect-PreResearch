@@ -14,8 +14,8 @@ const CompareRunner = {
 
     /**
      * 发起 SSE 四模型对比请求
-     * @param {File} imageFile - 上传的图片文件
-     * @param {string} dataset - 数据集名称
+     * @param {string} url - API 端点路径（如 /api/compare）
+     * @param {Object} payload - JSON 请求体，包含 dataset 与 image
      * @param {Object} callbacks
      * @param {Function} callbacks.onModelStart - 模型开始回调 ({model, name})
      * @param {Function} callbacks.onModelResult - 模型结果回调 (resultData)
@@ -24,7 +24,7 @@ const CompareRunner = {
      * @param {Function} callbacks.onDone - 完成回调
      * @param {Function} callbacks.onError - 全局错误回调 (message)
      */
-    async run(imageFile, dataset, callbacks) {
+    async run(url, payload, callbacks) {
         const { onModelStart, onModelResult, onModelError, onSummary, onDone, onError } = callbacks;
 
         // 取消已有请求
@@ -33,19 +33,17 @@ const CompareRunner = {
         }
         this.abortController = new AbortController();
 
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        formData.append('dataset', dataset);
-
         try {
-            const response = await fetch('/api/compare', {
+            const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
                 signal: this.abortController.signal,
             });
 
             if (!response.ok) {
-                onError('HTTP ' + response.status + ': ' + response.statusText);
+                const text = await response.text().catch(function () { return ''; });
+                onError('HTTP ' + response.status + ': ' + (text || response.statusText));
                 return;
             }
 
@@ -155,11 +153,19 @@ document.addEventListener('alpine:init', function () {
             /** 模型顺序列表 */
             modelOrder: ['patchcore', 'padim', 'fre', 'draem'],
 
+            /** 获取全局 app 实例 */
+            _getApp: function () {
+                return Alpine.store('app') || window.app;
+            },
+
             /** 启动四模型对比 */
             startCompare() {
-                // 检查是否有图片
-                if (!window._compareImageFile) {
-                    alert('请先在「单模型推理」区上传图片');
+                var app = this._getApp();
+                var dataset = app ? app.selectedDataset : '';
+                var image = app ? app.selectedTestImage : '';
+
+                if (!dataset || !image) {
+                    alert('请先在「单模型推理」区选择数据集与测试图片');
                     return;
                 }
 
@@ -172,9 +178,7 @@ document.addEventListener('alpine:init', function () {
                 this.compareDone = false;
                 this.summary = null;
 
-                var dataset = window._appDataset || 'bottle';
-
-                CompareRunner.run(window._compareImageFile, dataset, {
+                CompareRunner.run('/api/compare', { dataset: dataset, image: image }, {
                     onModelStart: function (data) {
                         self.compareSlots[data.model].status = 'active';
                     },

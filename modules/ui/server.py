@@ -16,14 +16,13 @@ import base64
 import io
 import json
 import queue
+import re
 import sys
 import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
-
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
 
 # ── Windows UTF-8 编码设置（必须在任何导入之前）──
 # pytest 运行时跳过，避免破坏其 stdout/stderr capture 机制
@@ -39,10 +38,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from modules._runtime import configure_runtime_temp
 configure_runtime_temp()
 
-# ── cv2 必须在 anomalib 之前导入 ──
+# third-party — cv2 必须在 anomalib 之前导入
 import cv2
-
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+import numpy as np
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,8 +49,8 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-# ── 轻量 UI 组件（无 anomalib/torch/gradio 依赖）──
-from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets
+# 轻量 UI 组件（无 anomalib/torch/gradio 依赖）
+from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets, get_self_trained_models
 from modules.ui._training_common import (
     format_uploaded_samples,
     training_manager,
@@ -99,6 +98,10 @@ app.add_middleware(CacheControlMiddleware)
 # ── 静态文件挂载 ──
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# ── 数据集目录挂载（供训练样本与测试图片预览）──
+data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+app.mount("/data", StaticFiles(directory=str(data_root)), name="data")
 
 # ── 上传样本目录挂载 ──
 upload_root = resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads'
@@ -165,6 +168,103 @@ async def list_models():
     }
 
 
+@app.get("/api/self-trained-models")
+async def api_self_trained_models(model: str = Query(...)) -> dict:
+    """
+    返回指定模型的用户自训练模型列表。
+
+    Args:
+        model: 模型标识（patchcore / padim / fre / draem）。
+
+    Returns:
+        dict: {"models": [...]}，每个模型包含 path、category、version、display_name。
+
+    Raises:
+        HTTPException: 400 — 传入未知模型时抛出。
+    """
+    if model not in MODEL_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+    return {"models": get_self_trained_models(model)}
+
+
+@app.get("/api/test-images")
+async def api_test_images(dataset: str = Query(...)) -> dict:
+    """
+    返回指定数据集测试目录下的所有图片相对路径列表。
+
+    Args:
+        dataset: 数据集名称（如 bottle、region1 等）。
+
+    Returns:
+        dict: {"images": ["test/good/001.png", ...]}。
+
+    Raises:
+        HTTPException: 400 — 数据集名称包含非法字符或数据集不存在时抛出。
+    """
+    if not _is_safe_category(dataset):
+        raise HTTPException(status_code=400, detail=f"非法数据集名称: {dataset}")
+
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    dataset_dir = data_root / dataset
+    if not dataset_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {dataset}")
+
+    test_dir = dataset_dir / "test"
+    if not test_dir.exists():
+        return {"images": []}
+
+    allowed_suffixes = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
+    images = []
+    for img_path in test_dir.rglob("*"):
+        if img_path.is_file() and img_path.suffix.lower() in allowed_suffixes:
+            try:
+                rel = img_path.relative_to(dataset_dir).as_posix()
+                images.append(rel)
+            except ValueError:
+                continue
+
+    return {"images": sorted(images)}
+
+
+@app.get("/api/train-samples")
+async def api_train_samples(dataset: str = Query(...)) -> dict:
+    """
+    返回指定数据集训练目录（train/good/）下的图片相对路径列表。
+
+    Args:
+        dataset: 数据集名称（如 bottle、region1 等）。
+
+    Returns:
+        dict: {"samples": ["train/good/001.png", ...], "total": N}。
+
+    Raises:
+        HTTPException: 400 — 数据集名称包含非法字符、数据集不存在或缺少 train/good 时抛出。
+    """
+    if not _is_safe_category(dataset):
+        raise HTTPException(status_code=400, detail=f"非法数据集名称: {dataset}")
+
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    dataset_dir = data_root / dataset
+    if not dataset_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {dataset}")
+
+    train_good_dir = dataset_dir / "train" / "good"
+    if not train_good_dir.exists():
+        return {"samples": [], "total": 0}
+
+    allowed_suffixes = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif"}
+    samples = []
+    for img_path in train_good_dir.iterdir():
+        if img_path.is_file() and img_path.suffix.lower() in allowed_suffixes:
+            try:
+                rel = img_path.relative_to(dataset_dir).as_posix()
+                samples.append(rel)
+            except ValueError:
+                continue
+
+    return {"samples": sorted(samples), "total": len(samples)}
+
+
 @app.get("/api/theme/light-css")
 async def get_light_css():
     """返回亮色模式 CSS 变量（用于前端动态加载）。"""
@@ -179,8 +279,7 @@ async def get_light_css():
 class TrainRequest(BaseModel):
     """训练请求体。"""
     model: str
-    dataset_path: str
-    category: str
+    dataset: str
     epochs: int = 100
     batch_size: int = 32
     learning_rate: float = 0.0001
@@ -189,40 +288,74 @@ class TrainRequest(BaseModel):
     advanced_params: Dict[str, Any] = {}  # 模型特定高级参数
 
 
-def _is_safe_category(category: str) -> bool:
-    """category 只允许字母、数字、下划线、连字符。"""
-    if not category:
-        return False
-    return all(c.isalnum() or c in ('_', '-') for c in category)
+class PredictRequest(BaseModel):
+    """单模型推理请求体。"""
+    model: str
+    dataset: str
+    image: str
+    source: str = "pretrained"
+    self_trained_path: str = ""
 
 
-def _resolve_upload_dataset_path(dataset_path: str) -> Path:
-    """
-    解析训练请求中的数据集路径，并校验其必须位于上传目录下。
+class CompareRequest(BaseModel):
+    """四模型对比请求体。"""
+    dataset: str
+    image: str
 
-    Args:
-        dataset_path: 请求传入的路径（相对或绝对）。
 
-    Returns:
-        Path: 绝对路径。
+_CATEGORY_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
-    Raises:
-        HTTPException: 路径越界或不存在时抛出 400。
-    """
-    path = Path(dataset_path)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
-    path = path.resolve()
+def _is_safe_category(name: str) -> bool:
+    """校验数据集/类别名称是否仅包含合法字符（字母、数字、下划线、连字符）。"""
+    return bool(_CATEGORY_RE.match(name))
 
-    upload_root = (resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads').resolve()
+
+def _safe_test_image_path(dataset: str, image: str) -> Path:
+    """校验 image 是否落在 dataset/test/ 下，返回绝对路径。"""
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    dataset_dir = data_root / dataset
+    if not dataset_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {dataset}")
+
+    test_dir = dataset_dir / "test"
+    requested = (dataset_dir / image).resolve()
+    test_resolved = test_dir.resolve()
     try:
-        path.relative_to(upload_root)
+        requested.relative_to(test_resolved)
     except ValueError:
-        raise HTTPException(status_code=400, detail="数据集路径不在允许的上传目录内")
+        raise HTTPException(status_code=400, detail="图片路径不在 test/ 目录内")
 
-    if not path.exists():
-        raise HTTPException(status_code=400, detail="数据集路径不存在")
-    return path
+    if not requested.is_file():
+        raise HTTPException(status_code=400, detail=f"图片不存在: {image}")
+    return requested
+
+
+def _safe_self_trained_path(model: str, path: str) -> Path:
+    """校验自训练模型路径是否合法且包含 checkpoint。"""
+    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
+    model_dirs = {"fre": "Fre", "patchcore": "Patchcore", "draem": "Draem", "padim": "Padim"}
+    subdir = model_dirs.get(model)
+    if not subdir:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+
+    expected_prefix = (results_dir / model / subdir / "user").resolve()
+    requested = Path(path).resolve()
+    try:
+        requested.relative_to(expected_prefix)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="自训练模型路径不合法")
+
+    if not requested.is_dir():
+        raise HTTPException(status_code=400, detail="自训练模型目录不存在")
+
+    # checkpoint 保存在 weights/lightning/ 下，兼容旧结构根目录 *.ckpt
+    ckpt_dir = requested / 'weights' / 'lightning'
+    ckpts = list(ckpt_dir.glob("*.ckpt")) if ckpt_dir.exists() else []
+    if not ckpts:
+        ckpts = list(requested.glob("*.ckpt"))
+    if not ckpts:
+        raise HTTPException(status_code=400, detail="自训练模型 checkpoint 不存在")
+    return requested
 
 
 # ============================================================================
@@ -256,13 +389,14 @@ async def train_stop():
 async def train(request: TrainRequest):
     """
     SSE 流式训练端点。
-    接收训练参数，通过 SSE 推送状态、指标、日志和结果。
+    接收训练参数（model, dataset, epochs, batch_size, learning_rate, seed, excluded_samples, advanced_params），
+    通过 SSE 推送状态、指标、日志和结果。
     """
     # 1. 参数校验
     if request.model not in MODEL_CONFIGS:
         raise HTTPException(status_code=400, detail=f"不支持的模型: {request.model}")
-    if not _is_safe_category(request.category):
-        raise HTTPException(status_code=400, detail="category 只能包含字母、数字、下划线和连字符")
+    if not _is_safe_category(request.dataset):
+        raise HTTPException(status_code=400, detail="dataset 只能包含字母、数字、下划线和连字符")
     if request.epochs < 1 or request.epochs > 1000:
         raise HTTPException(status_code=400, detail="epochs 必须在 1-1000 之间")
     if request.batch_size < 1 or request.batch_size > 128:
@@ -270,25 +404,18 @@ async def train(request: TrainRequest):
     if request.learning_rate <= 0 or request.learning_rate >= 1.0:
         raise HTTPException(status_code=400, detail="learning_rate 必须在 (0, 1) 之间")
 
-    # 2. 解析并校验数据集路径
-    dataset_path = _resolve_upload_dataset_path(request.dataset_path)
-
-    # 2.1 读取上传时生成的计数器，并按 {模型名}-custom-{批次} 格式生成最终显示名称
-    upload_dir = dataset_path.parents[1]
-    display_name = request.category
-    counter_file = upload_dir / ".counter"
-    if counter_file.exists():
-        try:
-            counter = int(counter_file.read_text(encoding="utf-8").strip() or "1")
-            display_name = f"{request.model}-custom-{counter:03d}"
-        except ValueError:
-            pass
-    display_name_file = upload_dir / ".display_name"
-    display_name_file.write_text(display_name, encoding="utf-8")
+    # 2. 解析并校验数据集路径（使用标准数据集目录）
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    train_dataset_path = data_root / request.dataset
+    if not train_dataset_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集不存在: {request.dataset}")
+    train_good_dir = train_dataset_path / "train" / "good"
+    if not train_good_dir.is_dir():
+        raise HTTPException(status_code=400, detail=f"数据集格式错误，缺少 train/good: {request.dataset}")
 
     # 3. 尝试获取全局训练锁
     started = training_manager.try_start(
-        request.model, request.category, request.epochs
+        request.model, request.dataset, request.epochs
     )
     if not started:
         raise HTTPException(status_code=409, detail="已有训练任务正在运行")
@@ -304,15 +431,14 @@ async def train(request: TrainRequest):
                 from modules.ui.training_backend import run_training_job
                 result = run_training_job(
                     model_name=request.model,
-                    dataset_path=dataset_path,
-                    category=request.category,
+                    dataset_path=train_dataset_path,
+                    category=request.dataset,
                     epochs=request.epochs,
                     batch_size=request.batch_size,
                     learning_rate=request.learning_rate,
                     seed=request.seed,
                     excluded_samples=request.excluded_samples,
                     advanced_params=request.advanced_params,
-                    display_name=display_name,
                     metrics_queue=metrics_queue,
                 )
                 result_container["result"] = result
@@ -548,7 +674,7 @@ def _parse_dataset(dataset: str) -> Tuple[str, str]:
     return 'default', dataset or 'bottle'
 
 
-def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
+def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Optional[Path] = None, source: str = 'pretrained') -> dict:
     """
     执行单模型推理的共享逻辑，供 /api/predict 和 /api/compare 复用。
 
@@ -556,6 +682,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
         img: RGB 格式的输入图片 (H, W, C)。
         model_key: 模型标识 (patchcore/padim/fre/draem)。
         dataset: 数据集名称。
+        model_dir: 自训练模型目录（含 .ckpt 文件），为 None 时使用预训练模型。
 
     Returns:
         dict: 包含 score/label/heatmap_b64/bboxes 等的结果数据。
@@ -569,7 +696,10 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
     from modules.ui.demo import detector
 
     # 加载模型
-    success, msg = detector.load_model(model_key, dataset)
+    if model_dir is not None:
+        success, msg = detector.load_self_trained_model(model_key, model_dir, dataset)
+    else:
+        success, msg = detector.load_model(model_key, dataset, source=source)
     if not success:
         raise ValueError(msg)
 
@@ -589,10 +719,13 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
         )
 
         # 执行推理
+        # 自训练模型已在 load_self_trained_model 中手动加载 state_dict，
+        # 因此不再传入 ckpt_path，避免 Lightning 重新加载仅含 state_dict 的安全 checkpoint。
+        ckpt_path = str(detector.current_checkpoint) if model_dir is None else None
         predictions = detector.engine.predict(
             model=detector.model,
             dataset=dataset_obj,
-            ckpt_path=str(detector.current_checkpoint),
+            ckpt_path=ckpt_path,
         )
 
         if not isinstance(predictions, list):
@@ -651,7 +784,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
             "heatmap_b64": heat_b64,
             "anomaly_map_b64": gray_b64,
             "bboxes": bboxes,
-            "model_name": MODEL_CONFIGS[model_key].name,
+            "model_name": MODEL_CONFIGS[model_key]['name'],
         }
 
     finally:
@@ -664,37 +797,46 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
 # ============================================================================
 
 @app.post("/api/predict")
-async def predict(request: Request):
+async def api_predict(request: PredictRequest):
     """
     SSE 流式推理端点。
-    接收上传图片，通过 SSE 推送加载进度、推理进度和最终结果。
+    接收指定 test/ 图片，通过 SSE 推送加载进度、推理进度和最终结果。
+
+    Args:
+        request: JSON 请求体，包含 model、dataset、image、source、self_trained_path。
     """
-    form = await request.form()
-    image_file = form.get("image")
-    model_key = form.get("model", "patchcore")
-    dataset = form.get("dataset", "bottle")
+    model = request.model
+    dataset = request.dataset
+    image = request.image
+    source = request.source
+    self_trained_path = request.self_trained_path
 
-    if image_file is None:
-        async def error_gen():
-            yield {"event": "error", "data": json.dumps(
-                {"message": "未上传图片"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen())
+    if model not in MODEL_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+    if source not in ("pretrained", "self_trained"):
+        raise HTTPException(status_code=400, detail="source 必须是 pretrained 或 self_trained")
 
-    # 读取上传图片
-    contents = await image_file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    image_path = _safe_test_image_path(dataset, image)
+
+    if source == "self_trained":
+        if not self_trained_path:
+            raise HTTPException(status_code=400, detail="使用自训练模型时必须提供 self_trained_path")
+        model_dir = _safe_self_trained_path(model, self_trained_path)
+    else:
+        model_dir = None
+
+    # 读取图片
+    img = cv2.imread(str(image_path))
     if img is None:
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
-                {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
+                {"message": "无法读取图片，请确认文件格式正确"}, ensure_ascii=False)}
         return EventSourceResponse(error_gen())
-
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     async def event_generator():
         # ── 阶段 1: 加载模型 ──
-        model_name = MODEL_CONFIGS.get(model_key, MODEL_CONFIGS['patchcore']).name
+        model_name = MODEL_CONFIGS.get(model, MODEL_CONFIGS['patchcore'])['name']
         yield {
             "event": "progress",
             "data": json.dumps({
@@ -729,7 +871,7 @@ async def predict(request: Request):
             await asyncio.sleep(0.1)
 
             # 调用共享推理逻辑（线程池执行，避免阻塞事件循环导致 SSE 断流）
-            result_data = await asyncio.to_thread(_run_prediction, img, model_key, dataset)
+            result_data = await asyncio.to_thread(_run_prediction, img, model, dataset, model_dir, source)
 
             # ── 阶段 4: 后处理 ──
             yield {
@@ -783,30 +925,23 @@ async def predict(request: Request):
 # ============================================================================
 
 @app.post("/api/compare")
-async def compare(request: Request):
+async def compare(request: CompareRequest):
     """
     四模型对比 SSE 端点。
-    接收上传图片，依次对 4 种算法执行推理，
+    接收数据集与 test/ 图片相对路径，依次对 4 种算法执行推理，
     通过 SSE 推送每个模型的结果和最终排名摘要。
     """
-    form = await request.form()
-    image_file = form.get("image")
-    dataset = form.get("dataset", "bottle")
+    dataset = request.dataset
+    image = request.image
 
-    if image_file is None:
-        async def error_gen():
-            yield {"event": "error", "data": json.dumps(
-                {"message": "未上传图片"}, ensure_ascii=False)}
-        return EventSourceResponse(error_gen())
+    image_path = _safe_test_image_path(dataset, image)
 
-    # 读取上传图片（与 /api/predict 相同）
-    contents = await image_file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    # 读取测试图片
+    img = cv2.imread(str(image_path))
     if img is None:
         async def error_gen():
             yield {"event": "error", "data": json.dumps(
-                {"message": "无法解码图片，请确认文件格式正确（PNG/JPG/BMP）"}, ensure_ascii=False)}
+                {"message": "无法读取图片，请确认文件路径正确"}, ensure_ascii=False)}
         return EventSourceResponse(error_gen())
 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -817,7 +952,7 @@ async def compare(request: Request):
 
         for model_key in models:
             # 通知前端当前模型开始推理
-            model_name = MODEL_CONFIGS[model_key].name
+            model_name = MODEL_CONFIGS[model_key]['name']
             yield {
                 "event": "model_start",
                 "data": json.dumps({
@@ -858,9 +993,9 @@ async def compare(request: Request):
                     }, ensure_ascii=False),
                 }
 
-        # 生成排名摘要（得分最低 = 最正常 = 最优）
+        # 生成排名摘要（得分最高 = 对当前样本最敏感 = 最优）
         if results:
-            results_sorted = sorted(results, key=lambda r: r.get('score', 1.0))
+            results_sorted = sorted(results, key=lambda r: r.get('score', 0.0), reverse=True)
             best = results_sorted[0]
             summary = {
                 "best_model": best["model"],

@@ -102,13 +102,11 @@ document.addEventListener('alpine:init', function () {
             ],
             selectedModel: 'patchcore',
 
-            // 样本
-            samples: [],
-            isDragOver: false,
-            sessionId: null,
-            displayName: '',
-            datasetPath: null,
-            category: null,
+            // 数据集
+            selectedDataset: '',
+            trainSamples: [],
+            trainSampleCount: 0,
+            excludedSamples: [],
 
             // 参数
             epochs: 100,
@@ -132,7 +130,7 @@ document.addEventListener('alpine:init', function () {
             },
 
             // 训练状态
-            trainingState: 'idle', // idle | uploading | training | completed | error
+            trainingState: 'idle', // idle | training | completed | error
             currentEpoch: 0,
             totalEpochs: 0,
             latestLoss: null,
@@ -146,16 +144,82 @@ document.addEventListener('alpine:init', function () {
                 var self = this;
                 self.resetMonitor();
                 self.epochs = self.modelDefaultEpochs[self.selectedModel] || 100;
+
+                // 从全局 app 同步数据集，并监听后续变化（app 异步加载数据集）
+                var app = self._getApp();
+                if (app && app.selectedDataset) {
+                    self.selectedDataset = app.selectedDataset;
+                }
+                if (app && app.$watch) {
+                    app.$watch('selectedDataset', function (dataset) {
+                        if (dataset !== self.selectedDataset) {
+                            self.selectedDataset = dataset;
+                        }
+                    });
+                }
+                self.loadTrainSamples();
+
                 self.$watch('selectedModel', function (model) {
                     self.epochs = self.modelDefaultEpochs[model] || 100;
+                });
+                self.$watch('selectedDataset', function (dataset) {
+                    self.excludedSamples = [];
+                    self.loadTrainSamples();
+                    if (app) app.selectedDataset = dataset;
                 });
                 window.addEventListener('resize', function () {
                     self.$nextTick(function () { self.drawChart(); });
                 });
             },
 
+            _getApp: function () {
+                return Alpine.store('app') || window.app;
+            },
+
+            loadTrainSamples: function () {
+                var self = this;
+                if (!self.selectedDataset) {
+                    self.trainSamples = [];
+                    self.trainSampleCount = 0;
+                    return;
+                }
+                fetch('/api/train-samples?dataset=' + encodeURIComponent(self.selectedDataset))
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        self.trainSamples = (data.samples || []).slice(0, 12);
+                        self.trainSampleCount = data.total || 0;
+                    })
+                    .catch(function () {
+                        self.trainSamples = [];
+                        self.trainSampleCount = 0;
+                    });
+            },
+
+            sampleUrl: function (sample) {
+                return '/data/' + encodeURIComponent(this.selectedDataset) + '/' + sample;
+            },
+
+            sampleName: function (sample) {
+                return sample.split('/').pop();
+            },
+
+            isExcluded: function (sample) {
+                return this.excludedSamples.indexOf(this.sampleName(sample)) >= 0;
+            },
+
+            toggleExclude: function (sample) {
+                if (this.trainingState === 'training') return;
+                var name = this.sampleName(sample);
+                var idx = this.excludedSamples.indexOf(name);
+                if (idx >= 0) {
+                    this.excludedSamples.splice(idx, 1);
+                } else {
+                    this.excludedSamples.push(name);
+                }
+            },
+
             get sampleCount() {
-                return this.samples.filter(function (s) { return !s.excluded; }).length;
+                return this.trainSampleCount;
             },
 
             get hasMetrics() {
@@ -165,105 +229,11 @@ document.addEventListener('alpine:init', function () {
             get statusText() {
                 var map = {
                     idle: '就绪',
-                    uploading: '上传中',
                     training: '训练中',
                     completed: '完成',
                     error: '错误',
                 };
                 return map[this.trainingState] || this.trainingState;
-            },
-
-            onSelectSamples: function (event) {
-                this._uploadFiles(Array.from(event.target.files));
-            },
-
-            onDropSamples: function (event) {
-                this.isDragOver = false;
-                var items = event.dataTransfer.items;
-                if (!items || items.length === 0) {
-                    this._uploadFiles(Array.from(event.dataTransfer.files));
-                    return;
-                }
-                var self = this;
-                this._scanDroppedItems(items).then(function (files) {
-                    self._uploadFiles(files);
-                });
-            },
-
-            _scanDroppedItems: function (items) {
-                var self = this;
-                var promises = Array.from(items).map(function (item) {
-                    return self._readEntry(item.webkitGetAsEntry());
-                });
-                return Promise.all(promises).then(function (results) {
-                    return results.flat().filter(function (f) { return f.type.startsWith('image/'); });
-                });
-            },
-
-            _readEntry: function (entry) {
-                var self = this;
-                return new Promise(function (resolve) {
-                    if (entry.isFile) {
-                        entry.file(function (file) { resolve([file]); }, function () { resolve([]); });
-                    } else if (entry.isDirectory) {
-                        var reader = entry.createReader();
-                        var allEntries = [];
-                        var readBatch = function () {
-                            reader.readEntries(function (entries) {
-                                if (entries.length === 0) {
-                                    Promise.all(entries.map(function (e) {
-                                        return self._readEntry(e);
-                                    })).then(function (nested) {
-                                        resolve(nested.flat());
-                                    });
-                                    return;
-                                }
-                                allEntries = allEntries.concat(entries);
-                                readBatch();
-                            }, function () { resolve([]); });
-                        };
-                        readBatch();
-                    } else {
-                        resolve([]);
-                    }
-                });
-            },
-
-            _uploadFiles: function (files) {
-                var self = this;
-                var imageFiles = files.filter(function (f) { return f.type.startsWith('image/'); });
-                if (imageFiles.length === 0) return;
-
-                self.trainingState = 'uploading';
-                var form = new FormData();
-                imageFiles.forEach(function (f) { form.append('files', f); });
-
-                fetch('/api/upload-samples', {
-                    method: 'POST',
-                    body: form,
-                }).then(function (res) {
-                    return res.json();
-                }).then(function (data) {
-                    self.sessionId = data.session_id;
-                    self.displayName = data.display_name || data.session_id;
-                    self.datasetPath = data.dataset_path;
-                    self.category = data.category;
-                    self.samples = data.samples.map(function (name) {
-                        return {
-                            name: name,
-                            url: '/uploads/' + self.category + '/user/' + self.category + '/train/good/' + name,
-                            excluded: false,
-                        };
-                    });
-                    self.trainingState = 'idle';
-                }).catch(function (err) {
-                    self.trainingState = 'error';
-                    self.errorMessage = String(err);
-                });
-            },
-
-            toggleExclude: function (idx) {
-                this.samples[idx].excluded = !this.samples[idx].excluded;
             },
 
             resetMonitor: function () {
@@ -278,22 +248,19 @@ document.addEventListener('alpine:init', function () {
 
             startTraining: function () {
                 var self = this;
-                if (!self.datasetPath) return;
+                if (!self.selectedDataset) return;
 
                 self.resetMonitor();
                 self.trainingState = 'training';
 
                 TrainingRunner.run({
                     model: self.selectedModel,
-                    dataset_path: self.datasetPath,
-                    category: self.category,
+                    dataset: self.selectedDataset,
                     epochs: parseInt(self.epochs, 10),
                     batch_size: parseInt(self.batchSize, 10),
                     learning_rate: parseFloat(self.learningRate),
                     seed: parseInt(self.seed, 10),
-                    excluded_samples: self.samples
-                        .filter(function (s) { return s.excluded; })
-                        .map(function (s) { return s.name; }),
+                    excluded_samples: self.excludedSamples,
                     advanced_params: self.advancedParams[self.selectedModel] || {},
                 }, {
                     onMetric: function (data) {
@@ -313,7 +280,7 @@ document.addEventListener('alpine:init', function () {
                         self.trainingState = 'completed';
                         // 通知全局应用刷新模型/数据集列表
                         window.dispatchEvent(new CustomEvent('training-completed', {
-                            detail: { model: self.selectedModel, category: self.category }
+                            detail: { model: self.selectedModel, category: self.selectedDataset }
                         }));
                     },
                     onError: function (msg) {

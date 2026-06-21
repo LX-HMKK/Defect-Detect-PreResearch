@@ -24,8 +24,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import numpy as np
-
 # ── Windows UTF-8 编码设置（必须在任何导入之前）──
 # pytest 运行时跳过，避免破坏其 stdout/stderr capture 机制
 if "pytest" not in sys.modules:
@@ -40,9 +38,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from modules._runtime import configure_runtime_temp
 configure_runtime_temp()
 
-# ── cv2 必须在 anomalib 之前导入 ──
+# third-party — cv2 必须在 anomalib 之前导入
 import cv2
-
+import numpy as np
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -51,7 +49,7 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-# ── 轻量 UI 组件（无 anomalib/torch/gradio 依赖）──
+# 轻量 UI 组件（无 anomalib/torch/gradio 依赖）
 from modules.ui._model_info import MODEL_CONFIGS, get_available_datasets, get_self_trained_models
 from modules.ui._training_common import (
     format_uploaded_samples,

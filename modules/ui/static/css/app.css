@@ -2811,6 +2811,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .training-card-title {
@@ -2962,6 +2964,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 6px;
+    min-width: 0;
+    flex-wrap: nowrap;
 }
 
 .training-thumb {

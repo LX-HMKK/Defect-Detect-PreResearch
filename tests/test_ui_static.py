@@ -55,3 +55,14 @@ def test_app_js_selects_snap_pages_by_class():
     assert "$refs.section0" not in app_js
     assert "$refs.section1" not in app_js
     assert "$refs.section2" not in app_js
+
+
+def test_training_gallery_does_not_stretch_monitor():
+    """大量训练样本上传后，画廊应水平滚动，不能撑开右侧区域把监控面板挤出视口。"""
+    css = (STATIC / "css" / "app.css").read_text(encoding="utf-8")
+    assert ".training-right {" in css
+    assert "min-width: 0" in css.split(".training-right {")[1].split("}")[0]
+    assert ".training-gallery {" in css
+    gallery_block = css.split(".training-gallery {")[1].split("}")[0]
+    assert "flex-wrap: nowrap" in gallery_block
+    assert "overflow-x: auto" in gallery_block

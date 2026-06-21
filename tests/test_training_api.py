@@ -155,3 +155,58 @@ def test_train_rejects_missing_dataset(client):
         },
     )
     assert response.status_code == 400
+
+
+# ── /api/test-images ──
+
+def test_test_images_returns_test_folder_images(client):
+    """返回 dataset/test/ 下的图片列表，且路径均以 test/ 开头。"""
+    response = client.get('/api/test-images?dataset=bottle')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'images' in data
+    assert all(img.startswith('test/') for img in data['images'])
+
+
+def test_test_images_rejects_missing_dataset(client):
+    """请求不存在的数据集应返回 400。"""
+    response = client.get('/api/test-images?dataset=not_a_real_dataset_12345')
+    assert response.status_code == 400
+
+
+def test_test_images_rejects_invalid_dataset_name(client):
+    """非法数据集名称应返回 400。"""
+    response = client.get('/api/test-images?dataset=../data')
+    assert response.status_code == 400
+
+
+# ── /api/self-trained-models ──
+
+def test_self_trained_models_returns_list(client):
+    """请求有效模型应返回 200 且包含 models 字段。"""
+    response = client.get('/api/self-trained-models?model=patchcore')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'models' in data
+
+
+def test_self_trained_models_rejects_invalid_model(client):
+    """请求无效模型应返回 400。"""
+    response = client.get('/api/self-trained-models?model=notamodel')
+    assert response.status_code == 400
+
+
+# ── /api/predict path safety ──
+
+def test_predict_rejects_image_outside_test_folder(client):
+    """请求 test/ 外的图片路径应返回 400。"""
+    response = client.post(
+        '/api/predict',
+        data={
+            'model': 'patchcore',
+            'dataset': 'bottle',
+            'image': '../train/good/000.png',
+            'source': 'pretrained',
+        },
+    )
+    assert response.status_code == 400

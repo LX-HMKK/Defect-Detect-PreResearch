@@ -23,6 +23,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+import re
+
 import numpy as np
 
 # ── Windows UTF-8 编码设置（必须在任何导入之前）──
@@ -166,14 +168,41 @@ async def list_models():
 
 
 @app.get("/api/self-trained-models")
-async def api_self_trained_models(model: str = Query(...)):
+async def api_self_trained_models(model: str = Query(...)) -> dict:
+    """
+    返回指定模型的用户自训练模型列表。
+
+    Args:
+        model: 模型标识（patchcore / padim / fre / draem）。
+
+    Returns:
+        dict: {"models": [...]}，每个模型包含 path、category、version、display_name。
+
+    Raises:
+        HTTPException: 400 — 传入未知模型时抛出。
+    """
     if model not in MODEL_CONFIGS:
         raise HTTPException(status_code=400, detail=f"未知模型: {model}")
     return {"models": get_self_trained_models(model)}
 
 
 @app.get("/api/test-images")
-async def api_test_images(dataset: str = Query(...)):
+async def api_test_images(dataset: str = Query(...)) -> dict:
+    """
+    返回指定数据集测试目录下的所有图片相对路径列表。
+
+    Args:
+        dataset: 数据集名称（如 bottle、region1 等）。
+
+    Returns:
+        dict: {"images": ["test/good/001.png", ...]}。
+
+    Raises:
+        HTTPException: 400 — 数据集名称包含非法字符或数据集不存在时抛出。
+    """
+    if not _is_safe_category(dataset):
+        raise HTTPException(status_code=400, detail=f"非法数据集名称: {dataset}")
+
     data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
     dataset_dir = data_root / dataset
     if not dataset_dir.is_dir():
@@ -187,8 +216,11 @@ async def api_test_images(dataset: str = Query(...)):
     images = []
     for img_path in test_dir.rglob("*"):
         if img_path.is_file() and img_path.suffix.lower() in allowed_suffixes:
-            rel = img_path.relative_to(dataset_dir).as_posix()
-            images.append(rel)
+            try:
+                rel = img_path.relative_to(dataset_dir).as_posix()
+                images.append(rel)
+            except ValueError:
+                continue
 
     return {"images": sorted(images)}
 
@@ -217,7 +249,14 @@ class TrainRequest(BaseModel):
     advanced_params: Dict[str, Any] = {}  # 模型特定高级参数
 
 
-def _is_safe_category(category: str) -> bool:
+_CATEGORY_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+def _is_safe_category(name: str) -> bool:
+    """校验数据集/类别名称是否仅包含合法字符（字母、数字、下划线、连字符）。"""
+    return bool(_CATEGORY_RE.match(name))
+
+
+def _is_safe_category_legacy(category: str) -> bool:
     """category 只允许字母、数字、下划线、连字符。"""
     if not category:
         return False

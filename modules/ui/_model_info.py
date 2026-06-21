@@ -7,6 +7,8 @@ anomalib 模型类，因此将该映射独立出来，使 API 测试可在无 GP
 """
 from pathlib import Path
 
+from typing import Any
+
 from modules._runtime import resolve_project_path
 from modules.config import get as cfg_get
 
@@ -31,7 +33,15 @@ MODEL_CONFIGS = {
 }
 
 
-def _scan_dataset_source(model_path: Path, source: str, model_key: str, results_dir: Path) -> list:
+MODEL_RESULT_SUBDIRS = {
+    "fre": "Fre",
+    "patchcore": "Patchcore",
+    "draem": "Draem",
+    "padim": "Padim",
+}
+
+
+def _scan_dataset_source(model_path: Path, source: str, model_key: str, results_dir: Path) -> list[dict[str, Any]]:
     """扫描指定模型路径下 {source} 中的数据集类别，返回对象列表。"""
     datasets = []
     source_path = model_path / source
@@ -73,7 +83,7 @@ def _resolve_display_name(model_key: str, category: str, source: str, results_di
     return category
 
 
-def get_available_datasets():
+def get_available_datasets() -> list[dict[str, Any]]:
     """
     自动检测可用的数据集。
 
@@ -85,14 +95,8 @@ def get_available_datasets():
     """
     results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
     datasets = []
-    model_dirs = {
-        "fre": "Fre",
-        "patchcore": "Patchcore",
-        "draem": "Draem",
-        "padim": "Padim",
-    }
 
-    for model_key, subdir in model_dirs.items():
+    for model_key, subdir in MODEL_RESULT_SUBDIRS.items():
         model_path = results_dir / model_key / subdir
         if not model_path.exists():
             continue
@@ -116,20 +120,14 @@ def get_available_datasets():
     return sorted(datasets, key=lambda d: (d['source'] != 'default', d['label']))
 
 
-def get_self_trained_models(model_key: str) -> list:
+def get_self_trained_models(model_key: str) -> list[dict[str, Any]]:
     """扫描指定算法下所有用户自训练模型。
 
     路径结构: results/{model_key}/{ModelName}/user/{category}/vX
     返回对象包含 path、category、version、display_name。
     """
     results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
-    model_dirs = {
-        "fre": "Fre",
-        "patchcore": "Patchcore",
-        "draem": "Draem",
-        "padim": "Padim",
-    }
-    subdir = model_dirs.get(model_key)
+    subdir = MODEL_RESULT_SUBDIRS.get(model_key)
     if not subdir:
         return []
 

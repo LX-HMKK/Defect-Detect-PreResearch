@@ -2907,6 +2907,57 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     margin-top: 4px;
 }
 
+.training-advanced-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    border-top: 1px solid var(--sep-subtle);
+    transition: color 0.2s ease;
+}
+
+.training-advanced-toggle:hover {
+    color: var(--text);
+}
+
+.training-advanced-toggle svg {
+    transition: transform 0.2s ease;
+}
+
+.training-advanced-toggle svg.is-open {
+    transform: rotate(180deg);
+}
+
+.training-advanced {
+    margin-bottom: 16px;
+}
+
+.training-field-checkbox {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+}
+
+.training-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.training-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 .training-params-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2960,20 +3011,20 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 }
 
 .training-gallery {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
     gap: 12px;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    min-width: 0;
-    flex-wrap: nowrap;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 6px;
 }
 
 .training-thumb {
-    width: 96px;
-    height: 96px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
     border-radius: 12px;
     overflow: hidden;
-    flex-shrink: 0;
     position: relative;
     cursor: pointer;
     background: var(--training-thumb-bg);

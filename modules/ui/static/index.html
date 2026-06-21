@@ -225,22 +225,22 @@
                         <template x-if="defaultDatasets.length > 0">
                             <div class="custom-select-group">
                                 <div class="custom-select-group-label">默认样本</div>
-                                <template x-for="ds in defaultDatasets" :key="ds">
+                                <template x-for="ds in defaultDatasets" :key="ds.value">
                                     <div class="custom-select-option"
-                                         :class="{ 'is-selected': ds === selectedDataset }"
-                                         @click="selectedDataset = ds; open = false"
-                                         x-text="ds.replace('default/', '')"></div>
+                                         :class="{ 'is-selected': ds.value === selectedDataset }"
+                                         @click="selectedDataset = ds.value; open = false"
+                                         x-text="ds.label"></div>
                                 </template>
                             </div>
                         </template>
                         <template x-if="userDatasets.length > 0">
                             <div class="custom-select-group">
                                 <div class="custom-select-group-label">我的训练</div>
-                                <template x-for="ds in userDatasets" :key="ds">
+                                <template x-for="ds in userDatasets" :key="ds.value">
                                     <div class="custom-select-option"
-                                         :class="{ 'is-selected': ds === selectedDataset }"
-                                         @click="selectedDataset = ds; open = false"
-                                         x-text="ds.replace('user/', '')"></div>
+                                         :class="{ 'is-selected': ds.value === selectedDataset }"
+                                         @click="selectedDataset = ds.value; open = false"
+                                         x-text="ds.label"></div>
                                 </template>
                             </div>
                         </template>
@@ -647,6 +647,63 @@
                                 <div class="training-label">Seed</div>
                                 <input type="number" class="training-input" x-model="seed">
                             </div>
+                        </div>
+
+                        <div class="training-advanced-toggle" @click="showAdvanced = !showAdvanced">
+                            <span x-text="showAdvanced ? '收起高级参数' : '展开高级参数'"></span>
+                            <svg :class="{ 'is-open': showAdvanced }" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <div class="training-advanced" x-show="showAdvanced" x-transition.duration.200ms>
+                            <!-- PatchCore -->
+                            <template x-if="selectedModel === 'patchcore'">
+                                <div class="training-params-grid">
+                                    <div class="training-field">
+                                        <div class="training-label">Coreset 采样比</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.patchcore.coreset_sampling_ratio" step="0.01" min="0.01" max="0.5">
+                                    </div>
+                                    <div class="training-field">
+                                        <div class="training-label">最近邻数量</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.patchcore.num_neighbors" min="1" max="20">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- FRE -->
+                            <template x-if="selectedModel === 'fre'">
+                                <div class="training-params-grid">
+                                    <div class="training-field">
+                                        <div class="training-label">Latent Dim</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.fre.latent_dim" min="64" max="512" step="1">
+                                    </div>
+                                    <div class="training-field">
+                                        <div class="training-label">池化核大小</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.fre.pooling_kernel_size" min="1" max="4" step="1">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- DRAEM -->
+                            <template x-if="selectedModel === 'draem'">
+                                <div class="training-params-grid">
+                                    <div class="training-field">
+                                        <div class="training-label">Beta A</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.draem.beta_a" min="0" max="1" step="0.05">
+                                    </div>
+                                    <div class="training-field">
+                                        <div class="training-label">Beta B</div>
+                                        <input type="number" class="training-input" x-model="advancedParams.draem.beta_b" min="0" max="1" step="0.05">
+                                    </div>
+                                    <div class="training-field training-field-checkbox">
+                                        <label class="training-checkbox">
+                                            <input type="checkbox" x-model="advancedParams.draem.enable_sspcab">
+                                            <span>启用 SSPCAB</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         <button class="training-start-btn"

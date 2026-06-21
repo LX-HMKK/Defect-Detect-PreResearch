@@ -298,23 +298,22 @@ document.addEventListener('alpine:init', function () {
             // ─────────────────────────────────────────────
             // 数据集 & 模型
             // ─────────────────────────────────────────────
-            datasets: [],          // 原始列表，如 ["default/bottle", "user/xxx"]
-            selectedDataset: '',   // 完整值，如 "default/bottle"
+            datasets: [],          // 对象列表，如 [{value:"default/bottle", label:"bottle", source:"default"}, ...]
+            selectedDataset: '',   // value 字符串，如 "default/bottle"
             models: [],
             selectedModel: 'patchcore',
 
             get defaultDatasets() {
-                return this.datasets.filter(function (d) { return d.startsWith('default/'); });
+                return this.datasets.filter(function (d) { return d.source === 'default'; });
             },
 
             get userDatasets() {
-                return this.datasets.filter(function (d) { return d.startsWith('user/'); });
+                return this.datasets.filter(function (d) { return d.source === 'user'; });
             },
 
             get datasetDisplayName() {
-                var ds = this.selectedDataset;
-                if (!ds) return '数据集';
-                return ds.replace('default/', '').replace('user/', '我的：');
+                var ds = this.datasets.find(function (d) { return d.value === this.selectedDataset; }, this);
+                return ds ? ds.label : (this.selectedDataset || '数据集');
             },
 
             fetchModels: async function () {
@@ -325,8 +324,8 @@ document.addEventListener('alpine:init', function () {
                     this.datasets = data.datasets || [];
                     // 优先选中默认第一个
                     if (this.datasets.length > 0) {
-                        var defaultFirst = this.datasets.find(function (d) { return d.startsWith('default/'); });
-                        this.selectedDataset = defaultFirst || this.datasets[0];
+                        var defaultFirst = this.datasets.find(function (d) { return d.source === 'default'; });
+                        this.selectedDataset = defaultFirst ? defaultFirst.value : this.datasets[0].value;
                     }
                 } catch (e) {
                     console.warn('[app] 获取模型列表失败:', e);

@@ -95,6 +95,8 @@ def run_training_job(
     seed: int,
     metrics_queue: queue.Queue,
     excluded_samples: Optional[List[str]] = None,
+    advanced_params: Optional[Dict] = None,
+    display_name: Optional[str] = None,
 ) -> Dict:
     """在线程中执行训练并通过 SSE 队列推送状态/指标/日志。"""
     # 延迟导入 heavy 依赖，保证模块导入阶段不触发 anomalib/torch。
@@ -215,6 +217,22 @@ def run_training_job(
                 config['data']['init_args']['category'] = data_category
                 config['data']['init_args']['train_batch_size'] = batch_size
                 config['data']['init_args']['eval_batch_size'] = batch_size
+            # 合并前端传入的高级参数到 model.init_args
+            if advanced_params:
+                if config is None:
+                    config = {}
+                if 'model' not in config:
+                    config['model'] = {}
+                if 'init_args' not in config['model']:
+                    config['model']['init_args'] = {}
+                init_args = config['model']['init_args']
+                for key, value in advanced_params.items():
+                    if key == 'beta_a' or key == 'beta_b':
+                        continue
+                    init_args[key] = value
+                # DRAEM 的 beta 是数组 [a, b]
+                if model_name == 'draem' and 'beta_a' in advanced_params and 'beta_b' in advanced_params:
+                    init_args['beta'] = [advanced_params['beta_a'], advanced_params['beta_b']]
 
         print(f"[TRAIN] 使用 learning_rate={learning_rate}（DRAEM/FRE 生效；PatchCore/PaDiM 忽略）")
 
@@ -272,6 +290,19 @@ def run_training_job(
         })
 
         results = trainer.evaluate()
+
+        # 将人性化显示名称回写结果 JSON，供 UI 下拉菜单读取
+        if display_name:
+            try:
+                result_json = output_dir / 'comparison' / f'{model_name}_{category}_results.json'
+                if result_json.exists():
+                    with open(result_json, 'r', encoding='utf-8') as f:
+                        result_data = json.load(f)
+                    result_data['display_name'] = display_name
+                    with open(result_json, 'w', encoding='utf-8') as f:
+                        json.dump(result_data, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
 
         metrics_queue.put({
             'event': 'completed',

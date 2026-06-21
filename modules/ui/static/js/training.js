@@ -106,6 +106,7 @@ document.addEventListener('alpine:init', function () {
             samples: [],
             isDragOver: false,
             sessionId: null,
+            displayName: '',
             datasetPath: null,
             category: null,
 
@@ -114,6 +115,21 @@ document.addEventListener('alpine:init', function () {
             batchSize: 32,
             learningRate: 0.0001,
             seed: 42,
+            showAdvanced: false,
+            advancedParams: {
+                patchcore: { coreset_sampling_ratio: 0.1, num_neighbors: 9 },
+                padim: {},
+                fre: { latent_dim: 220, pooling_kernel_size: 2 },
+                draem: { beta_a: 0.1, beta_b: 1.0, enable_sspcab: false },
+            },
+
+            // 模型推荐 epoch
+            modelDefaultEpochs: {
+                patchcore: 1,
+                padim: 1,
+                fre: 50,
+                draem: 100,
+            },
 
             // 训练状态
             trainingState: 'idle', // idle | uploading | training | completed | error
@@ -127,8 +143,12 @@ document.addEventListener('alpine:init', function () {
             metricsHistory: [],
 
             init: function () {
-                this.resetMonitor();
                 var self = this;
+                self.resetMonitor();
+                self.epochs = self.modelDefaultEpochs[self.selectedModel] || 100;
+                self.$watch('selectedModel', function (model) {
+                    self.epochs = self.modelDefaultEpochs[model] || 100;
+                });
                 window.addEventListener('resize', function () {
                     self.$nextTick(function () { self.drawChart(); });
                 });
@@ -225,6 +245,7 @@ document.addEventListener('alpine:init', function () {
                     return res.json();
                 }).then(function (data) {
                     self.sessionId = data.session_id;
+                    self.displayName = data.display_name || data.session_id;
                     self.datasetPath = data.dataset_path;
                     self.category = data.category;
                     self.samples = data.samples.map(function (name) {
@@ -273,6 +294,7 @@ document.addEventListener('alpine:init', function () {
                     excluded_samples: self.samples
                         .filter(function (s) { return s.excluded; })
                         .map(function (s) { return s.name; }),
+                    advanced_params: self.advancedParams[self.selectedModel] || {},
                 }, {
                     onMetric: function (data) {
                         self.currentEpoch = data.epoch;
@@ -319,55 +341,103 @@ document.addEventListener('alpine:init', function () {
 
                 var w = rect.width;
                 var h = rect.height;
-                var padding = 30;
+                var padding = { top: 28, right: 44, bottom: 28, left: 44 };
 
                 // 从 CSS 变量读取当前主题颜色
                 var style = getComputedStyle(canvas);
                 var gridColor = style.getPropertyValue('--training-chart-grid').trim() || 'rgba(128,128,128,0.2)';
-                var lineColor = style.getPropertyValue('--accent').trim() || '#5ac8fa';
+                var lossColor = style.getPropertyValue('--accent').trim() || '#5ac8fa';
+                var aurocColor = style.getPropertyValue('--ok').trim() || '#30d158';
                 var axisColor = style.getPropertyValue('--training-chart-axis').trim() || 'rgba(128,128,128,0.5)';
+                var textColor = style.getPropertyValue('--text-secondary').trim() || 'rgba(128,128,128,0.7)';
 
                 ctx.clearRect(0, 0, w, h);
 
-                if (this.metricsHistory.length < 2) return;
-
-                var losses = this.metricsHistory
+                var lossPoints = this.metricsHistory
                     .filter(function (m) { return m.train_loss !== undefined && m.train_loss !== null; })
-                    .map(function (m) { return m.train_loss; });
-                if (losses.length < 2) return;
+                    .map(function (m) { return { epoch: m.epoch, value: m.train_loss }; });
+                var aurocPoints = this.metricsHistory
+                    .filter(function (m) { return m.val_image_AUROC !== undefined && m.val_image_AUROC !== null; })
+                    .map(function (m) { return { epoch: m.epoch, value: m.val_image_AUROC }; });
 
-                var maxLoss = Math.max.apply(null, losses);
-                var minLoss = Math.min.apply(null, losses);
-                var range = Math.max(0.001, maxLoss - minLoss);
+                var chartW = w - padding.left - padding.right;
+                var chartH = h - padding.top - padding.bottom;
 
-                // 网格线
-                ctx.strokeStyle = gridColor;
-                ctx.lineWidth = 1;
-                for (var i = 0; i <= 4; i++) {
-                    var y = padding + (h - 2 * padding) * i / 4;
-                    ctx.beginPath();
-                    ctx.moveTo(padding, y);
-                    ctx.lineTo(w - padding, y);
-                    ctx.stroke();
+                function drawGrid() {
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 1;
+                    for (var i = 0; i <= 4; i++) {
+                        var y = padding.top + chartH * i / 4;
+                        ctx.beginPath();
+                        ctx.moveTo(padding.left, y);
+                        ctx.lineTo(w - padding.right, y);
+                        ctx.stroke();
+                    }
                 }
 
-                // Loss 曲线
-                ctx.strokeStyle = lineColor;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                losses.forEach(function (loss, idx) {
-                    var x = padding + (w - 2 * padding) * idx / (losses.length - 1);
-                    var y = padding + (h - 2 * padding) * (1 - (loss - minLoss) / range);
-                    if (idx === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
+                function drawSeries(points, color, minVal, maxVal, label, side) {
+                    if (points.length < 2) return;
+                    var range = Math.max(0.001, maxVal - minVal);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    points.forEach(function (p, idx) {
+                        var x = padding.left + chartW * idx / (points.length - 1);
+                        var y = padding.top + chartH * (1 - (p.value - minVal) / range);
+                        if (idx === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
 
-                // 轴标签
+                    // 轴刻度
+                    ctx.fillStyle = color;
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = side === 'left' ? 'right' : 'left';
+                    for (var i = 0; i <= 2; i++) {
+                        var val = minVal + range * (1 - i / 2);
+                        var y = padding.top + chartH * i / 2;
+                        var text = val < 0.01 ? val.toExponential(1) : val.toFixed(3);
+                        if (side === 'left') ctx.fillText(text, padding.left - 8, y + 3);
+                        else ctx.fillText(text, w - padding.right + 8, y + 3);
+                    }
+                    ctx.textAlign = 'start';
+
+                    // 图例
+                    ctx.fillStyle = textColor;
+                    ctx.font = '11px sans-serif';
+                    var legendX = side === 'left' ? padding.left : w - padding.right - 70;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(legendX, padding.top - 14, 10, 3);
+                    ctx.fillStyle = textColor;
+                    ctx.fillText(label, legendX + 14, padding.top - 10);
+                }
+
+                drawGrid();
+
+                if (lossPoints.length >= 2) {
+                    var lossMin = Math.min.apply(null, lossPoints.map(function (p) { return p.value; }));
+                    var lossMax = Math.max.apply(null, lossPoints.map(function (p) { return p.value; }));
+                    drawSeries(lossPoints, lossColor, lossMin, lossMax, 'Loss', 'left');
+                }
+
+                if (aurocPoints.length >= 2) {
+                    var aurocMin = Math.min.apply(null, aurocPoints.map(function (p) { return p.value; }));
+                    var aurocMax = Math.max.apply(null, aurocPoints.map(function (p) { return p.value; }));
+                    // AUROC 通常落在 [0,1]，固定范围更易读
+                    drawSeries(aurocPoints, aurocColor, Math.min(0.0, aurocMin), 1.0, 'val AUROC', 'right');
+                }
+
+                // 底部 epoch 轴
                 ctx.fillStyle = axisColor;
                 ctx.font = '10px sans-serif';
-                ctx.fillText('Loss', padding, padding - 8);
-                ctx.fillText('Epoch', w - padding - 28, h - padding + 16);
+                ctx.textAlign = 'center';
+                var total = this.totalEpochs || 1;
+                for (var i = 0; i <= 4; i++) {
+                    var epoch = Math.round(total * i / 4);
+                    var x = padding.left + chartW * i / 4;
+                    ctx.fillText(String(epoch), x, h - padding.bottom + 14);
+                }
+                ctx.textAlign = 'start';
             },
         };
     });

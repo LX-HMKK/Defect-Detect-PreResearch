@@ -31,9 +31,9 @@ MODEL_CONFIGS = {
 }
 
 
-def _scan_dataset_source(model_path: Path, source: str) -> set:
-    """扫描指定模型路径下 {source} 中的数据集类别。"""
-    datasets = set()
+def _scan_dataset_source(model_path: Path, source: str, model_key: str, results_dir: Path) -> list:
+    """扫描指定模型路径下 {source} 中的数据集类别，返回对象列表。"""
+    datasets = []
     source_path = model_path / source
     if not source_path.exists():
         return datasets
@@ -46,8 +46,31 @@ def _scan_dataset_source(model_path: Path, source: str) -> set:
             child.is_dir() and child.name.startswith('v')
             for child in cat_dir.iterdir()
         ):
-            datasets.add(f"{source}/{cat_dir.name}")
+            value = f"{source}/{cat_dir.name}"
+            label = _resolve_display_name(model_key, cat_dir.name, source, results_dir)
+            datasets.append({
+                'value': value,
+                'label': label,
+                'source': source,
+            })
     return datasets
+
+
+def _resolve_display_name(model_key: str, category: str, source: str, results_dir: Path) -> str:
+    """解析数据集显示名称。用户训练结果优先读取结果 JSON 中的 display_name。"""
+    if source == 'default':
+        return category
+    result_json = results_dir / 'comparison' / f'{model_key}_{category}_results.json'
+    if result_json.exists():
+        try:
+            import json
+            data = json.loads(result_json.read_text(encoding='utf-8'))
+            display_name = data.get('display_name')
+            if display_name:
+                return display_name
+        except Exception:
+            pass
+    return category
 
 
 def get_available_datasets():
@@ -55,13 +78,13 @@ def get_available_datasets():
     自动检测可用的数据集。
 
     结果格式：
-        - 默认（精调）结果："default/{category}"
-        - 用户自训练结果："user/{category}"
+        - 默认（精调）结果：{"value": "default/{category}", "label": "{category}", "source": "default"}
+        - 用户自训练结果：{"value": "user/{category}", "label": "显示名称", "source": "user"}
 
     扫描路径基于 configs/config.yaml 的 paths.results_root，避免依赖启动工作目录。
     """
     results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
-    datasets = set()
+    datasets = []
     model_dirs = {
         "fre": "Fre",
         "patchcore": "Patchcore",
@@ -75,9 +98,9 @@ def get_available_datasets():
             continue
 
         # 1) 默认/精调结果：results/{model}/Patchcore/default/{category}
-        datasets.update(_scan_dataset_source(model_path, 'default'))
+        datasets.extend(_scan_dataset_source(model_path, 'default', model_key, results_dir))
 
         # 2) 用户自训练结果：results/{model}/Patchcore/user/{category}
-        datasets.update(_scan_dataset_source(model_path, 'user'))
+        datasets.extend(_scan_dataset_source(model_path, 'user', model_key, results_dir))
 
-    return sorted(datasets)
+    return sorted(datasets, key=lambda d: (d['source'] != 'default', d['label']))

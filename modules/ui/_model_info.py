@@ -103,4 +103,14 @@ def get_available_datasets():
         # 2) 用户自训练结果：results/{model}/Patchcore/user/{category}
         datasets.extend(_scan_dataset_source(model_path, 'user', model_key, results_dir))
 
+    # 按 value 去重：同一类别在多个模型目录下会被多次扫描到
+    unique: dict = {}
+    for ds in datasets:
+        value = ds['value']
+        if value not in unique:
+            unique[value] = ds
+        elif ds.get('display_name'):
+            unique[value] = ds
+    datasets = list(unique.values())
+
     return sorted(datasets, key=lambda d: (d['source'] != 'default', d['label']))

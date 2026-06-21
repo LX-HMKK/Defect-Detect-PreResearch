@@ -273,12 +273,18 @@ async def train(request: TrainRequest):
     # 2. 解析并校验数据集路径
     dataset_path = _resolve_upload_dataset_path(request.dataset_path)
 
-    # 2.1 读取上传时生成的人性化显示名称
+    # 2.1 读取上传时生成的计数器，并按 {模型名}-custom-{批次} 格式生成最终显示名称
     upload_dir = dataset_path.parents[1]
     display_name = request.category
+    counter_file = upload_dir / ".counter"
+    if counter_file.exists():
+        try:
+            counter = int(counter_file.read_text(encoding="utf-8").strip() or "1")
+            display_name = f"{request.model}-custom-{counter:03d}"
+        except ValueError:
+            pass
     display_name_file = upload_dir / ".display_name"
-    if display_name_file.exists():
-        display_name = display_name_file.read_text(encoding="utf-8").strip() or display_name
+    display_name_file.write_text(display_name, encoding="utf-8")
 
     # 3. 尝试获取全局训练锁
     started = training_manager.try_start(
@@ -465,13 +471,14 @@ async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
         except ValueError:
             counter = 1
     session_id = f"training_{uuid.uuid4().hex}"
-    display_name = f"我的训练 {counter:03d}"
+    display_name = f"custom-{counter:03d}"
     counter_file.write_text(str(counter + 1), encoding="utf-8")
 
     upload_dir = temp_dir / "uploads" / session_id
     upload_dir.mkdir(parents=True, exist_ok=True)
-    # 保存显示名称供后续结果文件写入
-    (upload_dir / ".display_name").write_text(display_name, encoding="utf-8")
+    # 保存计数器与临时显示名称，训练开始后会根据模型名重写为最终格式
+    (upload_dir / ".counter").write_text(str(counter), encoding="utf-8")
+    (upload_dir / ".display_name").write_text(f"custom-{counter:03d}", encoding="utf-8")
 
     # 5. 使用 cv2 读取并保存上传图片，读取失败的跳过
     saved_paths: List[Path] = []

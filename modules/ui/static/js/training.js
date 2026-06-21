@@ -342,6 +342,7 @@ document.addEventListener('alpine:init', function () {
                 var w = rect.width;
                 var h = rect.height;
                 var padding = { top: 28, right: 44, bottom: 28, left: 44 };
+                var self = this;
 
                 // 从 CSS 变量读取当前主题颜色
                 var style = getComputedStyle(canvas);
@@ -376,18 +377,36 @@ document.addEventListener('alpine:init', function () {
                 }
 
                 function drawSeries(points, color, minVal, maxVal, label, side) {
-                    if (points.length < 2) return;
+                    if (points.length === 0) return;
                     var range = Math.max(0.001, maxVal - minVal);
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
+
+                    function coord(idx) {
+                        var x = padding.left + chartW * (points.length > 1 ? idx / (points.length - 1) : 0.5);
+                        var y = padding.top + chartH * (1 - (points[idx].value - minVal) / range);
+                        return { x: x, y: y };
+                    }
+
+                    // 画线
+                    if (points.length >= 2) {
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        points.forEach(function (p, idx) {
+                            var c = coord(idx);
+                            if (idx === 0) ctx.moveTo(c.x, c.y);
+                            else ctx.lineTo(c.x, c.y);
+                        });
+                        ctx.stroke();
+                    }
+
+                    // 画点（单点或最后一点高亮）
+                    ctx.fillStyle = color;
                     points.forEach(function (p, idx) {
-                        var x = padding.left + chartW * idx / (points.length - 1);
-                        var y = padding.top + chartH * (1 - (p.value - minVal) / range);
-                        if (idx === 0) ctx.moveTo(x, y);
-                        else ctx.lineTo(x, y);
+                        var c = coord(idx);
+                        ctx.beginPath();
+                        ctx.arc(c.x, c.y, points.length === 1 ? 5 : 3, 0, Math.PI * 2);
+                        ctx.fill();
                     });
-                    ctx.stroke();
 
                     // 轴刻度
                     ctx.fillStyle = color;
@@ -405,26 +424,47 @@ document.addEventListener('alpine:init', function () {
                     // 图例
                     ctx.fillStyle = textColor;
                     ctx.font = '11px sans-serif';
-                    var legendX = side === 'left' ? padding.left : w - padding.right - 70;
+                    var legendX = side === 'left' ? padding.left : w - padding.right - 80;
                     ctx.fillStyle = color;
                     ctx.fillRect(legendX, padding.top - 14, 10, 3);
                     ctx.fillStyle = textColor;
                     ctx.fillText(label, legendX + 14, padding.top - 10);
                 }
 
+                function drawNoCurveHint(message) {
+                    ctx.fillStyle = textColor;
+                    ctx.font = '13px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(message, w / 2, h / 2);
+                    ctx.textAlign = 'start';
+                }
+
                 drawGrid();
 
-                if (lossPoints.length >= 2) {
+                var hasLoss = lossPoints.length > 0;
+                var hasAUROC = aurocPoints.length > 0;
+
+                if (hasLoss) {
                     var lossMin = Math.min.apply(null, lossPoints.map(function (p) { return p.value; }));
                     var lossMax = Math.max.apply(null, lossPoints.map(function (p) { return p.value; }));
                     drawSeries(lossPoints, lossColor, lossMin, lossMax, 'Loss', 'left');
                 }
 
-                if (aurocPoints.length >= 2) {
+                if (hasAUROC) {
                     var aurocMin = Math.min.apply(null, aurocPoints.map(function (p) { return p.value; }));
                     var aurocMax = Math.max.apply(null, aurocPoints.map(function (p) { return p.value; }));
                     // AUROC 通常落在 [0,1]，固定范围更易读
                     drawSeries(aurocPoints, aurocColor, Math.min(0.0, aurocMin), 1.0, 'val AUROC', 'right');
+                }
+
+                // 没有任何可绘制序列时，给出明确提示
+                if (!hasLoss && !hasAUROC) {
+                    var noCurveModels = { patchcore: true, padim: true };
+                    if (noCurveModels[self.selectedModel]) {
+                        drawNoCurveHint('PatchCore / PaDiM 无需训练，无训练曲线');
+                    } else if (self.metricsHistory.length > 0) {
+                        drawNoCurveHint('当前指标暂无可用曲线数据');
+                    }
                 }
 
                 // 底部 epoch 轴

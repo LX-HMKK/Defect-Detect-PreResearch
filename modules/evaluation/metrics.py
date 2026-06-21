@@ -356,10 +356,10 @@ def load_and_evaluate(results_dir: str, model_name: str, category: str) -> bool:
     metrics_data = data.get('metrics', {})
     
     metrics = AnomalyMetrics(
-        image_auroc=metrics_data.get('image_AUROC', 0),
-        image_aupr=metrics_data.get('image_AUPR', 0),
-        pixel_auroc=metrics_data.get('pixel_AUROC', 0),
-        pro=metrics_data.get('pixel_PRO', 0)
+        image_auroc=metrics_data.get('image_AUROC') or 0,
+        image_aupr=metrics_data.get('image_AUPR') or 0,
+        pixel_auroc=metrics_data.get('pixel_AUROC') or 0,
+        pro=metrics_data.get('pixel_PRO') or 0
     )
     
     evaluator = MetricsEvaluator()

@@ -60,8 +60,10 @@ def load_all_results(results_dir: Path) -> Dict[str, Dict[str, dict]]:
 def get_metric(data: dict, key: str, default=0):
     """从 JSON 中提取指标值，兼容 {metrics: {...}} 和顶层格式"""
     if 'metrics' in data and isinstance(data['metrics'], dict):
-        return data['metrics'].get(key, default)
-    return data.get(key, default)
+        val = data['metrics'].get(key, default)
+        return default if val is None else val
+    val = data.get(key, default)
+    return default if val is None else val
 
 
 def format_metric(value, decimals: int = 2) -> str:

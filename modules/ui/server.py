@@ -99,6 +99,10 @@ app.add_middleware(CacheControlMiddleware)
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# ── 数据集目录挂载（供训练样本与测试图片预览）──
+data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+app.mount("/data", StaticFiles(directory=str(data_root)), name="data")
+
 # ── 上传样本目录挂载 ──
 upload_root = resolve_project_path(cfg_get('paths.temp_dir', './.cache')) / 'uploads'
 upload_root.mkdir(parents=True, exist_ok=True)
@@ -341,7 +345,15 @@ def _safe_self_trained_path(model: str, path: str) -> Path:
     except ValueError:
         raise HTTPException(status_code=400, detail="自训练模型路径不合法")
 
-    if not requested.is_dir() or not list(requested.glob("*.ckpt")):
+    if not requested.is_dir():
+        raise HTTPException(status_code=400, detail="自训练模型目录不存在")
+
+    # checkpoint 保存在 weights/lightning/ 下，兼容旧结构根目录 *.ckpt
+    ckpt_dir = requested / 'weights' / 'lightning'
+    ckpts = list(ckpt_dir.glob("*.ckpt")) if ckpt_dir.exists() else []
+    if not ckpts:
+        ckpts = list(requested.glob("*.ckpt"))
+    if not ckpts:
         raise HTTPException(status_code=400, detail="自训练模型 checkpoint 不存在")
     return requested
 
@@ -769,7 +781,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Op
             "heatmap_b64": heat_b64,
             "anomaly_map_b64": gray_b64,
             "bboxes": bboxes,
-            "model_name": MODEL_CONFIGS[model_key].name,
+            "model_name": MODEL_CONFIGS[model_key]['name'],
         }
 
     finally:
@@ -821,7 +833,7 @@ async def api_predict(request: PredictRequest):
 
     async def event_generator():
         # ── 阶段 1: 加载模型 ──
-        model_name = MODEL_CONFIGS.get(model, MODEL_CONFIGS['patchcore']).name
+        model_name = MODEL_CONFIGS.get(model, MODEL_CONFIGS['patchcore'])['name']
         yield {
             "event": "progress",
             "data": json.dumps({
@@ -937,7 +949,7 @@ async def compare(request: CompareRequest):
 
         for model_key in models:
             # 通知前端当前模型开始推理
-            model_name = MODEL_CONFIGS[model_key].name
+            model_name = MODEL_CONFIGS[model_key]['name']
             yield {
                 "event": "model_start",
                 "data": json.dumps({
@@ -978,9 +990,9 @@ async def compare(request: CompareRequest):
                     }, ensure_ascii=False),
                 }
 
-        # 生成排名摘要（得分最低 = 最正常 = 最优）
+        # 生成排名摘要（得分最高 = 对当前样本最敏感 = 最优）
         if results:
-            results_sorted = sorted(results, key=lambda r: r.get('score', 1.0))
+            results_sorted = sorted(results, key=lambda r: r.get('score', 0.0), reverse=True)
             best = results_sorted[0]
             summary = {
                 "best_model": best["model"],

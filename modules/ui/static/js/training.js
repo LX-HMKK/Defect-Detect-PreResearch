@@ -106,6 +106,7 @@ document.addEventListener('alpine:init', function () {
             selectedDataset: '',
             trainSamples: [],
             trainSampleCount: 0,
+            excludedSamples: [],
 
             // 参数
             epochs: 100,
@@ -144,10 +145,17 @@ document.addEventListener('alpine:init', function () {
                 self.resetMonitor();
                 self.epochs = self.modelDefaultEpochs[self.selectedModel] || 100;
 
-                // 从全局 app 同步数据集
+                // 从全局 app 同步数据集，并监听后续变化（app 异步加载数据集）
                 var app = self._getApp();
                 if (app && app.selectedDataset) {
                     self.selectedDataset = app.selectedDataset;
+                }
+                if (app && app.$watch) {
+                    app.$watch('selectedDataset', function (dataset) {
+                        if (dataset !== self.selectedDataset) {
+                            self.selectedDataset = dataset;
+                        }
+                    });
                 }
                 self.loadTrainSamples();
 
@@ -155,6 +163,7 @@ document.addEventListener('alpine:init', function () {
                     self.epochs = self.modelDefaultEpochs[model] || 100;
                 });
                 self.$watch('selectedDataset', function (dataset) {
+                    self.excludedSamples = [];
                     self.loadTrainSamples();
                     if (app) app.selectedDataset = dataset;
                 });
@@ -184,6 +193,29 @@ document.addEventListener('alpine:init', function () {
                         self.trainSamples = [];
                         self.trainSampleCount = 0;
                     });
+            },
+
+            sampleUrl: function (sample) {
+                return '/data/' + encodeURIComponent(this.selectedDataset) + '/' + sample;
+            },
+
+            sampleName: function (sample) {
+                return sample.split('/').pop();
+            },
+
+            isExcluded: function (sample) {
+                return this.excludedSamples.indexOf(this.sampleName(sample)) >= 0;
+            },
+
+            toggleExclude: function (sample) {
+                if (this.trainingState === 'training') return;
+                var name = this.sampleName(sample);
+                var idx = this.excludedSamples.indexOf(name);
+                if (idx >= 0) {
+                    this.excludedSamples.splice(idx, 1);
+                } else {
+                    this.excludedSamples.push(name);
+                }
             },
 
             get sampleCount() {
@@ -228,7 +260,7 @@ document.addEventListener('alpine:init', function () {
                     batch_size: parseInt(self.batchSize, 10),
                     learning_rate: parseFloat(self.learningRate),
                     seed: parseInt(self.seed, 10),
-                    excluded_samples: [],
+                    excluded_samples: self.excludedSamples,
                     advanced_params: self.advancedParams[self.selectedModel] || {},
                 }, {
                     onMetric: function (data) {

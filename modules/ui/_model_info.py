@@ -87,23 +87,35 @@ def get_available_datasets() -> list[dict[str, Any]]:
     自动检测可用的数据集。
 
     结果格式：
-        - 默认（精调）结果：{"value": "default/{category}", "label": "{category}", "source": "default"}
+        - 标准数据集（data_root 下目录）：{"value": "{category}", "label": "{category}", "source": "default"}
         - 用户自训练结果：{"value": "user/{category}", "label": "显示名称", "source": "user"}
 
-    扫描路径基于 configs/config.yaml 的 paths.results_root，避免依赖启动工作目录。
+    标准数据集扫描路径基于 configs/config.yaml 的 paths.data_root；
+    用户自训练结果扫描路径基于 paths.results_root，避免依赖启动工作目录。
     """
-    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
     datasets = []
 
+    # 1) 标准数据集：扫描 data_root 下的 MVTec/Folder 目录
+    data_root = resolve_project_path(cfg_get('paths.data_root', './data'))
+    if data_root.exists():
+        for cat_dir in sorted(data_root.iterdir()):
+            if not cat_dir.is_dir() or cat_dir.name == '__pycache__':
+                continue
+            # 要求至少包含 train/good，避免把临时/配置目录当成数据集
+            if not (cat_dir / 'train' / 'good').exists():
+                continue
+            datasets.append({
+                'value': cat_dir.name,
+                'label': cat_dir.name,
+                'source': 'default',
+            })
+
+    # 2) 用户自训练结果：results/{model}/Patchcore/user/{category}
+    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
     for model_key, subdir in MODEL_RESULT_SUBDIRS.items():
         model_path = results_dir / model_key / subdir
         if not model_path.exists():
             continue
-
-        # 1) 默认/精调结果：results/{model}/Patchcore/default/{category}
-        datasets.extend(_scan_dataset_source(model_path, 'default', model_key, results_dir))
-
-        # 2) 用户自训练结果：results/{model}/Patchcore/user/{category}
         datasets.extend(_scan_dataset_source(model_path, 'user', model_key, results_dir))
 
     # 按 value 去重：同一类别在多个模型目录下会被多次扫描到
@@ -146,7 +158,8 @@ def get_self_trained_models(model_key: str) -> list[dict[str, Any]]:
             except ValueError:
                 continue
             # 要求目录下存在有效的 lightning checkpoint
-            ckpts = list(version_dir.glob('*.ckpt'))
+            ckpt_dir = version_dir / 'weights' / 'lightning'
+            ckpts = list(ckpt_dir.glob('*.ckpt')) if ckpt_dir.exists() else []
             if not ckpts:
                 continue
             display_name = _resolve_display_name(model_key, cat_dir.name, 'user', results_dir)

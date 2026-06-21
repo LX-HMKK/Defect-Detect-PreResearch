@@ -56,6 +56,16 @@ document.addEventListener('alpine:init', function () {
                 // 获取模型列表
                 self.fetchModels();
 
+                // 切换模型时刷新自训练模型列表
+                self.$watch('selectedModel', function () {
+                    self.loadSelfTrainedModels();
+                });
+
+                // 切换推理来源时刷新测试图片
+                self.$watch('inferenceSource', function () {
+                    self.loadTestImages();
+                });
+
                 // 设置滚动监听（用于导航点更新）
                 self.setupScrollObserver();
 

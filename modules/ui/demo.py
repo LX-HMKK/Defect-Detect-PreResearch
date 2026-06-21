@@ -308,28 +308,43 @@ class AnomalyDetector:
         """从自训练目录加载模型。"""
         from modules.algorithm.trainer import AnomalyDetectionTrainer
 
+        data_root = resolve_project_path(get('paths.data_root', './data'))
         config_path = resolve_project_path(f"configs/{model_key}.yaml")
         trainer = AnomalyDetectionTrainer(
             model_name=model_key,
-            category=None,
-            data_path=None,
+            category=category,
+            data_path=str(data_root),
             config_path=str(config_path),
             source="user",
         )
         trainer.setup()
 
-        ckpt_files = sorted(model_dir.glob("*.ckpt"))
+        # 创建推理引擎（setup 不创建 Engine）
+        temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
+        engine = Engine(
+            default_root_dir=str(temp_dir / "lightning_logs"),
+            logger=False,
+            enable_progress_bar=False,
+        )
+
+        # checkpoint 保存在 weights/lightning/ 下
+        ckpt_dir = Path(model_dir) / 'weights' / 'lightning'
+        ckpt_files = sorted(ckpt_dir.glob("*.ckpt")) if ckpt_dir.exists() else sorted(Path(model_dir).glob("*.ckpt"))
         if not ckpt_files:
             return False, "自训练模型目录缺少 checkpoint 文件"
         ckpt_path = ckpt_files[0]
-        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        try:
+            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+        except Exception:
+            # 部分 anomalib checkpoint 包含非张量对象，回退到完整反序列化（本地可信文件）
+            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
 
         self.model = trainer.model
         self.model_key = model_key
         self.current_dataset = category
         self.current_model = model_key
-        self.engine = trainer.engine
+        self.engine = engine
         self.datamodule = trainer.datamodule
         self.current_checkpoint = ckpt_path
         return True, f"[OK] 成功加载自训练模型 {model_key} ({model_dir})"

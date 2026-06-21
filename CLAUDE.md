@@ -509,12 +509,16 @@ document.querySelector('.snap-dot-label').textContent           // "1 / 4"
 - [data/DATASET_REGISTRY.md](data/DATASET_REGISTRY.md) — 所有数据集清单、已知问题、defect-type 缩写表
 - [requirements.txt](requirements.txt) — 固定版本依赖清单
 - [configs/config.yaml](configs/config.yaml) — 主配置（所有可调参数集中管理）
+- [docs/superpowers/specs/2026-06-21-airpods-pro-ui-direction.md](docs/superpowers/specs/2026-06-21-airpods-pro-ui-direction.md) — AirPods Pro 风格全站 UI 改造方向（明亮主调、产品主角、从容动效）
+- [docs/superpowers/plans/2026-06-21-full-ui-airpods-plan.md](docs/superpowers/plans/2026-06-21-full-ui-airpods-plan.md) — 全站 AirPods Pro 风格改造综合规划（6 批次实施）
+- [docs/superpowers/plans/2026-06-21-algo-cards-airpods-plan.md](docs/superpowers/plans/2026-06-21-algo-cards-airpods-plan.md) — 首页算法卡片滚动轮播实施规划
 - [docs/superpowers/specs/2026-06-21-ui-redesign-design.md](docs/superpowers/specs/2026-06-21-ui-redesign-design.md) — UI 重设计规范（Training Studio + 自训练模型推理）
 - [docs/superpowers/plans/archive/2026-06-21-ui-redesign-plan.md](docs/superpowers/plans/archive/2026-06-21-ui-redesign-plan.md) — UI 重设计实现计划（13 任务，已归档）
 - [docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md](docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md) — Phase 2 UI 设计规范（FastAPI + Alpine.js SPA）
 - [docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md](docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md) — Phase 2 布局精修规范（药丸按钮、玻璃选择器、四模型对比卡片、进度环导航）
 - [docs/superpowers/specs/2026-06-20-training-studio-design.md](docs/superpowers/specs/2026-06-20-training-studio-design.md) — Training Studio 设计规范（上传样本、SSE 训练流、实时监控、排除样本）
 - [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Phase 1 Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
+- [docs/superpowers/specs/archive/](docs/superpowers/specs/archive/) — 已归档的旧版设计规范
 - [memory/](memory/) — Claude Code 会话记忆目录
 
 ---

@@ -16,14 +16,13 @@ import base64
 import io
 import json
 import queue
+import re
 import sys
 import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-
-import re
 
 import numpy as np
 

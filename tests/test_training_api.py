@@ -67,8 +67,7 @@ def test_train_rejects_invalid_model(client):
         '/api/train',
         json={
             'model': 'notamodel',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -84,8 +83,7 @@ def test_train_rejects_invalid_category(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training/test',
+            'dataset': 'training/test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -101,8 +99,7 @@ def test_train_rejects_out_of_bounds_epochs(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 0,
             'batch_size': 32,
             'learning_rate': 0.0001,
@@ -118,8 +115,7 @@ def test_train_rejects_out_of_bounds_batch_size(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 0,
             'learning_rate': 0.0001,
@@ -135,8 +131,7 @@ def test_train_rejects_invalid_learning_rate(client):
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': '.cache/uploads/training_test',
-            'category': 'training_test',
+            'dataset': 'training_test',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 1.0,
@@ -146,14 +141,13 @@ def test_train_rejects_invalid_learning_rate(client):
     assert response.status_code == 400
 
 
-def test_train_rejects_path_outside_upload_root(client):
-    """dataset_path 不在上传目录下应返回 400。"""
+def test_train_rejects_missing_dataset(client):
+    """dataset 不存在时应返回 400。"""
     response = client.post(
         '/api/train',
         json={
             'model': 'patchcore',
-            'dataset_path': './data/bottle',
-            'category': 'training_test',
+            'dataset': 'nonexistent_dataset_xyz',
             'epochs': 1,
             'batch_size': 32,
             'learning_rate': 0.0001,

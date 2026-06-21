@@ -22,7 +22,7 @@ import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ── Windows UTF-8 编码设置（必须在任何导入之前）──
 # pytest 运行时跳过，避免破坏其 stdout/stderr capture 机制
@@ -608,7 +608,7 @@ def _parse_dataset(dataset: str) -> Tuple[str, str]:
     return 'default', dataset or 'bottle'
 
 
-def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Path = None) -> dict:
+def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Optional[Path] = None) -> dict:
     """
     执行单模型推理的共享逻辑，供 /api/predict 和 /api/compare 复用。
 
@@ -631,7 +631,7 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str, model_dir: Pa
 
     # 加载模型
     if model_dir is not None:
-        success, msg = detector.load_self_trained_model(model_key, model_dir)
+        success, msg = detector.load_self_trained_model(model_key, model_dir, dataset)
     else:
         success, msg = detector.load_model(model_key, dataset)
     if not success:
@@ -754,6 +754,8 @@ async def api_predict(
     image_path = _safe_test_image_path(dataset, image)
 
     if source == "self_trained":
+        if not self_trained_path:
+            raise HTTPException(status_code=400, detail="使用自训练模型时必须提供 self_trained_path")
         model_dir = _safe_self_trained_path(model, self_trained_path)
     else:
         model_dir = None

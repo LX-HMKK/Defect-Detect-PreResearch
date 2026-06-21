@@ -174,6 +174,8 @@ class AnomalyDetector:
         self.current_checkpoint: Optional[Path] = None
         self.model = None
         self.engine = None
+        self.model_key = None
+        self.datamodule = None
 
     def _parse_dataset(self, dataset: str) -> Tuple[str, str]:
         """解析数据集标识，支持 'default/bottle' 或 'user/session_id' 格式。"""
@@ -302,7 +304,7 @@ class AnomalyDetector:
         except Exception as e:
             return False, f"[FAIL] 模型加载失败: {str(e)}"
 
-    def load_self_trained_model(self, model_key: str, model_dir: Path) -> Tuple[bool, str]:
+    def load_self_trained_model(self, model_key: str, model_dir: Path, category: str) -> Tuple[bool, str]:
         """从自训练目录加载模型。"""
         from modules.algorithm.trainer import AnomalyDetectionTrainer
 
@@ -316,13 +318,16 @@ class AnomalyDetector:
         )
         trainer.setup()
 
-        ckpt_path = next(iter(model_dir.glob("*.ckpt")))
+        ckpt_files = sorted(model_dir.glob("*.ckpt"))
+        if not ckpt_files:
+            return False, "自训练模型目录缺少 checkpoint 文件"
+        ckpt_path = ckpt_files[0]
         checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
         trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
 
         self.model = trainer.model
         self.model_key = model_key
-        self.current_dataset = model_dir.parent.name  # category
+        self.current_dataset = category
         self.current_model = model_key
         self.engine = trainer.engine
         self.datamodule = trainer.datamodule

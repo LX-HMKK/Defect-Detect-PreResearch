@@ -22,6 +22,31 @@ def client():
         yield c
 
 
+@pytest.fixture
+def bottle_dataset(monkeypatch, tmp_path):
+    """创建临时 bottle 数据集，并将 data_root 指向该临时目录。"""
+    from modules.config import get as cfg_get_orig
+    import modules.ui.server as server_module
+
+    dataset_dir = tmp_path / "bottle"
+    test_dir = dataset_dir / "test" / "good"
+    train_dir = dataset_dir / "train" / "good"
+    test_dir.mkdir(parents=True)
+    train_dir.mkdir(parents=True)
+
+    img = Image.new('RGB', (64, 64), color=(128, 128, 128))
+    img.save(test_dir / "000.png")
+    img.save(train_dir / "000.png")
+
+    def _patched_cfg_get(key, default=None):
+        if key == 'paths.data_root':
+            return str(tmp_path)
+        return cfg_get_orig(key, default)
+
+    monkeypatch.setattr(server_module, 'cfg_get', _patched_cfg_get)
+    return dataset_dir
+
+
 def test_upload_samples_accepts_images(client):
     """上传单张图片应返回 200 并生成 MVTec AD 临时结构。"""
     data = _make_image_bytes()
@@ -159,7 +184,7 @@ def test_train_rejects_missing_dataset(client):
 
 # ── /api/test-images ──
 
-def test_test_images_returns_test_folder_images(client):
+def test_test_images_returns_test_folder_images(client, bottle_dataset):
     """返回 dataset/test/ 下的图片列表，且路径均以 test/ 开头。"""
     response = client.get('/api/test-images?dataset=bottle')
     assert response.status_code == 200

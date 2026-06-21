@@ -216,17 +216,33 @@
                             :class="{ 'is-open': open }"
                             @click="open = !open"
                             aria-label="选择数据集">
-                        <span class="custom-select-label" x-text="selectedDataset || '数据集'"></span>
+                        <span class="custom-select-label" x-text="datasetDisplayName"></span>
                         <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
                             <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
                         </svg>
                     </button>
                     <div class="custom-select-menu" x-show="open" x-transition>
-                        <template x-for="ds in datasets" :key="ds">
-                            <div class="custom-select-option"
-                                 :class="{ 'is-selected': ds === selectedDataset }"
-                                 @click="selectedDataset = ds; open = false"
-                                 x-text="ds"></div>
+                        <template x-if="defaultDatasets.length > 0">
+                            <div class="custom-select-group">
+                                <div class="custom-select-group-label">默认样本</div>
+                                <template x-for="ds in defaultDatasets" :key="ds">
+                                    <div class="custom-select-option"
+                                         :class="{ 'is-selected': ds === selectedDataset }"
+                                         @click="selectedDataset = ds; open = false"
+                                         x-text="ds.replace('default/', '')"></div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="userDatasets.length > 0">
+                            <div class="custom-select-group">
+                                <div class="custom-select-group-label">我的训练</div>
+                                <template x-for="ds in userDatasets" :key="ds">
+                                    <div class="custom-select-option"
+                                         :class="{ 'is-selected': ds === selectedDataset }"
+                                         @click="selectedDataset = ds; open = false"
+                                         x-text="ds.replace('user/', '')"></div>
+                                </template>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -607,9 +623,9 @@
                                  @dragleave.prevent="isDragOver = false"
                                  @drop.prevent="onDropSamples($event)">
                                 <div class="training-uploader-icon">+</div>
-                                <div class="training-uploader-text">拖拽图片或点击上传</div>
+                                <div class="training-uploader-text">拖拽文件夹或图片，或点击选择文件夹</div>
                                 <div class="training-uploader-count" x-text="`已选 ${sampleCount} / 150 张`"></div>
-                                <input type="file" multiple accept="image/*" class="training-uploader-input"
+                                <input type="file" webkitdirectory directory multiple accept="image/*" class="training-uploader-input"
                                        @change="onSelectSamples($event)" x-ref="sampleInput">
                             </div>
                         </div>

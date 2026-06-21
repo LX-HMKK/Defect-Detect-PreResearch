@@ -7,6 +7,9 @@ anomalib 模型类，因此将该映射独立出来，使 API 测试可在无 GP
 """
 from pathlib import Path
 
+from modules._runtime import resolve_project_path
+from modules.config import get as cfg_get
+
 
 MODEL_CONFIGS = {
     'fre': {
@@ -28,9 +31,36 @@ MODEL_CONFIGS = {
 }
 
 
+def _scan_dataset_source(model_path: Path, source: str) -> set:
+    """扫描指定模型路径下 {source} 中的数据集类别。"""
+    datasets = set()
+    source_path = model_path / source
+    if not source_path.exists():
+        return datasets
+
+    for cat_dir in source_path.iterdir():
+        if not cat_dir.is_dir() or cat_dir.name == '__pycache__':
+            continue
+        # 要求目录下存在 vX 版本子目录，避免误把临时目录当数据集
+        if any(
+            child.is_dir() and child.name.startswith('v')
+            for child in cat_dir.iterdir()
+        ):
+            datasets.add(f"{source}/{cat_dir.name}")
+    return datasets
+
+
 def get_available_datasets():
-    """自动检测可用的数据集（支持 MVTec AD 与 Folder 两种输出结构）。"""
-    results_dir = Path("./results")
+    """
+    自动检测可用的数据集。
+
+    结果格式：
+        - 默认（精调）结果："default/{category}"
+        - 用户自训练结果："user/{category}"
+
+    扫描路径基于 configs/config.yaml 的 paths.results_root，避免依赖启动工作目录。
+    """
+    results_dir = resolve_project_path(cfg_get('paths.results_root', './results'))
     datasets = set()
     model_dirs = {
         "fre": "Fre",
@@ -38,26 +68,16 @@ def get_available_datasets():
         "draem": "Draem",
         "padim": "Padim",
     }
+
     for model_key, subdir in model_dirs.items():
         model_path = results_dir / model_key / subdir
         if not model_path.exists():
             continue
 
-        # 1) MVTec AD 结构: results/{model}/Patchcore/MVTec/{category}
-        mvtec_path = model_path / "MVTec"
-        if mvtec_path.exists():
-            for cat_dir in mvtec_path.iterdir():
-                if cat_dir.is_dir() and cat_dir.name not in ["__pycache__"]:
-                    datasets.add(cat_dir.name)
+        # 1) 默认/精调结果：results/{model}/Patchcore/default/{category}
+        datasets.update(_scan_dataset_source(model_path, 'default'))
 
-        # 2) Folder 结构: results/{model}/Patchcore/{category}/v0/weights
-        for cat_dir in model_path.iterdir():
-            if not cat_dir.is_dir() or cat_dir.name in ["__pycache__", "MVTec"]:
-                continue
-            if any(
-                child.is_dir() and child.name.startswith("v")
-                for child in cat_dir.iterdir()
-            ):
-                datasets.add(cat_dir.name)
+        # 2) 用户自训练结果：results/{model}/Patchcore/user/{category}
+        datasets.update(_scan_dataset_source(model_path, 'user'))
 
     return sorted(datasets)

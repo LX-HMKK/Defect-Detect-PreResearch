@@ -298,10 +298,24 @@ document.addEventListener('alpine:init', function () {
             // ─────────────────────────────────────────────
             // 数据集 & 模型
             // ─────────────────────────────────────────────
-            datasets: [],
-            selectedDataset: 'bottle',
+            datasets: [],          // 原始列表，如 ["default/bottle", "user/xxx"]
+            selectedDataset: '',   // 完整值，如 "default/bottle"
             models: [],
             selectedModel: 'patchcore',
+
+            get defaultDatasets() {
+                return this.datasets.filter(function (d) { return d.startsWith('default/'); });
+            },
+
+            get userDatasets() {
+                return this.datasets.filter(function (d) { return d.startsWith('user/'); });
+            },
+
+            get datasetDisplayName() {
+                var ds = this.selectedDataset;
+                if (!ds) return '数据集';
+                return ds.replace('default/', '').replace('user/', '我的：');
+            },
 
             fetchModels: async function () {
                 try {
@@ -309,8 +323,10 @@ document.addEventListener('alpine:init', function () {
                     var data = await res.json();
                     this.models = data.models || [];
                     this.datasets = data.datasets || [];
+                    // 优先选中默认第一个
                     if (this.datasets.length > 0) {
-                        this.selectedDataset = this.datasets[0];
+                        var defaultFirst = this.datasets.find(function (d) { return d.startsWith('default/'); });
+                        this.selectedDataset = defaultFirst || this.datasets[0];
                     }
                 } catch (e) {
                     console.warn('[app] 获取模型列表失败:', e);

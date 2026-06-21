@@ -29,6 +29,7 @@
 """
 
 import os
+import shutil
 import sys
 import json
 import warnings
@@ -128,14 +129,21 @@ MODEL_INFO = {
 }
 
 
-def find_latest_checkpoint(output_dir: str | Path, model_name: str, category: Optional[str] = None) -> Optional[Path]:
+def find_latest_checkpoint(
+    output_dir: str | Path,
+    model_name: str,
+    category: Optional[str] = None,
+    source: Optional[str] = None,
+) -> Optional[Path]:
     """
-    在输出目录中查找指定模型（可选指定类别）的最新 checkpoint。
+    在输出目录中查找指定模型（可选指定类别、来源）的最新 checkpoint。
 
     Args:
         output_dir: 结果根目录（通常为 ./results）
         model_name: 模型名称（fre/patchcore/draem）
         category: 数据类别（可选）
+        source: 数据集来源子目录（default / user，可选）。
+                传入后只在 results/{model}/{ModelName}/{source}/{category} 中查找。
 
     Returns:
         最新 checkpoint 路径；未找到则返回 None。
@@ -145,14 +153,23 @@ def find_latest_checkpoint(output_dir: str | Path, model_name: str, category: Op
         return None
 
     if category:
-        patterns: List[str] = [
-            f"**/MVTec/{category}/**/weights/lightning/model.ckpt",
-            f"**/{category}/**/weights/lightning/model.ckpt",
-            f"**/MVTec/{category}/**/model.ckpt",
-            f"**/{category}/**/model.ckpt",
-            f"**/MVTec/{category}/**/*.ckpt",
-            f"**/{category}/**/*.ckpt",
-        ]
+        if source:
+            # 精确到 default/user 子目录
+            patterns: List[str] = [
+                f"**/{source}/{category}/**/weights/lightning/model.ckpt",
+                f"**/{source}/{category}/**/model.ckpt",
+                f"**/{source}/{category}/**/*.ckpt",
+            ]
+        else:
+            # 兼容旧结构：未指定 source 时全目录搜索（包含历史 MVTec/ 路径）
+            patterns = [
+                f"**/{category}/**/weights/lightning/model.ckpt",
+                f"**/{category}/**/model.ckpt",
+                f"**/{category}/**/*.ckpt",
+                f"**/MVTec/{category}/**/weights/lightning/model.ckpt",
+                f"**/MVTec/{category}/**/model.ckpt",
+                f"**/MVTec/{category}/**/*.ckpt",
+            ]
     else:
         patterns = [
             "**/weights/lightning/model.ckpt",
@@ -443,6 +460,7 @@ class AnomalyDetectionTrainer:
         extra_callbacks: Optional[List] = None,
         enable_pixel_metrics: bool = True,
         learning_rate: Optional[float] = None,
+        source: Optional[str] = None,
     ):
         """
         初始化训练器
@@ -458,6 +476,8 @@ class AnomalyDetectionTrainer:
             extra_callbacks: 额外的 PyTorch Lightning 回调列表（可选，默认 []）
             enable_pixel_metrics: 是否启用像素级指标（上传数据集无 ground_truth 时关闭）
             learning_rate: 覆盖模型默认学习率（仅 DRAEM/FRE 生效；PatchCore/PaDiM 忽略）
+            source: 数据集来源（default / user），训练结束后把结果移动到对应子目录。
+                    不指定则保持 anomalib 默认路径。
         """
         if model_name not in SUPPORTED_MODELS:
             raise ValueError(f"不支持的模型: {model_name}。请选择: {SUPPORTED_MODELS}")
@@ -471,6 +491,7 @@ class AnomalyDetectionTrainer:
         self.extra_callbacks = extra_callbacks or []
         self.enable_pixel_metrics = enable_pixel_metrics
         self.learning_rate = learning_rate
+        self.source = source
 
         # 加载 YAML 配置（如果提供）
         self.config = None
@@ -730,8 +751,47 @@ class AnomalyDetectionTrainer:
         
         # 保存结果
         self._save_results()
-        
+
+        # 如果指定了 source，将 anomalib 生成的结果目录移动到 default/user 下
+        self._reorganize_result_dir()
+
         return self.results
+
+    def _reorganize_result_dir(self) -> None:
+        """
+        将 anomalib 生成的结果目录移动到 {source}/{category} 下。
+
+        anomalib 默认会生成 MVTec/{category} 或 {category}（取决于数据模块类型）。
+        调用方通过 source='default' / 'user' 指定目标子目录。
+        """
+        if not self.source:
+            return
+
+        model_subdir_map = {
+            'fre': 'Fre',
+            'patchcore': 'Patchcore',
+            'draem': 'Draem',
+            'padim': 'Padim',
+        }
+        model_subdir = model_subdir_map.get(self.model_name, self.model_name.capitalize())
+        base = self.output_dir / self.model_name / model_subdir
+
+        # 可能的历史源目录
+        possible_sources = [
+            base / 'MVTec' / self.category,
+            base / self.category,
+        ]
+        dst = base / self.source / self.category
+
+        for src in possible_sources:
+            if not src.exists() or src == dst:
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.move(str(src), str(dst))
+            print(f"\n[REORG] 结果目录已整理: {src} -> {dst}")
+            break
     
     def _compute_optimal_threshold(self, checkpoint_path: Optional[str] = None) -> float:
         """

@@ -21,7 +21,7 @@ import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -156,8 +156,8 @@ async def list_models():
     for key, cfg in MODEL_CONFIGS.items():
         models.append({
             "key": key,
-            "name": cfg.name,
-            "direction": cfg.direction,
+            "name": cfg['name'],
+            "direction": cfg['direction'],
         })
     return {
         "models": models,
@@ -475,11 +475,12 @@ async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
     if not saved_paths:
         raise HTTPException(status_code=400, detail="没有有效图片（读取或解码失败）")
 
-    # 7. 调用 format_uploaded_samples 整理为 MVTec AD 结构
+    # 7. 调用 format_uploaded_samples 整理为 MVTec AD 结构（放到 user/{session_id} 下）
     dataset_path = format_uploaded_samples(
         upload_dir=upload_dir,
         image_files=saved_paths,
         max_samples=max_allowed,
+        category=session_id,
     )
 
     # 8. 收集 train/good/ 下的文件名列表
@@ -508,6 +509,14 @@ async def upload_samples(files: List[UploadFile] = File(...)) -> JSONResponse:
 # ============================================================================
 # 共享推理辅助函数
 # ============================================================================
+
+def _parse_dataset(dataset: str) -> Tuple[str, str]:
+    """解析数据集标识为 (source, category)。"""
+    if dataset and '/' in dataset:
+        source, category = dataset.split('/', 1)
+        return source, category
+    return 'default', dataset or 'bottle'
+
 
 def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
     """
@@ -593,7 +602,8 @@ def _run_prediction(img: np.ndarray, model_key: str, dataset: str) -> dict:
             base64.b64encode(gray_buf).decode()
 
         # 阈值与置信度
-        threshold = get_threshold(model_key, dataset)
+        _, category = _parse_dataset(dataset)
+        threshold = get_threshold(model_key, category)
         is_anomaly = pred_score > threshold
         confidence = float(np.clip(
             pred_score if is_anomaly else 1 - pred_score,

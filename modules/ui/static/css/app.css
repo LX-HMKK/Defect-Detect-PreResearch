@@ -577,6 +577,24 @@ html[data-theme="light"] .navbar--scrolled {
     }
 }
 
+.custom-select-group + .custom-select-group {
+    border-top: 1px solid var(--sep-default);
+}
+
+.custom-select-group-label {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: var(--bg-secondary);
+}
+
+.custom-select-group .custom-select-option {
+    padding-left: 18px;
+}
+
 /* 菜单选项 */
 .custom-select-option {
     display: flex;
@@ -592,10 +610,11 @@ html[data-theme="light"] .navbar--scrolled {
     position: relative;
 }
 
-.custom-select-option:first-child {
+.custom-select-group:first-child .custom-select-option:first-of-type {
     border-radius: var(--r-md) var(--r-md) 0 0;
 }
-.custom-select-option:last-child {
+
+.custom-select-group:last-child .custom-select-option:last-of-type {
     border-radius: 0 0 var(--r-md) var(--r-md);
 }
 
@@ -2980,7 +2999,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 .training-monitor-body {
     display: flex;
     gap: 20px;
-    height: 200px;
+    height: 240px;
 }
 
 .training-chart-area {
@@ -3007,37 +3026,44 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 }
 
 .training-metrics {
-    flex: 0 0 180px;
-    display: flex;
-    flex-direction: column;
+    flex: 0 0 220px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
 }
 
 .training-metric {
-    flex: 1;
     background: var(--training-metric-bg);
     border-radius: 16px;
-    padding: 14px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .training-metric-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-tertiary);
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .training-metric-value {
-    font-size: 26px;
+    font-size: 20px;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .training-metric-delim {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--text-tertiary);
-    margin: 0 4px;
+    margin: 0 3px;
 }
 
 .training-status-badge {
@@ -3091,7 +3117,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     }
     .training-metrics {
         flex: 1 1 auto;
-        flex-direction: row;
+        grid-template-columns: 1fr 1fr;
     }
 }
 
@@ -3103,7 +3129,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         grid-template-columns: 1fr 1fr;
     }
     .training-metrics {
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
 }
 

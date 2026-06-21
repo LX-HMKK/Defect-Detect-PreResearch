@@ -163,7 +163,8 @@ def main():
                     output_dir=args.output_dir,
                     config_path=config_path,
                     device=args.device,
-                    seed=args.seed
+                    seed=args.seed,
+                    source='default',
                 )
 
                 if args.eval_only:

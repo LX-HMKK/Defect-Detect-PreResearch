@@ -154,22 +154,69 @@ document.addEventListener('alpine:init', function () {
             },
 
             onSelectSamples: function (event) {
-                this._uploadFiles(event.target.files);
+                this._uploadFiles(Array.from(event.target.files));
             },
 
             onDropSamples: function (event) {
                 this.isDragOver = false;
-                this._uploadFiles(event.dataTransfer.files);
+                var items = event.dataTransfer.items;
+                if (!items || items.length === 0) {
+                    this._uploadFiles(Array.from(event.dataTransfer.files));
+                    return;
+                }
+                var self = this;
+                this._scanDroppedItems(items).then(function (files) {
+                    self._uploadFiles(files);
+                });
             },
 
-            _uploadFiles: function (fileList) {
+            _scanDroppedItems: function (items) {
                 var self = this;
-                var files = Array.from(fileList).filter(function (f) { return f.type.startsWith('image/'); });
-                if (files.length === 0) return;
+                var promises = Array.from(items).map(function (item) {
+                    return self._readEntry(item.webkitGetAsEntry());
+                });
+                return Promise.all(promises).then(function (results) {
+                    return results.flat().filter(function (f) { return f.type.startsWith('image/'); });
+                });
+            },
+
+            _readEntry: function (entry) {
+                var self = this;
+                return new Promise(function (resolve) {
+                    if (entry.isFile) {
+                        entry.file(function (file) { resolve([file]); }, function () { resolve([]); });
+                    } else if (entry.isDirectory) {
+                        var reader = entry.createReader();
+                        var allEntries = [];
+                        var readBatch = function () {
+                            reader.readEntries(function (entries) {
+                                if (entries.length === 0) {
+                                    Promise.all(entries.map(function (e) {
+                                        return self._readEntry(e);
+                                    })).then(function (nested) {
+                                        resolve(nested.flat());
+                                    });
+                                    return;
+                                }
+                                allEntries = allEntries.concat(entries);
+                                readBatch();
+                            }, function () { resolve([]); });
+                        };
+                        readBatch();
+                    } else {
+                        resolve([]);
+                    }
+                });
+            },
+
+            _uploadFiles: function (files) {
+                var self = this;
+                var imageFiles = files.filter(function (f) { return f.type.startsWith('image/'); });
+                if (imageFiles.length === 0) return;
 
                 self.trainingState = 'uploading';
                 var form = new FormData();
-                files.forEach(function (f) { form.append('files', f); });
+                imageFiles.forEach(function (f) { form.append('files', f); });
 
                 fetch('/api/upload-samples', {
                     method: 'POST',
@@ -183,7 +230,7 @@ document.addEventListener('alpine:init', function () {
                     self.samples = data.samples.map(function (name) {
                         return {
                             name: name,
-                            url: '/uploads/' + self.category + '/train/good/' + name,
+                            url: '/uploads/' + self.category + '/user/' + self.category + '/train/good/' + name,
                             excluded: false,
                         };
                     });

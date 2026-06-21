@@ -51,6 +51,7 @@ from modules.config import get, get_threshold, get_model_config, get_data_config
 
 # 主题管理器
 from modules.ui import theme
+from modules.ui._model_info import get_available_datasets
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -86,7 +87,7 @@ MODEL_CONFIGS = {
 - 支持像素级定位
 - 训练快速，效果优秀
 ''',
-        weight_path='./results/fre/Fre/MVTec/bottle/v0/weights/lightning/model.ckpt',
+        weight_path='./results/fre/Fre/default/bottle/v0/weights/lightning/model.ckpt',
         model_class=Fre,
         model_kwargs={
             'backbone': 'resnet50',
@@ -106,7 +107,7 @@ MODEL_CONFIGS = {
 - 工业界目前效果最好的方法
 - 推理速度最快，适合实时检测
 ''',
-        weight_path='./results/patchcore/Patchcore/MVTec/bottle/v0/weights/lightning/model.ckpt',
+        weight_path='./results/patchcore/Patchcore/default/bottle/v0/weights/lightning/model.ckpt',
         model_class=Patchcore,
         model_kwargs={},
     ),
@@ -122,7 +123,7 @@ MODEL_CONFIGS = {
 - 对小缺陷检测效果较好
 - 推理速度较慢，但定位精度高
 ''',
-        weight_path='./results/draem/Draem/MVTec/bottle/v1/weights/lightning/model.ckpt',
+        weight_path='./results/draem/Draem/default/bottle/v1/weights/lightning/model.ckpt',
         model_class=Draem,
         model_kwargs={},
     ),
@@ -138,7 +139,7 @@ MODEL_CONFIGS = {
 - 无需训练，仅需一次前向传播构建统计量
 - 推理速度快，内存占用适中
 ''',
-        weight_path='./results/padim/Padim/MVTec/bottle/v0/weights/lightning/model.ckpt',
+        weight_path='./results/padim/Padim/default/bottle/v0/weights/lightning/model.ckpt',
         model_class=Padim,
         model_kwargs={
             'backbone': 'resnet18',
@@ -148,41 +149,6 @@ MODEL_CONFIGS = {
     )
 }
 
-
-
-def get_available_datasets():
-    """自动检测可用的数据集（支持 MVTec AD 与 Folder 两种输出结构）。"""
-    results_dir = Path("./results")
-    datasets = set()
-    model_dirs = {
-        "fre": "Fre",
-        "patchcore": "Patchcore",
-        "draem": "Draem",
-        "padim": "Padim",
-    }
-    for model_key, subdir in model_dirs.items():
-        model_path = results_dir / model_key / subdir
-        if not model_path.exists():
-            continue
-
-        # 1) MVTec AD 结构: results/{model}/Patchcore/MVTec/{category}
-        mvtec_path = model_path / "MVTec"
-        if mvtec_path.exists():
-            for cat_dir in mvtec_path.iterdir():
-                if cat_dir.is_dir() and cat_dir.name not in ["__pycache__"]:
-                    datasets.add(cat_dir.name)
-
-        # 2) Folder 结构: results/{model}/Patchcore/{category}/v0/weights
-        for cat_dir in model_path.iterdir():
-            if not cat_dir.is_dir() or cat_dir.name in ["__pycache__", "MVTec"]:
-                continue
-            if any(
-                child.is_dir() and child.name.startswith("v")
-                for child in cat_dir.iterdir()
-            ):
-                datasets.add(cat_dir.name)
-
-    return sorted(list(datasets))
 
 
 # ================================================================================
@@ -209,16 +175,30 @@ class AnomalyDetector:
         self.model = None
         self.engine = None
 
+    def _parse_dataset(self, dataset: str) -> Tuple[str, str]:
+        """解析数据集标识，支持 'default/bottle' 或 'user/session_id' 格式。"""
+        if dataset and '/' in dataset:
+            source, category = dataset.split('/', 1)
+            return source, category
+        return 'default', dataset or 'region1'
+
     def _resolve_weight_path(self, model_key: str, dataset: str) -> Optional[Path]:
-        """Resolve checkpoint path with model/category priority."""
+        """Resolve checkpoint path with model/category/source priority."""
         from modules.algorithm import find_latest_checkpoint
 
-        latest_dataset = find_latest_checkpoint("./results", model_key, dataset)
+        source, category = self._parse_dataset(dataset)
+        latest_dataset = find_latest_checkpoint("./results", model_key, category, source=source)
         if latest_dataset and latest_dataset.exists():
             return latest_dataset
 
+        # fallback：尝试旧结构（未分 default/user 时）
+        if source == 'default':
+            latest_legacy = find_latest_checkpoint("./results", model_key, category)
+            if latest_legacy and latest_legacy.exists():
+                return latest_legacy
+
         fallback = Path(MODEL_CONFIGS[model_key].weight_path)
-        if fallback.exists() and dataset in str(fallback):
+        if fallback.exists() and category in str(fallback):
             return fallback
 
         return None
@@ -235,7 +215,7 @@ class AnomalyDetector:
             Tuple[bool, str]: (是否成功, 状态信息)
         """
         if dataset is None:
-            dataset = "region1"
+            dataset = "default/region1"
         
         # 如果模型和数据都已加载，直接返回
         if model_key == self.current_model and self.current_dataset == dataset and self.model is not None:
@@ -248,20 +228,47 @@ class AnomalyDetector:
         
         # 查找权重文件 - 优先查找对应数据集的权重
         weight_path = self._resolve_weight_path(model_key, dataset)
-        
+
         # 如果默认路径不存在或数据集不匹配，搜索对应数据集的权重
         if weight_path is None:
+            source, category = self._parse_dataset(dataset)
             search_base = Path('./results')
-            
-            # 首先尝试查找对应数据集的权重
+
+            # 首先尝试查找对应数据集的权重（支持 default/user 子目录）
             for subdir in ['Fre', 'Patchcore', 'Draem', 'Padim']:
-                model_subdir = search_base / model_key / subdir / 'MVTec' / dataset
+                model_subdir = search_base / model_key / subdir / source / category
                 if model_subdir.exists():
                     ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
                     if ckpt_files:
                         weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
                         break
-            
+
+            # 兼容历史 MVTec 结构
+            if weight_path is None:
+                for subdir in ['Fre', 'Patchcore', 'Draem', 'Padim']:
+                    model_subdir = search_base / model_key / subdir / 'MVTec' / source / category
+                    if model_subdir.exists():
+                        ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
+                        if ckpt_files:
+                            weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
+                            break
+
+            # 兼容更旧结构：未分 default/user
+            if weight_path is None and source == 'default':
+                for subdir in ['Fre', 'Patchcore', 'Draem', 'Padim']:
+                    model_subdir = search_base / model_key / subdir / 'MVTec' / category
+                    if model_subdir.exists():
+                        ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
+                        if ckpt_files:
+                            weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
+                            break
+
+                    model_subdir = search_base / model_key / subdir / category
+                    if model_subdir.exists():
+                        ckpt_files = list(model_subdir.glob('**/lightning/model.ckpt'))
+                        if ckpt_files:
+                            weight_path = max(ckpt_files, key=lambda p: p.stat().st_mtime)
+                            break
 
         if weight_path is None or not weight_path.exists():
             return False, (

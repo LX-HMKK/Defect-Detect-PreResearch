@@ -254,6 +254,7 @@ def run_training_job(
             extra_callbacks=[metrics_callback],
             enable_pixel_metrics=enable_pixel_metrics,
             learning_rate=learning_rate,
+            source='user',
         )
 
         metrics_queue.put({

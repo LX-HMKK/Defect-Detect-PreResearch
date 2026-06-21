@@ -22,21 +22,42 @@ def format_uploaded_samples(
     image_files: List[Path],
     max_samples: int = MAX_TRAIN_SAMPLES,
     seed: int = 42,
+    category: Optional[str] = None,
 ) -> Path:
-    """将上传的图片整理成 MVTec AD 临时结构。仅含正常样本：train/good/ + test/good/（从 train 中 hold-out 10%）。"""
-    random.seed(seed)
+    """
+    将上传的图片整理成 MVTec AD 临时结构。
 
-    unique_files = sorted(set(str(p.resolve()) for p in image_files))
+    仅含正常样本：train/good/ + test/good/（从 train 中 hold-out 10%）。
+    为了与默认（精调）结果区分，用户上传的样本统一放到 user/{category}/ 子目录下。
+
+    Args:
+        upload_dir: 上传文件根目录。
+        image_files: 图片文件路径列表。
+        max_samples: 最大训练样本数。
+        seed: 随机种子。
+        category: 数据集类别名；未指定时使用 upload_dir.name。
+
+    Returns:
+        整理后的 MVTec AD 目录路径（.../user/{category}）。
+    """
+    # 按文件名排序后取前 max_samples，保证“取文件夹前 150 张”的确定性
+    unique_files = sorted(
+        set(str(p.resolve()) for p in image_files),
+        key=lambda x: Path(x).name.lower(),
+    )
     unique_files = [Path(p) for p in unique_files]
     if len(unique_files) > max_samples:
-        unique_files = random.sample(unique_files, max_samples)
+        unique_files = unique_files[:max_samples]
 
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    train_dir = upload_dir / 'train' / 'good'
-    test_dir = upload_dir / 'test' / 'good'
+    cat = category or upload_dir.name
+    dataset_path = upload_dir / 'user' / cat
+    train_dir = dataset_path / 'train' / 'good'
+    test_dir = dataset_path / 'test' / 'good'
     train_dir.mkdir(parents=True, exist_ok=True)
     test_dir.mkdir(parents=True, exist_ok=True)
 
+    # 在已截断的样本内随机划分 train/test（seed 固定保证可复现）
+    random.seed(seed)
     random.shuffle(unique_files)
     # 大样本时至少保留 2 个测试样本，避免 val split 除零；小样本按原始比例
     n_total = len(unique_files)
@@ -54,7 +75,7 @@ def format_uploaded_samples(
         dst = test_dir / f"{idx:04d}{src.suffix}"
         shutil.copy2(str(src), str(dst))
 
-    return upload_dir
+    return dataset_path
 
 
 class TrainingTaskManager:

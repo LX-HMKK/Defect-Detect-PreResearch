@@ -169,6 +169,8 @@ memory/                         # Claude Code 会话记忆
 - **`AnomalyDetectionTrainer`** (`modules/algorithm/trainer.py`) — 核心调度器。`setup()` 创建 datamodule + model，`train()` 运行 anomalib `Engine.fit()`，`evaluate()` 运行 `Engine.test()` 并通过 Youden's J 统计量在 [0,1] 全范围搜索计算最优阈值，`_save_results()` 将 JSON 写入 `results/comparison/`，`_update_results_json_threshold()` 将阈值回写已有结果文件。静态方法 `compare_models()` 生成对比 CSV/Markdown。内部使用两个 helper 工厂函数 `get_model_from_config()` 和 `get_datamodule_from_config()`，严格从 YAML 读取所有参数，缺失配置时抛出 `ValueError`。支持 `enable_pixel_metrics`（无 `ground_truth` 时关闭像素级指标）和 `learning_rate`（通过 Lightning 回调覆盖 DRAEM/FRE 优化器学习率）。
 
 - **`TrainingTaskManager` / `TrainingMetricsCallback` / `format_uploaded_samples` / `run_training_job`** (`modules/ui/training_backend.py`) — Training Studio 后端。`TrainingTaskManager` 提供全局单训练任务锁；`format_uploaded_samples` 将上传图片整理为临时 MVTec/Folder 结构；`run_training_job` 在线程中执行训练并通过 SSE 队列推送状态/指标/日志；`TrainingMetricsCallback`（PyTorch Lightning Callback）在每个 epoch 结束时将 loss、learning_rate、val_image_AUROC 写入队列。
+- **`_model_info.py`** (`modules/ui/_model_info.py`) — 轻量模型/数据集扫描。提供 `MODEL_CONFIGS`、`get_available_datasets()`、`get_self_trained_models()`，避免 API 端点导入 anomalib/torch 等 heavy 依赖。
+- **`_training_common.py`** (`modules/ui/_training_common.py`) — Training Studio 公共组件：`TrainingTaskManager`、`format_uploaded_samples`、常量 `MAX_TRAIN_SAMPLES`。`training_backend.py` 通过它复用这些组件。
 
 - **`get_model_from_config(model_name, config)`** — 始终附加 `anomalib.metrics.Evaluator`，包含 6 个指标（图像级 AUROC/AUPR/F1Score + 像素级 AUROC/PRO/F1Score）。参数严格从配置读取——缺失键抛出 `ValueError`。先查 `configs/config.yaml` 的 `models.{name}` section，然后接受传入 config 的覆盖。
 
@@ -400,6 +402,10 @@ git log --all --format="%H %B" | grep -i "Co-authored-by"
 
 `modules/algorithm/_anomalib_compat.py` 包含针对 anomalib 2.3.0 与 PyTorch Lightning 1.9.5 的兼容性补丁（回调签名不匹配）。该文件在 `trainer.py` 中通过 `from . import _anomalib_compat` 导入时自动触发。在未验证 Lightning/anomalib 版本组合之前，不要移除这些补丁。
 
+### 自训练模型 checkpoint 安全格式
+
+训练完成后，`run_training_job()` 会将 Lightning checkpoint 重写为仅含 `{'state_dict': ...}` 的安全格式，并在推理时使用 `weights_only=True` 加载。因此自训练模型走 `source='user'` 路径时，`Engine.predict()` 传入 `ckpt_path=None`，状态字典由 `AnomalyDetector.load_self_trained_model()` 手动注入模型。不要直接给 `Engine.predict()` 传入原始 Lightning checkpoint 路径。
+
 ### 测试
 
 测试套件位于 `tests/`，共 5 个文件：`test_config.py`、`test_metrics.py`、`test_trainer_smoke.py`、`test_training_api.py`、`test_ui_static.py`。设计为无 GPU、无 anomalib 导入依赖（烟雾测试使用 AST 解析源码以避免触发 Heavy import）。运行方式：`python -m pytest tests/ -v`。
@@ -510,3 +516,7 @@ document.querySelector('.snap-dot-label').textContent           // "1 / 4"
 - [docs/superpowers/specs/2026-06-20-training-studio-design.md](docs/superpowers/specs/2026-06-20-training-studio-design.md) — Training Studio 设计规范（上传样本、SSE 训练流、实时监控、排除样本）
 - [docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md](docs/superpowers/specs/2026-06-18-apple-ui-design-spec.md) — Phase 1 Apple UI 设计规范（12 组件 + 双模式变量 + 动效参数表）
 - [memory/](memory/) — Claude Code 会话记忆目录
+
+---
+
+> **Claude Code 提示**：按 `#` 键可快速把本次会话学到的项目约定沉淀到 `CLAUDE.md`。个人本地偏好请写入 `.claude.local.md` 并加入 `.gitignore`，避免与团队共享的 `CLAUDE.md` 混淆。

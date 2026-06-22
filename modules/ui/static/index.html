@@ -1048,9 +1048,18 @@
                 <h2 class="section-title scroll-reveal">四模型对比</h2>
 
                 <!-- 共享原图区域 -->
-                <div class="compare-shared-image" x-show="compareDone">
-                    <img class="compare-shared-img" :src="compareSlots.patchcore?.data?.image_b64 || compareSlots.padim?.data?.image_b64 || compareSlots.fre?.data?.image_b64 || compareSlots.draem?.data?.image_b64" alt="共享原图">
-                    <span class="compare-shared-label">输入图像（共享）</span>
+                <div class="compare-shared-image" x-show="$store.app && $store.app.selectedTestImage">
+                    <img class="compare-shared-img" :src="$store.app.testImagePreviewUrl" alt="共享原图">
+                    <span class="compare-shared-label" x-text="'输入图像：' + ($store.app.selectedTestImage ? $store.app.selectedTestImage.split('/').pop() : '')"></span>
+                </div>
+
+                <!-- 未选择图片时的占位预览 -->
+                <div class="compare-shared-image compare-shared-image--empty" x-show="!($store.app && $store.app.selectedTestImage)">
+                    <div class="compare-shared-placeholder">
+                        <span class="compare-shared-placeholder-icon">&#127748;</span>
+                        <span class="compare-shared-placeholder-text">未选择测试图片</span>
+                    </div>
+                    <span class="compare-shared-label">请先在「单模型推理」区选择图片</span>
                 </div>
 
                 <!-- 引导提示（未开始对比时显示） -->
@@ -1115,7 +1124,13 @@
 
                             <!-- 等待状态 -->
                             <div class="compare-slot-pending" x-show="slotIsPending(mk)">
-                                <span class="compare-slot-placeholder">等待推理...</span>
+                                <div class="compare-slot-idle">
+                                    <span class="compare-slot-icon"
+                                          :style="{ color: getModelColor(mk) }"
+                                          x-html="getModelIcon(mk)"></span>
+                                    <p class="compare-slot-idle-desc" x-text="getModelDesc(mk)"></p>
+                                    <span class="compare-slot-placeholder">等待推理...</span>
+                                </div>
                             </div>
 
                             <!-- 推理中状态：骨架屏 + spinner -->

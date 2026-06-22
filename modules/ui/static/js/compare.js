@@ -150,6 +150,30 @@ document.addEventListener('alpine:init', function () {
                 draem: 'DRAEM',
             },
 
+            /** 模型简介 */
+            modelDesc: {
+                patchcore: 'CNN 特征记忆库 + 最近邻搜索',
+                padim: 'CNN 多尺度特征 + 马氏距离',
+                fre: 'ResNet50 特征重构误差',
+                draem: '合成异常增强 + 判别网络',
+            },
+
+            /** 模型图标 */
+            modelIcons: {
+                patchcore: '&#128269;',
+                padim: '&#128202;',
+                fre: '&#128260;',
+                draem: '&#127919;',
+            },
+
+            /** 模型色标 */
+            modelColors: {
+                patchcore: '#2997ff',
+                padim: '#30d158',
+                fre: '#ff9f0a',
+                draem: '#bf5af2',
+            },
+
             /** 模型顺序列表 */
             modelOrder: ['patchcore', 'padim', 'fre', 'draem'],
 
@@ -230,6 +254,21 @@ document.addEventListener('alpine:init', function () {
             /** 获取槽位模型显示名 */
             getModelName(modelKey) {
                 return this.modelNames[modelKey] || modelKey;
+            },
+
+            /** 获取槽位模型简介 */
+            getModelDesc(modelKey) {
+                return this.modelDesc[modelKey] || '';
+            },
+
+            /** 获取槽位模型图标 */
+            getModelIcon(modelKey) {
+                return this.modelIcons[modelKey] || '';
+            },
+
+            /** 获取槽位模型色标 */
+            getModelColor(modelKey) {
+                return this.modelColors[modelKey] || 'var(--accent)';
             },
 
             /** 已完成模型计数 */

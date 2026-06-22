@@ -67,31 +67,31 @@ body::before {
 
 /* ── Hero ── */
 .hero {
-    padding: 0 0 28px;
+    padding: 0 0 12px;
     position: relative;
     z-index: 1;
 }
 
 .hero-title {
-    font-size: 88px;
+    font-size: clamp(48px, 6vw, 72px);
     font-weight: 700;
     letter-spacing: -0.04em;
-    line-height: 1.03;
-    text-shadow: 0 0 100px var(--accent-glow), 0 0 200px rgba(41, 151, 255, 0.10);
-    margin-bottom: 20px;
+    line-height: 1.05;
+    text-shadow: 0 0 80px var(--accent-glow), 0 0 160px rgba(41, 151, 255, 0.08);
+    margin-bottom: 12px;
 }
 
 .hero-subtitle {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 18px;
+    gap: 8px;
+    padding: 8px 14px;
     background: var(--bg-system);
     border: 1px solid var(--sep-default);
     border-radius: 100px;
     backdrop-filter: blur(20px) saturate(150%);
     -webkit-backdrop-filter: blur(20px) saturate(150%);
-    font-size: 16px;
+    font-size: 14px;
     color: var(--text-secondary);
 }
 
@@ -111,9 +111,9 @@ body::before {
 /* ── Hero Visual ── */
 .hero-visual {
     width: 100%;
-    max-width: 720px;
-    margin: 40px auto 0;
-    aspect-ratio: 3 / 1;
+    max-width: 560px;
+    margin: 16px auto 0;
+    aspect-ratio: 3.5 / 1;
 }
 .hero-visual svg {
     width: 100%;
@@ -164,7 +164,7 @@ body::before {
     position: relative;
     width: 100%;
     max-width: 980px;
-    margin: 44px auto 0;
+    margin: 20px auto 0;
 }
 
 .algo-carousel-track {
@@ -194,7 +194,7 @@ body::before {
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
-    padding: 36px;
+    padding: 28px;
     backdrop-filter: blur(18px) saturate(150%);
     -webkit-backdrop-filter: blur(18px) saturate(150%);
     transition: transform 0.6s var(--ease-out-expo),
@@ -227,30 +227,30 @@ body::before {
 }
 
 .algo-card--slide h3 {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
     letter-spacing: -0.02em;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .algo-card--slide p {
-    font-size: 15px;
+    font-size: 14px;
     color: var(--text-secondary);
-    line-height: 1.55;
+    line-height: 1.5;
     margin-bottom: 4px;
 }
 
 .algo-card--slide .algo-card-kicker {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-tertiary);
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .algo-card--slide .flowchart-svg {
-    margin-top: 24px;
+    margin-top: 18px;
     width: 100%;
     height: auto;
-    max-height: 340px;
+    max-height: 260px;
 }
 
 /* 轮播控制 */
@@ -259,7 +259,7 @@ body::before {
     align-items: center;
     justify-content: center;
     gap: 18px;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .algo-carousel-btn {
@@ -339,13 +339,13 @@ body::before {
     flex-wrap: wrap;
     align-items: flex-end;
     justify-content: center;
-    gap: 16px;
-    padding: 16px 24px;
+    gap: 18px;
+    padding: 20px 28px;
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     margin: 0 auto 32px;
-    max-width: 980px;
+    max-width: 1100px;
     box-shadow: var(--shadow-sm);
 }
 
@@ -353,12 +353,12 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    min-width: 120px;
+    min-width: 140px;
 }
 
 .inference-toolbar-field--wide {
-    flex: 1 1 220px;
-    min-width: 180px;
+    flex: 1 1 260px;
+    min-width: 200px;
 }
 
 .inference-toolbar-field--action {
@@ -378,14 +378,14 @@ body::before {
     background: var(--bg-secondary);
     border: 1px solid var(--sep-subtle);
     border-radius: 100px;
-    padding: 10px 14px;
-    font-size: 14px;
-    min-width: 120px;
+    padding: 12px 18px;
+    font-size: 15px;
+    min-width: 140px;
 }
 
 .inference-toolbar .btn-primary {
-    padding: 10px 22px;
-    font-size: 14px;
+    padding: 12px 28px;
+    font-size: 15px;
 }
 
 .source-toggle--pill {
@@ -418,14 +418,14 @@ body::before {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 420px;
+    min-height: 460px;
     margin: 0 auto;
-    max-width: 920px;
+    max-width: 1100px;
 }
 
 .result-dashboard {
     width: 100%;
-    max-width: 920px;
+    max-width: 1100px;
     margin: 0 auto;
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
@@ -496,7 +496,7 @@ body::before {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
-    max-width: 720px;
+    max-width: 800px;
     margin: 32px auto 0;
     text-align: center;
 }
@@ -569,7 +569,7 @@ body::before {
 
 /* ── 工作台 ── */
 .workbench {
-    max-width: 760px;
+    max-width: 1100px;
     margin: 0 auto 32px;
 }
 .workbench-row {
@@ -612,7 +612,7 @@ body::before {
 
 /* ── 结果仪表盘 ── */
 .result-dashboard {
-    max-width: 920px;
+    max-width: 1100px;
     margin: 0 auto;
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
@@ -681,12 +681,12 @@ body::before {
 /* 共享原图区域：画廊式居中展示 */
 .compare-shared-image {
     max-width: 360px;
-    margin: 0 auto 28px;
+    margin: 0 auto 20px;
     text-align: center;
 }
 .compare-shared-img {
     width: 100%;
-    max-height: 200px;
+    max-height: 180px;
     object-fit: contain;
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-md);
@@ -697,6 +697,71 @@ body::before {
     font-size: 12px;
     color: var(--text-tertiary);
     letter-spacing: 0.02em;
+}
+
+.compare-shared-image--empty .compare-shared-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-height: 120px;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--r-lg);
+    background: var(--bg-system);
+    border: 1.5px dashed var(--sep-default);
+    box-shadow: inset 0 0 0 1px var(--sep-subtle);
+}
+.compare-shared-placeholder-icon {
+    font-size: 28px;
+    line-height: 1;
+    opacity: 0.55;
+}
+.compare-shared-placeholder-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* 等待状态：更丰富的算法介绍 */
+.compare-slot-pending {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    padding: 24px 16px;
+    text-align: center;
+}
+.compare-slot-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.compare-slot-icon {
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.compare-slot-idle-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+}
+.compare-slot-idle-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    max-width: 90%;
+}
+.compare-slot-pending .compare-slot-placeholder {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
 }
 
 /* 对比摘要栏：更轻盈的画廊风格 */
@@ -814,6 +879,103 @@ body::before {
 }
 
 /* ── Training Studio 控制中心（AirPods Pro）── */
+.snap-page-inner.training-studio {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%;
+    padding: 24px 32px;
+    overflow: hidden;
+}
+
+.snap-page-inner.training-studio .training-hero {
+    flex-shrink: 0;
+    margin-bottom: 16px;
+}
+
+.snap-page-inner.training-studio .training-title {
+    font-size: clamp(26px, 3.5vw, 38px);
+    margin: 4px 0 4px;
+}
+
+.snap-page-inner.training-studio .training-subtitle {
+    font-size: 14px;
+}
+
+.snap-page-inner.training-studio .training-workspace {
+    flex: 1;
+    min-height: 0;
+    gap: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.snap-page-inner.training-studio .training-right {
+    overflow: visible;
+}
+
+.snap-page-inner.training-studio .training-config-card,
+.snap-page-inner.training-studio .training-gallery-card,
+.snap-page-inner.training-studio .training-monitor-card {
+    padding: 18px;
+    border-radius: 20px;
+}
+
+.snap-page-inner.training-studio .training-config-card {
+    flex: 0 0 280px;
+}
+
+.snap-page-inner.training-studio .training-card-title {
+    font-size: 16px;
+    margin: 0 0 12px;
+}
+
+.snap-page-inner.training-studio .training-field {
+    margin-bottom: 12px;
+}
+
+.snap-page-inner.training-studio .training-gallery {
+    max-height: 120px;
+    gap: 8px;
+}
+
+.snap-page-inner.training-studio .training-params-grid {
+    gap: 10px;
+}
+
+.snap-page-inner.training-studio .training-input {
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+.snap-page-inner.training-studio .training-advanced-toggle {
+    padding: 10px 0;
+    margin-top: 2px;
+}
+
+.snap-page-inner.training-studio .training-start-btn {
+    padding: 12px;
+    font-size: 14px;
+}
+
+.snap-page-inner.training-studio .training-monitor-body {
+    height: 180px;
+    gap: 14px;
+}
+
+.snap-page-inner.training-studio .training-metrics {
+    flex: 0 0 180px;
+    gap: 10px;
+}
+
+.snap-page-inner.training-studio .training-metric {
+    padding: 10px;
+}
+
+.snap-page-inner.training-studio .training-metric-value {
+    font-size: 18px;
+}
+
 .training-monitor-card {
     position: relative;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);

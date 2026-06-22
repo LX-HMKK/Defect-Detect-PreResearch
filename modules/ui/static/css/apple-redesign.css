@@ -353,7 +353,7 @@ body::before {
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     margin: 0 auto 32px;
-    max-width: 1400px;
+    max-width: 1000px;
     box-shadow: var(--shadow-sm);
 }
 
@@ -367,6 +367,7 @@ body::before {
 .inference-toolbar-field--wide {
     flex: 1 1 260px;
     min-width: 200px;
+    max-width: 360px;
 }
 
 .inference-toolbar-field--action {
@@ -405,7 +406,7 @@ body::before {
 }
 
 .source-toggle--pill .source-toggle-btn {
-    padding: 7px 14px;
+    padding: 9px 14px;
     border-radius: 100px;
     border: none;
     background: transparent;
@@ -1124,7 +1125,6 @@ html[data-theme="dark"] .training-chart-area.is-training {
     border: 1px solid var(--sep-subtle);
     border-radius: 100px;
     padding: 3px;
-    margin-bottom: 14px;
 }
 .source-toggle-btn {
     appearance: none;

@@ -265,13 +265,35 @@ document.addEventListener('alpine:init', function () {
                     observer.observe(s);
                 });
 
-                // ── 滚动事件更新进度环（高频率更新，保证进度环流畅）──
+                // ── 滚动事件更新进度环 + 兜底同步当前 section ──
+                // IntersectionObserver 在快速滚动或 section 高度超过视口时可能漏判，
+                // 因此用 scroll 停止后的中心点计算作为兜底，确保进度环/页码始终准确。
                 if (container !== window) {
+                    var scrollEndTimer = null;
+                    var syncSectionFromScroll = function () {
+                        var scrollCenter = container.scrollTop + container.clientHeight / 2;
+                        var closest = 0;
+                        var minDist = Infinity;
+                        sections.forEach(function (s, i) {
+                            var center = s.offsetTop + s.offsetHeight / 2;
+                            var dist = Math.abs(center - scrollCenter);
+                            if (dist < minDist) {
+                                minDist = dist;
+                                closest = i;
+                            }
+                        });
+                        if (closest !== self.currentSection) {
+                            self.currentSection = closest;
+                        }
+                    };
+
                     container.addEventListener('scroll', function () {
                         var totalHeight = container.scrollHeight - container.clientHeight;
                         if (totalHeight > 0) {
                             self.snapProgress = Math.min(1, container.scrollTop / totalHeight);
                         }
+                        clearTimeout(scrollEndTimer);
+                        scrollEndTimer = setTimeout(syncSectionFromScroll, 120);
                     }, { passive: true });
                 }
 

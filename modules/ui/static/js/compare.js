@@ -173,6 +173,7 @@ document.addEventListener('alpine:init', function () {
                 var self = this;
                 Object.keys(this.compareSlots).forEach(function (k) {
                     self.compareSlots[k] = { status: 'pending', data: null, error: null };
+                    self._resetSlotNumbers(k);
                 });
                 this.compareRunning = true;
                 this.compareDone = false;
@@ -184,11 +185,11 @@ document.addEventListener('alpine:init', function () {
                     },
                     onModelResult: function (data) {
                         self.compareSlots[data.model] = { status: 'done', data: data, error: null };
-                        // DOM 更新后设置 bbox overlays（作为 @load 的兜底）
-                        var mk = data.model;
                         self.$nextTick(function () {
+                            self._rollCompareNumber('compare-score-' + data.model, 0, data.score, function (v) { return v.toFixed(4); });
+                            self._rollCompareNumber('compare-confidence-' + data.model, 0, data.confidence * 100, function (v) { return v.toFixed(1) + '%'; });
                             setTimeout(function () {
-                                self.setupCompareBbox(mk);
+                                self.setupCompareBbox(data.model);
                             }, 200);
                         });
                     },
@@ -300,6 +301,45 @@ document.addEventListener('alpine:init', function () {
                 var ro = new ResizeObserver(update);
                 ro.observe(img);
                 img.addEventListener('load', update);
+            },
+
+            _resetSlotNumbers: function (mk) {
+                var scoreEl = document.getElementById('compare-score-' + mk);
+                var confEl = document.getElementById('compare-confidence-' + mk);
+                if (scoreEl) scoreEl.textContent = '0.0000';
+                if (confEl) confEl.textContent = '0.0%';
+            },
+
+            /**
+             * 对比得分数字滚动动画
+             * @param {string} id - 目标元素 ID
+             * @param {number} from - 起始值
+             * @param {number} to - 目标值
+             * @param {Function} formatter - 格式化函数
+             */
+            _rollCompareNumber: function (id, from, to, formatter) {
+                var el = document.getElementById(id);
+                if (!el || from === to) return;
+                var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (reducedMotion) {
+                    el.textContent = formatter(to);
+                    return;
+                }
+                var duration = 700;
+                var startTime = performance.now();
+                el.classList.add('is-rolling');
+                function step(now) {
+                    var t = Math.min(1, (now - startTime) / duration);
+                    var eased = 1 - Math.pow(1 - t, 3);
+                    var val = from + (to - from) * eased;
+                    el.textContent = formatter(val);
+                    if (t < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        el.classList.remove('is-rolling');
+                    }
+                }
+                requestAnimationFrame(step);
             },
         };
     });

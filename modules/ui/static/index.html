@@ -1145,13 +1145,11 @@
                                 <div class="compare-metrics">
                                     <div class="compare-metric">
                                         <span class="compare-metric-label">得分</span>
-                                        <span class="compare-metric-value"
-                                              x-text="compareSlots[mk].data.score.toFixed(4)"></span>
+                                        <span class="compare-metric-value" :id="'compare-score-' + mk">0.0000</span>
                                     </div>
                                     <div class="compare-metric">
                                         <span class="compare-metric-label">置信度</span>
-                                        <span class="compare-metric-value"
-                                              x-text="(compareSlots[mk].data.confidence * 100).toFixed(1) + '%'"></span>
+                                        <span class="compare-metric-value" :id="'compare-confidence-' + mk">0.0%</span>
                                     </div>
                                 </div>
                             </div>

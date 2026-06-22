@@ -295,18 +295,18 @@
                     </div>
                 </div>
 
-                <!-- 2x2 算法流程图卡片网格 -->
-                <div class="algo-grid bento-grid scroll-reveal-stagger">
-
-                    <!-- ═══ PatchCore ═══ -->
-                    <div class="algo-card bento-card algo-card--patchcore scroll-reveal">
-                        <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
-                        <div class="algo-card-body">
-                            <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
-                            <p>CNN 特征记忆库 + 最近邻搜索 &middot; 24.9M 参数</p>
-                            <p class="algo-card-kicker">零训练、推理最快，工业首选</p>
-                        </div>
-                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                <!-- 横向滚动算法卡片轮播 -->
+                <div class="algo-carousel bento-grid scroll-reveal" x-data="algoCarousel" x-init="init()">
+                    <div class="algo-carousel-track" x-ref="track" @scroll.throttle="onScroll">
+                        <!-- ═══ Slide 1: PatchCore ═══ -->
+                        <div class="algo-card algo-card--slide algo-card--patchcore scroll-reveal" :class="{ 'is-active': current === 0 }">
+                            <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
+                            <div class="algo-card-body">
+                                <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
+                                <p>CNN 特征记忆库 + 最近邻搜索 &middot; 24.9M 参数</p>
+                                <p class="algo-card-kicker">零训练、推理最快，工业首选</p>
+                            </div>
+                            <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-pc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
@@ -376,15 +376,15 @@
                         </svg>
                     </div>
 
-                    <!-- ═══ PaDiM ═══ -->
-                    <div class="algo-card bento-card algo-card--padim scroll-reveal">
+                    <!-- ═══ Slide 2: PaDiM ═══ -->
+                    <div class="algo-card algo-card--slide algo-card--padim scroll-reveal" :class="{ 'is-active': current === 1 }">
                         <div class="algo-card-accent" style="--algo-color: #30d158;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128202;</span> PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
                             <p>CNN 多尺度特征 + 马氏距离 &middot; 2.8M 参数</p>
                             <p class="algo-card-kicker">轻量高效，适合边缘部署</p>
                         </div>
-                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                        <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-pdim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
@@ -438,15 +438,15 @@
                         </svg>
                     </div>
 
-                    <!-- ═══ FRE ═══ -->
-                    <div class="algo-card bento-card algo-card--fre scroll-reveal">
+                    <!-- ═══ Slide 3: FRE ═══ -->
+                    <div class="algo-card algo-card--slide algo-card--fre scroll-reveal" :class="{ 'is-active': current === 2 }">
                         <div class="algo-card-accent" style="--algo-color: #ff9f0a;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128260;</span> FRE</h3>
                             <p>ResNet50 特征 + 自编码器重构 &middot; 23.0M 参数</p>
                             <p class="algo-card-kicker">高解释性，适合质量追溯</p>
                         </div>
-                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                        <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-fre" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
@@ -500,15 +500,15 @@
                         </svg>
                     </div>
 
-                    <!-- ═══ DRAEM ═══ -->
-                    <div class="algo-card bento-card algo-card--draem scroll-reveal">
+                    <!-- ═══ Slide 4: DRAEM ═══ -->
+                    <div class="algo-card algo-card--slide algo-card--draem scroll-reveal" :class="{ 'is-active': current === 3 }">
                         <div class="algo-card-accent" style="--algo-color: #bf5af2;"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#127919;</span> DRAEM</h3>
                             <p>合成异常增强 + 判别网络 &middot; 97.4M 参数</p>
                             <p class="algo-card-kicker">无需真实异常样本，灵敏检测</p>
                         </div>
-                        <svg class="flowchart-svg" viewBox="0 0 420 270" xmlns="http://www.w3.org/2000/svg">
+                        <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-draem" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
@@ -565,8 +565,21 @@
                     </div>
                 </div>
 
-                <!-- 滚动提示 -->
-                <div class="scroll-hint" x-show="currentSection === 0" x-transition.opacity.duration.500ms @click="scrollToSection(1)">
+                <!-- 轮播控制：指示点 + 计数器 + 箭头 -->
+                <div class="algo-carousel-controls">
+                    <button class="algo-carousel-btn algo-carousel-btn--prev" @click="prev()" aria-label="上一张">&#8592;</button>
+                    <div class="algo-carousel-dots">
+                        <template x-for="(_, i) in [0,1,2,3]" :key="i">
+                            <button class="algo-carousel-dot" :class="{ 'is-active': current === i }" @click="goTo(i)" :aria-label="'第 ' + (i + 1) + ' 张'"></button>
+                        </template>
+                    </div>
+                    <button class="algo-carousel-btn algo-carousel-btn--next" @click="next()" aria-label="下一张">&#8594;</button>
+                </div>
+                <div class="algo-carousel-counter" x-text="String(current + 1).padStart(2, '0') + ' / 04'"></div>
+            </div>
+
+            <!-- 滚动提示 -->
+            <div class="scroll-hint" x-show="currentSection === 0" x-transition.opacity.duration.500ms @click="scrollToSection(1)">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M12 5v14M5 12l7 7 7-7" stroke="var(--text-tertiary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -1205,6 +1218,7 @@
     <!-- ══════════════════════════════════════════════════ -->
     <script src="/static/js/animations.js"></script>
     <script src="/static/js/hero-visual.js"></script>
+    <script src="/static/js/algo-carousel.js"></script>
     <script src="/static/js/cursor-glow.js"></script>
     <script src="/static/js/inference.js"></script>
     <script src="/static/js/compare.js"></script>

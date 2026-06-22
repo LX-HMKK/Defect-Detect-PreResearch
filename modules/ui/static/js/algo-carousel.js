@@ -24,6 +24,11 @@
                     self.count = 4;
                     self.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+                    // 初始化时将第一张卡片滚动到居中位置，避免首屏左对齐
+                    self.$nextTick(function () {
+                        self.goTo(0);
+                    });
+
                     // 键盘导航（仅在首页聚焦时）
                     window.addEventListener('keydown', function (e) {
                         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -59,22 +64,41 @@
                     }, 80);
                 },
 
+                _slides: function () {
+                    var track = this.track;
+                    if (!track) return [];
+                    return Array.prototype.slice.call(track.children).filter(function (el) {
+                        return el.classList.contains('algo-card--slide');
+                    });
+                },
+
                 syncCurrentFromScroll: function () {
                     var track = this.track;
-                    if (!track) return;
-                    var slideWidth = track.scrollWidth / this.count;
-                    var idx = Math.round(track.scrollLeft / slideWidth);
-                    this.current = Math.max(0, Math.min(this.count - 1, idx));
+                    var slides = this._slides();
+                    if (!track || slides.length === 0) return;
+                    var spacer = slides[0].offsetLeft;
+                    var target = track.scrollLeft + spacer;
+                    var closest = 0;
+                    var minDist = Infinity;
+                    slides.forEach(function (s, i) {
+                        var dist = Math.abs(s.offsetLeft - target);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closest = i;
+                        }
+                    });
+                    this.current = closest;
                 },
 
                 goTo: function (idx) {
                     idx = Math.max(0, Math.min(this.count - 1, idx));
                     this.current = idx;
                     var track = this.track;
-                    if (!track) return;
-                    var slideWidth = track.scrollWidth / this.count;
+                    var slides = this._slides();
+                    if (!track || slides.length === 0 || !slides[idx]) return;
+                    var spacer = slides[0].offsetLeft;
                     track.scrollTo({
-                        left: slideWidth * idx,
+                        left: slides[idx].offsetLeft - spacer,
                         behavior: this.reducedMotion ? 'auto' : 'smooth'
                     });
                 },

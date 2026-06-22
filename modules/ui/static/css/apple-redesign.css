@@ -168,6 +168,9 @@ body::before {
 }
 
 .algo-carousel-track {
+    --carousel-card-w: min(720px, calc(100% - 48px));
+    --carousel-spacer: calc((100% - var(--carousel-card-w)) / 2);
+
     display: flex;
     gap: 24px;
     overflow-x: auto;
@@ -177,9 +180,15 @@ body::before {
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding: 8px 0 24px;
-    /* 左右留空，让首/尾卡片居中 */
-    padding-left: calc((100% - min(100%, 720px)) / 2);
-    padding-right: calc((100% - min(100%, 720px)) / 2);
+}
+
+/* 用伪元素代替 padding，让卡片 flex-basis 以完整 track 宽度为基准，首/尾卡片可真正居中。
+   需要扣除 gap 的 24px，因为 gap 会加在伪元素与卡片之间。 */
+.algo-carousel-track::before,
+.algo-carousel-track::after {
+    content: '';
+    flex: 0 0 max(0px, calc(var(--carousel-spacer) - 24px));
+    min-width: 0;
 }
 
 .algo-carousel-track::-webkit-scrollbar {
@@ -187,8 +196,7 @@ body::before {
 }
 
 .algo-card--slide {
-    flex: 0 0 88%;
-    max-width: 720px;
+    flex: 0 0 var(--carousel-card-w);
     scroll-snap-align: center;
     position: relative;
     background: var(--bg-system);

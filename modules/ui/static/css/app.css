@@ -575,6 +575,9 @@ html[data-theme="dark"] .custom-select-trigger:hover {
 .custom-select-label {
     font-weight: 500;
     font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Chevron 箭头 — 开关时旋转 */
@@ -786,16 +789,17 @@ html[data-theme="dark"] .capsule-icon--moon {
     gap: 8px;
     padding: 10px 28px;
     border-radius: 999px;
-    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
-    color: #ffffff;
+    background: var(--text);
+    color: var(--bg-root);
     font-family: var(--font-body);
     font-size: 15px;
     font-weight: 600;
-    border: none;
+    border: 1px solid transparent;
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: 0 4px 14px rgba(41, 151, 255, 0.28);
-    transition: filter var(--dur-fast) var(--ease-out),
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
                 transform 0.35s var(--ease-spring),
                 box-shadow var(--dur-fast) var(--ease-out);
 }
@@ -804,8 +808,9 @@ html[data-theme="dark"] .capsule-icon--moon {
 .btn-inference:hover:not(:disabled),
 .btn-compare:hover:not(:disabled),
 .training-start-btn:hover:not(:disabled) {
-    filter: brightness(1.06);
-    box-shadow: 0 6px 20px rgba(41, 151, 255, 0.38);
+    background: transparent;
+    color: var(--text);
+    border-color: var(--text);
     transform: translateY(-1px);
 }
 
@@ -814,7 +819,10 @@ html[data-theme="dark"] .capsule-icon--moon {
 .btn-compare:active:not(:disabled),
 .training-start-btn:active:not(:disabled) {
     transform: scale(0.97);
-    transition: transform 0.1s var(--ease-out), filter var(--dur-fast) var(--ease-out);
+    transition: transform 0.1s var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
 }
 
 .btn-primary:disabled,
@@ -1394,13 +1402,25 @@ html[data-theme="dark"] .capsule-icon--moon {
 
 /* ── 推理按钮状态覆盖 ── */
 .btn-inference.done {
-    background: linear-gradient(180deg, #35d45c 0%, var(--ok) 100%);
-    box-shadow: 0 4px 14px rgba(48, 209, 88, 0.28);
+    background: var(--ok);
+    color: #ffffff;
+}
+
+.btn-inference.done:hover:not(:disabled) {
+    background: transparent;
+    color: var(--ok);
+    border-color: var(--ok);
 }
 
 .btn-inference.error {
-    background: linear-gradient(180deg, #ff5e55 0%, var(--bad) 100%);
-    box-shadow: 0 4px 14px rgba(255, 69, 58, 0.28);
+    background: var(--bad);
+    color: #ffffff;
+}
+
+.btn-inference.error:hover:not(:disabled) {
+    background: transparent;
+    color: var(--bad);
+    border-color: var(--bad);
 }
 
 /* ── 按钮内 spinner ── */
@@ -3251,28 +3271,31 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     appearance: none;
     -webkit-appearance: none;
     padding: 6px 14px;
-    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
-    border: none;
+    background: var(--text);
+    color: var(--bg-root);
+    border: 1px solid transparent;
     border-radius: 999px;
-    color: #ffffff;
     font-family: var(--font-body);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(41, 151, 255, 0.25);
-    transition: filter var(--dur-fast) var(--ease-out),
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
                 transform 0.35s var(--ease-spring),
                 box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .navbar-jump-btn:hover {
-    filter: brightness(1.06);
-    box-shadow: 0 4px 12px rgba(41, 151, 255, 0.35);
+    background: transparent;
+    color: var(--text);
+    border-color: var(--text);
     transform: translateY(-1px);
 }
 
 .navbar-jump-btn:active {
     transform: scale(0.97);
+    transition: transform 0.1s var(--ease-out);
 }
 
 /* Training Studio 移动端适配 */

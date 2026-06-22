@@ -813,30 +813,26 @@
                         <!-- 数据来源 -->
                         <div class="inference-toolbar-field inference-toolbar-field--source">
                             <span class="inference-toolbar-label">来源</span>
-                            <div class="source-selector source-selector--glass">
+                            <div class="source-selector source-selector--glass" role="group">
+                                <div class="source-selector-pill"
+                                     :class="{ 'is-right': inferenceSource === 'self_trained' }"></div>
                                 <button class="source-selector-card"
                                         :class="{ 'is-active': inferenceSource === 'pretrained' }"
-                                        @click="inferenceSource = 'pretrained'">
-                                    <span class="source-selector-icon">&#127942;</span>
-                                    <span class="source-selector-body">
-                                        <span class="source-selector-title">预训练</span>
-                                        <span class="source-selector-desc">官方预训练权重</span>
-                                    </span>
+                                        @click="inferenceSource = 'pretrained'"
+                                        aria-pressed="inferenceSource === 'pretrained'">
+                                    <span>预训练</span>
                                 </button>
                                 <button class="source-selector-card"
                                         :class="{ 'is-active': inferenceSource === 'self_trained' }"
-                                        @click="inferenceSource = 'self_trained'">
-                                    <span class="source-selector-icon">&#128640;</span>
-                                    <span class="source-selector-body">
-                                        <span class="source-selector-title">自训练</span>
-                                        <span class="source-selector-desc">用户训练模型</span>
-                                    </span>
+                                        @click="inferenceSource = 'self_trained'"
+                                        aria-pressed="inferenceSource === 'self_trained'">
+                                    <span>自训练</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- 数据集 / 自训练模型 -->
-                        <div class="inference-toolbar-field">
+                        <div class="inference-toolbar-field inference-toolbar-field--dataset">
                             <span class="inference-toolbar-label" x-text="inferenceSource === 'pretrained' ? '数据集' : '模型'"></span>
                             <div class="custom-select" x-show="inferenceSource === 'pretrained'" x-data="{ open: false }" @click.outside="open = false">
                                 <button class="custom-select-trigger"

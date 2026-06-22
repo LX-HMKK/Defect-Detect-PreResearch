@@ -193,19 +193,6 @@ document.addEventListener('alpine:init', function () {
                     container = window;
                 }
 
-                // ── 导航栏加深（基于滚动位置）──
-                var scrollHandler = function () {
-                    var scrollY = container === window ? window.scrollY : container.scrollTop;
-                    self.scrolled = scrollY > 50;
-                };
-
-                if (container === window) {
-                    window.addEventListener('scroll', scrollHandler, { passive: true });
-                } else {
-                    container.addEventListener('scroll', scrollHandler, { passive: true });
-                }
-
-                // ── IntersectionObserver 检测当前 section ──
                 // 通过 class 选择所有 .snap-page，避免嵌套 x-data 导致 $refs 不可见
                 var sections = container === window
                     ? Array.prototype.slice.call(document.querySelectorAll('.snap-page'))
@@ -216,6 +203,33 @@ document.addEventListener('alpine:init', function () {
                 // 同步页码总数（label 使用）
                 self.sectionCount = sections.length;
 
+                // ── RAF 节流滚动处理：避免在每次 wheel/touch 事件都读取 layout ──
+                var rafPending = false;
+                var pendingScrollY = 0;
+                var onScrollTick = function () {
+                    var scrollY = container === window ? window.scrollY : container.scrollTop;
+                    pendingScrollY = scrollY;
+                    self.scrolled = scrollY > 50;
+
+                    if (!rafPending) {
+                        rafPending = true;
+                        requestAnimationFrame(function () {
+                            rafPending = false;
+                            if (container !== window) {
+                                var totalHeight = container.scrollHeight - container.clientHeight;
+                                if (totalHeight > 0) {
+                                    self.snapProgress = Math.min(1, pendingScrollY / totalHeight);
+                                }
+                            }
+                        });
+                    }
+                };
+
+                var scrollTarget = container === window ? window : container;
+                scrollTarget.addEventListener('scroll', onScrollTick, { passive: true });
+
+                // ── IntersectionObserver 仅用于同步当前 section ──
+                // 降低阈值密度，减少滚动过程中回调次数；不再在回调里做重动画。
                 var observer = new IntersectionObserver(
                     function (entries) {
                         var maxRatio = 0;
@@ -230,34 +244,12 @@ document.addEventListener('alpine:init', function () {
                         });
 
                         if (maxRatio > 0 && maxIdx !== self.currentSection) {
-                            var prevSection = sections[self.currentSection];
-                            var nextSection = sections[maxIdx];
-
-                            // 1. 先触发旧 section 的退出动画（向下推出，与滚动方向一致）
-                            if (prevSection && window.Anim && window.Anim.snapPageExit) {
-                                window.Anim.snapPageExit(prevSection);
-                            }
-
-                            // 2. 更新 currentSection
                             self.currentSection = maxIdx;
-
-                            // 3. 触发新 section 的入场动画（snapPageEnter 内部会移除 exiting class + 取消旧动画）
-                            if (nextSection && window.Anim && window.Anim.snapPageEnter) {
-                                window.Anim.snapPageEnter(nextSection, { staggerMs: 80, duration: 500 });
-                            }
-                        }
-
-                        // 计算 snap 进度（用于进度环填充）
-                        if (container !== window) {
-                            var totalHeight = container.scrollHeight - container.clientHeight;
-                            if (totalHeight > 0) {
-                                self.snapProgress = Math.min(1, container.scrollTop / totalHeight);
-                            }
                         }
                     },
                     {
-                        threshold: [0, 0.15, 0.3, 0.5, 0.7, 0.85, 1],
-                        root: container === window ? null : container  // 关键修复：以 snap-container 为观察根
+                        threshold: [0, 0.5, 1],
+                        root: container === window ? null : container
                     }
                 );
 
@@ -265,37 +257,36 @@ document.addEventListener('alpine:init', function () {
                     observer.observe(s);
                 });
 
-                // ── 滚动事件更新进度环 + 兜底同步当前 section ──
-                // IntersectionObserver 在快速滚动或 section 高度超过视口时可能漏判，
-                // 因此用 scroll 停止后的中心点计算作为兜底，确保进度环/页码始终准确。
+                // ── 滚动停止后兜底同步当前 section（不触发重动画）──
                 if (container !== window) {
                     var scrollEndTimer = null;
-                    var syncSectionFromScroll = function () {
-                        var scrollCenter = container.scrollTop + container.clientHeight / 2;
-                        var closest = 0;
-                        var minDist = Infinity;
-                        sections.forEach(function (s, i) {
-                            var center = s.offsetTop + s.offsetHeight / 2;
-                            var dist = Math.abs(center - scrollCenter);
-                            if (dist < minDist) {
-                                minDist = dist;
-                                closest = i;
-                            }
-                        });
-                        if (closest !== self.currentSection) {
-                            self.currentSection = closest;
-                        }
-                    };
-
                     container.addEventListener('scroll', function () {
-                        var totalHeight = container.scrollHeight - container.clientHeight;
-                        if (totalHeight > 0) {
-                            self.snapProgress = Math.min(1, container.scrollTop / totalHeight);
-                        }
                         clearTimeout(scrollEndTimer);
-                        scrollEndTimer = setTimeout(syncSectionFromScroll, 120);
+                        scrollEndTimer = setTimeout(function () {
+                            var scrollCenter = container.scrollTop + container.clientHeight / 2;
+                            var closest = 0;
+                            var minDist = Infinity;
+                            sections.forEach(function (s, i) {
+                                var center = s.offsetTop + s.offsetHeight / 2;
+                                var dist = Math.abs(center - scrollCenter);
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    closest = i;
+                                }
+                            });
+                            if (closest !== self.currentSection) {
+                                self.currentSection = closest;
+                            }
+                        }, 120);
                     }, { passive: true });
                 }
+
+                // 首页加载时触发一次入场动画；工作台页面不再在滚动中做整页重动画，避免阻塞。
+                setTimeout(function () {
+                    if (window.Anim && window.Anim.snapPageEnter && sections[0]) {
+                        window.Anim.snapPageEnter(sections[0], { staggerMs: 80, duration: 500 });
+                    }
+                }, 100);
 
                 // ── 键盘导航（↑↓ 切换 section）──
                 window.addEventListener('keydown', function (e) {

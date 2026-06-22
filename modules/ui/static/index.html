@@ -977,7 +977,7 @@
                                 <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
                                      :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
                                 <div class="compare-handle" :style="{ left: sliderPos + '%' }"
-                                     @mousedown="startDrag" @touchstart="startDrag">
+                                     @pointerdown="startDrag">
                                     <div class="compare-handle-line"></div>
                                     <div class="compare-handle-grip">
                                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">

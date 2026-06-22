@@ -129,42 +129,47 @@ document.addEventListener('alpine:init', function () {
             dragging: false,
 
             init: function () {
+                // 使用 Pointer Events + setPointerCapture，将事件限制在滑块容器内，
+                // 避免在 window 上注册全局 mousemove/touchmove 监听器影响滚动性能。
                 var self = this;
+                var handle = self.$el.querySelector('.compare-handle');
+                var container = self.$el.querySelector('.compare-container');
+                if (!handle || !container) return;
+
                 var onMove = function (e) {
                     if (!self.dragging) return;
-                    var container = self.$el.querySelector('.compare-container');
-                    if (!container) return;
                     var rect = container.getBoundingClientRect();
-                    var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                    var x = e.clientX - rect.left;
                     self.sliderPos = Math.max(0, Math.min(100, (x / rect.width) * 100));
                 };
                 var onUp = function () {
                     self.dragging = false;
                 };
 
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-                window.addEventListener('touchmove', onMove, { passive: true });
-                window.addEventListener('touchend', onUp);
+                handle.addEventListener('pointermove', onMove);
+                handle.addEventListener('pointerup', onUp);
+                handle.addEventListener('pointercancel', onUp);
 
-                // 保存引用以便 destroy 清理
+                this._handle = handle;
                 this._onMove = onMove;
                 this._onUp = onUp;
             },
 
             startDrag: function (e) {
                 this.dragging = true;
+                if (e.target && e.target.setPointerCapture) {
+                    e.target.setPointerCapture(e.pointerId);
+                }
                 e.preventDefault();
             },
 
             destroy: function () {
-                if (this._onMove) {
-                    window.removeEventListener('mousemove', this._onMove);
-                    window.removeEventListener('touchmove', this._onMove);
-                }
-                if (this._onUp) {
-                    window.removeEventListener('mouseup', this._onUp);
-                    window.removeEventListener('touchend', this._onUp);
+                if (this._handle) {
+                    if (this._onMove) this._handle.removeEventListener('pointermove', this._onMove);
+                    if (this._onUp) {
+                        this._handle.removeEventListener('pointerup', this._onUp);
+                        this._handle.removeEventListener('pointercancel', this._onUp);
+                    }
                 }
             }
         };

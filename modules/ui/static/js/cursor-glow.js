@@ -56,7 +56,17 @@
     });
 
     // ── RAF 循环：平滑滞后追踪 ──
+    var isScrolling = false;
+    var scrollTimer = null;
+    var isVisible = !document.hidden;
+
     function update() {
+        // 页面不可见或正在滚动时暂停光晕更新，降低 GPU 合成压力
+        if (!isVisible || isScrolling) {
+            rafId = requestAnimationFrame(update);
+            return;
+        }
+
         // lerp 系数 0.08，让移动更柔和从容
         currentX += (targetX - currentX) * 0.08;
         currentY += (targetY - currentY) * 0.08;
@@ -80,6 +90,26 @@
     window.addEventListener('resize', function() {
         targetX = Math.min(targetX, window.innerWidth);
         targetY = Math.min(targetY, window.innerHeight);
+    });
+
+    // 滚动时暂停光标光晕，避免滚轮滚动与每帧 CSS 变量更新竞争
+    window.addEventListener('scroll', function() {
+        isScrolling = true;
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(function () {
+            isScrolling = false;
+        }, 120);
+    }, { passive: true });
+
+    // 页面不可见时停止无效 RAF 工作
+    document.addEventListener('visibilitychange', function() {
+        isVisible = !document.hidden;
+        if (!isVisible && rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        } else if (isVisible && !rafId) {
+            rafId = requestAnimationFrame(update);
+        }
     });
 
     // ── 运行时监听 reduced-motion 变化 ──

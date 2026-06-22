@@ -301,7 +301,7 @@ body::after {
     opacity: calc(var(--glow-intensity, 0) * 0.06);
     pointer-events: none;
     z-index: 0;
-    filter: blur(40px);
+    filter: blur(24px);
     transition: opacity 0.3s var(--ease-out);
 }
 
@@ -319,8 +319,9 @@ html[data-theme="light"] body::after {
     inset: 0;
     pointer-events: none;
     z-index: 9999;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-    background-size: 256px 256px;
+    /* 使用低倍八度的 feTurbulence 并放大平铺尺寸，降低滚动时全屏 SVG 滤镜开销 */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 512px 512px;
     opacity: 0.015;
     mix-blend-mode: overlay;
     transition: opacity 400ms var(--ease-out);
@@ -2938,7 +2939,9 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     border: 1px solid var(--training-glass-border);
     border-radius: 24px;
     padding: 24px;
-    backdrop-filter: blur(20px) saturate(160%);
+    /* 从 blur(20px) 降级为 blur(8px)，降低滚动时 GPU 离屏渲染压力 */
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 
 .training-config-card {

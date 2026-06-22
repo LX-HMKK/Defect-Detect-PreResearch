@@ -151,6 +151,12 @@ document.addEventListener('alpine:init', function () {
                 self.resetMonitor();
                 self.epochs = self.modelDefaultEpochs[self.selectedModel] || 100;
 
+                // Canvas 绘制缓存：避免每次 SSE 推送都强制同步布局
+                self._chartLastRect = null;
+                self._chartLastDpr = null;
+                self._chartRafId = null;
+                self._rollRafMap = {};
+
                 // 从全局 app 同步数据集，并监听后续变化（app 异步加载数据集）
                 var app = self._getApp();
                 if (app && app.selectedDataset) {
@@ -173,9 +179,27 @@ document.addEventListener('alpine:init', function () {
                     self.loadTrainSamples();
                     if (app) app.selectedDataset = dataset;
                 });
-                window.addEventListener('resize', function () {
+                self._onResize = function () {
+                    self._chartLastRect = null;
                     self.$nextTick(function () { self.drawChart(); });
-                });
+                };
+                window.addEventListener('resize', self._onResize);
+            },
+
+            destroy: function () {
+                if (this._onResize) {
+                    window.removeEventListener('resize', this._onResize);
+                }
+                if (this._chartRafId) {
+                    cancelAnimationFrame(this._chartRafId);
+                    this._chartRafId = null;
+                }
+                for (var key in this._rollRafMap) {
+                    if (this._rollRafMap[key]) {
+                        cancelAnimationFrame(this._rollRafMap[key]);
+                    }
+                }
+                this._rollRafMap = {};
             },
 
             _getApp: function () {
@@ -348,6 +372,14 @@ document.addEventListener('alpine:init', function () {
                 }
                 var duration = 500;
                 var startTime = performance.now();
+                var key = el.dataset.rollKey || (el.dataset.rollKey = 'roll-' + Math.random().toString(36).slice(2));
+                var self = this;
+
+                // 取消同一元素上一次的数字滚动 RAF，避免并发冲突
+                if (self._rollRafMap[key]) {
+                    cancelAnimationFrame(self._rollRafMap[key]);
+                }
+
                 el.classList.add('is-rolling');
                 function step(now) {
                     var t = Math.min(1, (now - startTime) / duration);
@@ -355,12 +387,13 @@ document.addEventListener('alpine:init', function () {
                     var val = from + (to - from) * eased;
                     el.textContent = formatter(val);
                     if (t < 1) {
-                        requestAnimationFrame(step);
+                        self._rollRafMap[key] = requestAnimationFrame(step);
                     } else {
                         el.classList.remove('is-rolling');
+                        self._rollRafMap[key] = null;
                     }
                 }
-                requestAnimationFrame(step);
+                self._rollRafMap[key] = requestAnimationFrame(step);
             },
 
             stopTraining: function () {
@@ -370,14 +403,32 @@ document.addEventListener('alpine:init', function () {
             },
 
             drawChart: function () {
+                var self = this;
+                if (self._chartRafId) return; // 已安排，合并多次 SSE 推送到同一帧绘制
+                self._chartRafId = requestAnimationFrame(function () {
+                    self._chartRafId = null;
+                    self._drawChartImpl();
+                });
+            },
+
+            _drawChartImpl: function () {
                 var canvas = this.$refs.trainingChart;
                 if (!canvas) return;
                 var ctx = canvas.getContext('2d');
                 var dpr = window.devicePixelRatio || 1;
                 var rect = canvas.getBoundingClientRect();
-                canvas.width = rect.width * dpr;
-                canvas.height = rect.height * dpr;
-                ctx.scale(dpr, dpr);
+
+                // 缓存尺寸与 dpr，仅在变化时才重置 canvas（避免强制同步布局和 ctx.scale 累积）
+                if (!this._chartLastRect ||
+                    this._chartLastRect.width !== rect.width ||
+                    this._chartLastRect.height !== rect.height ||
+                    this._chartLastDpr !== dpr) {
+                    canvas.width = rect.width * dpr;
+                    canvas.height = rect.height * dpr;
+                    this._chartLastRect = { width: rect.width, height: rect.height };
+                    this._chartLastDpr = dpr;
+                    ctx.scale(dpr, dpr);
+                }
 
                 var w = rect.width;
                 var h = rect.height;

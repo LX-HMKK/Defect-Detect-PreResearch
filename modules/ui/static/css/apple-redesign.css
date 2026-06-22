@@ -1048,20 +1048,79 @@ html[data-theme="dark"] .training-chart-area.is-training {
     .bento-card { padding: 22px; }
     .workbench-row { grid-template-columns: 1fr; }
     .result-dashboard { padding: 20px; }
-    .compare-wall { grid-template-columns: 1fr; }
+    /* 平板：四模型对比 2x2 */
+    .compare-wall { grid-template-columns: repeat(2, 1fr); }
+    .compare-shared-image { max-width: 280px; }
+
+    /* 单模型推理工具栏：垂直堆叠 */
+    .inference-toolbar {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .inference-toolbar-field--wide,
+    .inference-toolbar-field--action {
+        grid-column: auto;
+    }
+    .inference-metrics {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* Training Studio：垂直堆叠 */
+    .training-workspace {
+        flex-direction: column;
+        gap: 20px;
+    }
+    .training-config-card {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+    .training-monitor-body {
+        flex-direction: column;
+        height: auto;
+    }
+    .training-metrics {
+        flex: 1 1 auto;
+        grid-template-columns: repeat(4, 1fr);
+    }
+    .training-chart-area {
+        height: 220px;
+    }
 
     .training-gallery--readonly { --thumb-size: 64px; }
     .source-toggle { width: 100%; justify-content: stretch; }
     .source-toggle-btn { flex: 1; text-align: center; }
 }
 
-/* 兜底：左上角数据集下拉已移除 user 分组，此处隐藏留空分组（仅用于兼容） */
-.custom-select-group-label:contains('我的训练') {
-    display: none;
-}
-
 @media (max-width: 480px) {
     .hero-title { font-size: 38px; }
     .bento-card { padding: 18px; }
     .bento-card h3 { font-size: 18px; }
+
+    /* 手机：四模型对比单列 */
+    .compare-wall { grid-template-columns: 1fr; }
+    .compare-shared-image { max-width: 240px; }
+
+    /* Training Studio 指标 2x2 */
+    .training-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── 无障碍：减少动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+    .algo-card--slide {
+        scroll-snap-type: none;
+    }
+    .training-status-badge.is-training::before,
+    .training-chart-area.is-training,
+    .training-complete-overlay.is-visible .training-complete-icon,
+    .compare-slot--done,
+    .training-metric-value.is-rolling,
+    .compare-metric-value.is-rolling {
+        animation: none !important;
+    }
+    .training-metric-value.is-rolling,
+    .compare-metric-value.is-rolling {
+        transform: none;
+        opacity: 1;
+    }
 }

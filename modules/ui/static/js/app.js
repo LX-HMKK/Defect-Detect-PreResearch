@@ -183,7 +183,7 @@ document.addEventListener('alpine:init', function () {
             sectionCount: 4,
 
             /** 导航点 tooltip 标签 */
-            sectionNames: ['算法介绍', '训练工作室', '单模型推理', '四模型对比'],
+            sectionNames: ['算法介绍', '单模型推理', '训练工作室', '四模型对比'],
 
             setupScrollObserver: function () {
                 var self = this;

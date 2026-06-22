@@ -736,26 +736,29 @@
                                       x-text="statusText"></span>
                             </div>
                             <div class="training-monitor-body">
-                                <div class="training-chart-area">
+                                <div class="training-chart-area" :class="{ 'is-training': trainingState === 'training' }">
                                     <canvas class="training-chart" x-ref="trainingChart"></canvas>
                                     <div class="training-chart-placeholder" x-show="!hasMetrics">训练开始后显示曲线</div>
+                                    <div class="training-complete-overlay" :class="{ 'is-visible': trainingState === 'completed' }">
+                                        <div class="training-complete-icon">&#10003;</div>
+                                    </div>
                                 </div>
                                 <div class="training-metrics">
                                     <div class="training-metric">
                                         <div class="training-metric-label">Epoch</div>
-                                        <div class="training-metric-value"><span x-text="currentEpoch"></span><span class="training-metric-delim">/</span><span x-text="totalEpochs"></span></div>
+                                        <div class="training-metric-value"><span x-ref="epochValue">0</span><span class="training-metric-delim">/</span><span x-text="totalEpochs" x-ref="totalEpochsValue">0</span></div>
                                     </div>
                                     <div class="training-metric">
                                         <div class="training-metric-label">Loss</div>
-                                        <div class="training-metric-value" x-text="latestLoss ?? '—'"></div>
+                                        <div class="training-metric-value" x-ref="lossValue">—</div>
                                     </div>
                                     <div class="training-metric">
                                         <div class="training-metric-label">LR</div>
-                                        <div class="training-metric-value" x-text="latestLR ?? '—'"></div>
+                                        <div class="training-metric-value" x-ref="lrValue">—</div>
                                     </div>
                                     <div class="training-metric">
                                         <div class="training-metric-label">val AUROC</div>
-                                        <div class="training-metric-value" x-text="latestAUROC ?? '—'"></div>
+                                        <div class="training-metric-value" x-ref="aurocValue">—</div>
                                     </div>
                                 </div>
                             </div>

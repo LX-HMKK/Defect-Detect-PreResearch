@@ -140,6 +140,12 @@ document.addEventListener('alpine:init', function () {
             errorMessage: '',
             metricsHistory: [],
 
+            // 数字滚动的前一值缓存
+            _prevEpoch: 0,
+            _prevLoss: null,
+            _prevLR: null,
+            _prevAUROC: null,
+
             init: function () {
                 var self = this;
                 self.resetMonitor();
@@ -244,6 +250,19 @@ document.addEventListener('alpine:init', function () {
                 this.latestAUROC = null;
                 this.etaSeconds = null;
                 this.metricsHistory = [];
+                this._prevEpoch = 0;
+                this._prevLoss = null;
+                this._prevLR = null;
+                this._prevAUROC = null;
+                this._setMetricText('epochValue', '0');
+                this._setMetricText('lossValue', '—');
+                this._setMetricText('lrValue', '—');
+                this._setMetricText('aurocValue', '—');
+            },
+
+            _setMetricText: function (refName, text) {
+                var el = this.$refs[refName];
+                if (el) el.textContent = text;
             },
 
             startTraining: function () {
@@ -251,6 +270,10 @@ document.addEventListener('alpine:init', function () {
                 if (!self.selectedDataset) return;
 
                 self.resetMonitor();
+                self._prevEpoch = 0;
+                self._prevLoss = null;
+                self._prevLR = null;
+                self._prevAUROC = null;
                 self.trainingState = 'training';
 
                 TrainingRunner.run({
@@ -264,11 +287,30 @@ document.addEventListener('alpine:init', function () {
                     advanced_params: self.advancedParams[self.selectedModel] || {},
                 }, {
                     onMetric: function (data) {
-                        self.currentEpoch = data.epoch;
                         self.totalEpochs = data.total_epochs;
-                        if (data.train_loss !== undefined && data.train_loss !== null) self.latestLoss = data.train_loss.toFixed(4);
-                        if (data.learning_rate !== undefined && data.learning_rate !== null) self.latestLR = data.learning_rate.toExponential(2);
-                        if (data.val_image_AUROC !== undefined && data.val_image_AUROC !== null) self.latestAUROC = (data.val_image_AUROC * 100).toFixed(1) + '%';
+                        if (data.epoch !== undefined && data.epoch !== null) {
+                            self._rollNumber(self.$refs.epochValue, self._prevEpoch, data.epoch, function (v) { return String(Math.round(v)); });
+                            self.currentEpoch = data.epoch;
+                            self._prevEpoch = data.epoch;
+                        }
+                        if (data.train_loss !== undefined && data.train_loss !== null) {
+                            var lossVal = parseFloat(data.train_loss);
+                            self._rollNumber(self.$refs.lossValue, self._prevLoss === null ? lossVal : self._prevLoss, lossVal, function (v) { return v.toFixed(4); });
+                            self.latestLoss = lossVal.toFixed(4);
+                            self._prevLoss = lossVal;
+                        }
+                        if (data.learning_rate !== undefined && data.learning_rate !== null) {
+                            var lrVal = parseFloat(data.learning_rate);
+                            self._rollNumber(self.$refs.lrValue, self._prevLR === null ? lrVal : self._prevLR, lrVal, function (v) { return v.toExponential(2); });
+                            self.latestLR = lrVal.toExponential(2);
+                            self._prevLR = lrVal;
+                        }
+                        if (data.val_image_AUROC !== undefined && data.val_image_AUROC !== null) {
+                            var aurocVal = parseFloat(data.val_image_AUROC);
+                            self._rollNumber(self.$refs.aurocValue, self._prevAUROC === null ? aurocVal : self._prevAUROC, aurocVal, function (v) { return (v * 100).toFixed(1) + '%'; });
+                            self.latestAUROC = (aurocVal * 100).toFixed(1) + '%';
+                            self._prevAUROC = aurocVal;
+                        }
                         if (data.eta_seconds !== undefined && data.eta_seconds !== null) self.etaSeconds = data.eta_seconds;
                         self.metricsHistory.push(data);
                         self.drawChart();
@@ -288,6 +330,37 @@ document.addEventListener('alpine:init', function () {
                         self.errorMessage = msg;
                     },
                 });
+            },
+
+            /**
+             * 数字滚动动画
+             * @param {HTMLElement} el - 目标元素
+             * @param {number} from - 起始值
+             * @param {number} to - 目标值
+             * @param {Function} formatter - 格式化函数
+             */
+            _rollNumber: function (el, from, to, formatter) {
+                if (!el || from === to) return;
+                var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (reducedMotion) {
+                    el.textContent = formatter(to);
+                    return;
+                }
+                var duration = 500;
+                var startTime = performance.now();
+                el.classList.add('is-rolling');
+                function step(now) {
+                    var t = Math.min(1, (now - startTime) / duration);
+                    var eased = 1 - Math.pow(1 - t, 3);
+                    var val = from + (to - from) * eased;
+                    el.textContent = formatter(val);
+                    if (t < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        el.classList.remove('is-rolling');
+                    }
+                }
+                requestAnimationFrame(step);
             },
 
             stopTraining: function () {
@@ -318,6 +391,7 @@ document.addEventListener('alpine:init', function () {
                 var aurocColor = style.getPropertyValue('--ok').trim() || '#30d158';
                 var axisColor = style.getPropertyValue('--training-chart-axis').trim() || 'rgba(128,128,128,0.5)';
                 var textColor = style.getPropertyValue('--text-secondary').trim() || 'rgba(128,128,128,0.7)';
+                var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
                 ctx.clearRect(0, 0, w, h);
 
@@ -356,7 +430,11 @@ document.addEventListener('alpine:init', function () {
                     // 画线
                     if (points.length >= 2) {
                         ctx.strokeStyle = color;
-                        ctx.lineWidth = 2;
+                        ctx.lineWidth = isDark ? 2.5 : 2;
+                        ctx.lineCap = 'round';
+                        ctx.lineJoin = 'round';
+                        ctx.shadowBlur = isDark ? 14 : 0;
+                        ctx.shadowColor = isDark ? color + '88' : 'transparent';
                         ctx.beginPath();
                         points.forEach(function (p, idx) {
                             var c = coord(idx);
@@ -364,6 +442,7 @@ document.addEventListener('alpine:init', function () {
                             else ctx.lineTo(c.x, c.y);
                         });
                         ctx.stroke();
+                        ctx.shadowBlur = 0;
                     }
 
                     // 画点（单点或最后一点高亮）

@@ -333,6 +333,240 @@ body::before {
     }
 }
 
+/* ── 单模型推理工作台 ── */
+.inference-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px 24px;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-xl);
+    margin: 0 auto 32px;
+    max-width: 980px;
+    box-shadow: var(--shadow-sm);
+}
+
+.inference-toolbar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 120px;
+}
+
+.inference-toolbar-field--wide {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.inference-toolbar-field--action {
+    min-width: auto;
+}
+
+.inference-toolbar-label {
+    font-size: var(--text-footnote);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    min-height: 14px;
+}
+
+.inference-toolbar .custom-select-trigger {
+    background: var(--bg-secondary);
+    border: 1px solid var(--sep-subtle);
+    border-radius: 100px;
+    padding: 10px 14px;
+    font-size: 14px;
+    min-width: 120px;
+}
+
+.inference-toolbar .btn-primary {
+    padding: 10px 22px;
+    font-size: 14px;
+}
+
+.source-toggle--pill {
+    display: inline-flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--sep-subtle);
+    border-radius: 100px;
+    padding: 3px;
+}
+
+.source-toggle--pill .source-toggle-btn {
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out);
+}
+
+.source-toggle--pill .source-toggle-btn.is-active {
+    background: var(--text);
+    color: var(--bg-system);
+}
+
+/* 结果舞台 */
+.inference-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 420px;
+    margin: 0 auto;
+    max-width: 920px;
+}
+
+.result-dashboard {
+    width: 100%;
+    max-width: 920px;
+    margin: 0 auto;
+    background: var(--bg-system);
+    border: 1px solid var(--sep-subtle);
+    border-radius: var(--r-xl);
+    padding: 28px;
+    box-shadow: var(--shadow-lg);
+}
+
+.result-dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.result-dashboard-label {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.result-dashboard-meta {
+    display: block;
+    font-size: var(--text-title);
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.result-badge {
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.badge-normal {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.badge-anomaly {
+    background: var(--bad-bg);
+    color: var(--bad);
+}
+
+/* 对比滑块：Apple 式细线手柄 */
+.compare-handle-line {
+    width: 2px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+}
+
+.compare-handle-grip {
+    width: 28px;
+    height: 28px;
+}
+
+.compare-handle-grip svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* 底部大字指标 */
+.inference-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    max-width: 720px;
+    margin: 32px auto 0;
+    text-align: center;
+}
+
+.inference-metric-value {
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.inference-metric-label {
+    font-size: var(--text-caption);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+.inference-verdict-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.inference-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.inference-verdict--normal {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.inference-verdict--anomaly {
+    background: var(--bad-bg);
+    color: var(--bad);
+}
+
+@media (max-width: 768px) {
+    .inference-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .inference-toolbar-field,
+    .inference-toolbar-field--wide {
+        width: 100%;
+    }
+    .inference-metrics {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .inference-metric-value {
+        font-size: 32px;
+    }
+    .result-dashboard {
+        padding: 20px;
+    }
+}
+
 /* ── 工作台 ── */
 .workbench {
     max-width: 760px;

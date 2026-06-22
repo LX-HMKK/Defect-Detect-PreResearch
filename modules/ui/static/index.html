@@ -768,21 +768,17 @@
         <!-- ============================================== -->
         <!-- Section 1: 单模型推理 -->
         <!-- ============================================== -->
-        <section id="s1" class="snap-page" x-ref="section1">
+        <section id="s1" class="snap-page workbench" x-ref="section1">
             <div class="snap-page-inner">
                 <span class="section-kicker">模型推理</span>
                 <h2 class="section-title scroll-reveal">单模型推理</h2>
                 <div class="inference-area">
 
-                    <!-- 流水线：选择算法 → 选择数据来源 → 选择图片并推理 -->
-                    <div class="workbench">
-                    <div class="pipeline workbench-row" x-show="inferenceState === 'idle' || inferenceState === 'error'">
-                        <!-- Step 1: 选择算法 -->
-                        <div class="pipeline-step">
-                            <div class="pipeline-step-header">
-                                <span class="pipeline-step-num">1</span>
-                                <span class="pipeline-step-label">选择算法</span>
-                            </div>
+                    <!-- 顶部工具栏：算法 / 来源 / 数据集 / 测试图 / 开始推理 -->
+                    <div class="inference-toolbar" x-show="inferenceState === 'idle' || inferenceState === 'error'">
+                        <!-- 算法 -->
+                        <div class="inference-toolbar-field">
+                            <span class="inference-toolbar-label">算法</span>
                             <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
                                 <button class="custom-select-trigger"
                                         :class="{ 'is-open': open }"
@@ -805,15 +801,10 @@
                             </div>
                         </div>
 
-                        <!-- Step 2: 数据来源 -->
-                        <div class="pipeline-step">
-                            <div class="pipeline-step-header">
-                                <span class="pipeline-step-num">2</span>
-                                <span class="pipeline-step-label">数据来源</span>
-                            </div>
-
-                            <!-- 来源切换 -->
-                            <div class="source-toggle">
+                        <!-- 数据来源 -->
+                        <div class="inference-toolbar-field">
+                            <span class="inference-toolbar-label">来源</span>
+                            <div class="source-toggle source-toggle--pill">
                                 <button class="source-toggle-btn"
                                         :class="{ 'is-active': inferenceSource === 'pretrained' }"
                                         @click="inferenceSource = 'pretrained'">预训练</button>
@@ -821,66 +812,58 @@
                                         :class="{ 'is-active': inferenceSource === 'self_trained' }"
                                         @click="inferenceSource = 'self_trained'">自训练</button>
                             </div>
+                        </div>
 
-                            <!-- 分支 A：标准数据集 -->
-                            <div class="inference-source-panel" x-show="inferenceSource === 'pretrained'">
-                                <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
-                                    <button class="custom-select-trigger"
-                                            :class="{ 'is-open': open }"
-                                            @click="open = !open"
-                                            aria-label="选择数据集">
-                                        <span class="custom-select-label" x-text="datasetDisplayName"></span>
-                                        <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
-                                        </svg>
-                                    </button>
-                                    <div class="custom-select-menu" x-show="open" x-transition>
-                                        <template x-for="ds in defaultDatasets" :key="ds.value">
-                                            <div class="custom-select-option"
-                                                 :class="{ 'is-selected': ds.value === selectedDataset }"
-                                                 @click="selectedDataset = ds.value; open = false"
-                                                 x-text="ds.label"></div>
-                                        </template>
-                                    </div>
+                        <!-- 数据集 / 自训练模型 -->
+                        <div class="inference-toolbar-field">
+                            <span class="inference-toolbar-label" x-text="inferenceSource === 'pretrained' ? '数据集' : '模型'"></span>
+                            <div class="custom-select" x-show="inferenceSource === 'pretrained'" x-data="{ open: false }" @click.outside="open = false">
+                                <button class="custom-select-trigger"
+                                        :class="{ 'is-open': open }"
+                                        @click="open = !open"
+                                        aria-label="选择数据集">
+                                    <span class="custom-select-label" x-text="datasetDisplayName"></span>
+                                    <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                                    </svg>
+                                </button>
+                                <div class="custom-select-menu" x-show="open" x-transition>
+                                    <template x-for="ds in defaultDatasets" :key="ds.value">
+                                        <div class="custom-select-option"
+                                             :class="{ 'is-selected': ds.value === selectedDataset }"
+                                             @click="selectedDataset = ds.value; open = false"
+                                             x-text="ds.label"></div>
+                                    </template>
                                 </div>
                             </div>
-
-                            <!-- 分支 B：自训练模型 -->
-                            <div class="inference-source-panel" x-show="inferenceSource === 'self_trained'">
-                                <div class="custom-select" x-data="{ open: false }" @click.outside="open = false">
-                                    <button class="custom-select-trigger"
-                                            :class="{ 'is-open': open, 'is-disabled': selfTrainedModels.length === 0 }"
-                                            :disabled="selfTrainedModels.length === 0"
-                                            @click="if (selfTrainedModels.length) open = !open"
-                                            aria-label="选择自训练模型">
-                                        <span class="custom-select-label"
-                                              x-text="selectedSelfTrainedModel
-                                                  ? (selectedSelfTrainedModel.display_name + ' — ' + selectedSelfTrainedModel.category + ' (v' + selectedSelfTrainedModel.version + ')')
-                                                  : (selfTrainedModels.length ? '选择自训练模型' : '暂无自训练模型')"></span>
-                                        <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
-                                        </svg>
-                                    </button>
-                                    <div class="custom-select-menu" x-show="open && selfTrainedModels.length" x-transition>
-                                        <template x-for="m in selfTrainedModels" :key="m.path">
-                                            <div class="custom-select-option"
-                                                 :class="{ 'is-selected': selectedSelfTrainedModel && m.path === selectedSelfTrainedModel.path }"
-                                                 @click="selectedSelfTrainedModel = m; syncDatasetFromSelfTrained(); loadTestImages(); open = false"
-                                                 x-text="m.display_name + ' — ' + m.category + ' (v' + m.version + ')'"></div>
-                                        </template>
-                                    </div>
+                            <div class="custom-select" x-show="inferenceSource === 'self_trained'" x-data="{ open: false }" @click.outside="open = false">
+                                <button class="custom-select-trigger"
+                                        :class="{ 'is-open': open, 'is-disabled': selfTrainedModels.length === 0 }"
+                                        :disabled="selfTrainedModels.length === 0"
+                                        @click="if (selfTrainedModels.length) open = !open"
+                                        aria-label="选择自训练模型">
+                                    <span class="custom-select-label"
+                                          x-text="selectedSelfTrainedModel
+                                              ? (selectedSelfTrainedModel.display_name + ' — ' + selectedSelfTrainedModel.category + ' (v' + selectedSelfTrainedModel.version + ')')
+                                              : (selfTrainedModels.length ? '选择自训练模型' : '暂无自训练模型')"></span>
+                                    <svg class="custom-select-chevron" :class="{ 'is-open': open }" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                                    </svg>
+                                </button>
+                                <div class="custom-select-menu" x-show="open && selfTrainedModels.length" x-transition>
+                                    <template x-for="m in selfTrainedModels" :key="m.path">
+                                        <div class="custom-select-option"
+                                             :class="{ 'is-selected': selectedSelfTrainedModel && m.path === selectedSelfTrainedModel.path }"
+                                             @click="selectedSelfTrainedModel = m; syncDatasetFromSelfTrained(); loadTestImages(); open = false"
+                                             x-text="m.display_name + ' — ' + m.category + ' (v' + m.version + ')'"></div>
+                                    </template>
                                 </div>
-                                <div class="inference-empty-hint" x-show="selfTrainedModels.length === 0">请先在训练工作室训练模型</div>
                             </div>
                         </div>
 
-                        <!-- Step 3: 选择图片并推理 -->
-                        <div class="pipeline-step">
-                            <div class="pipeline-step-header">
-                                <span class="pipeline-step-num">3</span>
-                                <span class="pipeline-step-label">选择测试图片</span>
-                            </div>
-
+                        <!-- 测试图片 -->
+                        <div class="inference-toolbar-field inference-toolbar-field--wide">
+                            <span class="inference-toolbar-label">测试图片</span>
                             <div class="custom-select inference-image-select" x-data="{ open: false }" @click.outside="open = false">
                                 <button class="custom-select-trigger"
                                         :class="{ 'is-open': open, 'is-disabled': testImages.length === 0 }"
@@ -904,12 +887,12 @@
                                     </template>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="inference-image-preview" x-show="testImagePreviewUrl">
-                                <img :src="testImagePreviewUrl" alt="测试图片预览">
-                            </div>
-
-                            <button class="btn-inference"
+                        <!-- 开始推理 -->
+                        <div class="inference-toolbar-field inference-toolbar-field--action">
+                            <span class="inference-toolbar-label"></span>
+                            <button class="btn-primary btn-inference"
                                     :class="inferenceState"
                                     :disabled="inferenceState === 'loading' || inferenceState === 'inferring' || !selectedTestImage"
                                     @click="startInference()">
@@ -919,13 +902,7 @@
                                 </span>
                                 <span x-show="inferenceState === 'done'" class="btn-done-text">推理完成 &#10003;</span>
                             </button>
-                            <!-- 重试按钮（错误状态时在流水线中显示） -->
-                            <button class="btn-reset" x-show="inferenceState === 'error'"
-                                    @click="startInference()">
-                                <span>重试</span>
-                            </button>
                         </div>
-                    </div>
                     </div>
 
                     <!-- 进度条 -->
@@ -1014,50 +991,29 @@
                             </div>
                         </div>
 
-                        <!-- 三列指标行 -->
-                        <div class="result-metrics-row">
-                            <div class="result-metric-card">
-                                <div class="metric-label">异常得分</div>
-                                <div class="metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
-                                <div class="metric-bar">
-                                    <div class="metric-fill"
-                                         :class="resultData.is_anomaly ? 'fill-anomaly' : 'fill-normal'"
-                                         :style="{ width: (resultData.score * 100) + '%' }"></div>
-                                    <div class="metric-threshold"
-                                         :style="{ left: (resultData.threshold * 100) + '%' }"></div>
-                                </div>
+                        <!-- 三列大字指标行（AirPods Pro 工作台） -->
+                        <div class="inference-metrics">
+                            <div class="inference-metric">
+                                <div class="inference-metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
+                                <div class="inference-metric-label">异常得分</div>
                             </div>
-                            <div class="result-metric-card">
-                                <div class="metric-label">置信度</div>
-                                <div class="metric-value result-confidence-value"
-                                      x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
-                                <div class="metric-bar">
-                                    <div class="metric-fill fill-confidence"
-                                         :style="{ width: (resultData.confidence * 100) + '%' }"></div>
-                                </div>
+                            <div class="inference-metric">
+                                <div class="inference-metric-value result-confidence-value"
+                                     x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
+                                <div class="inference-metric-label">置信度</div>
                             </div>
-                            <div class="result-metric-card">
-                                <div class="metric-label">阈值 τ</div>
-                                <div class="metric-value" x-text="resultData.threshold.toFixed(3)"></div>
-                                <div class="metric-bar">
-                                    <div class="metric-fill fill-threshold"
-                                         :style="{ width: (resultData.threshold * 100) + '%' }"></div>
-                                </div>
+                            <div class="inference-metric">
+                                <div class="inference-metric-value" x-text="resultData.threshold.toFixed(3)"></div>
+                                <div class="inference-metric-label">阈值 τ</div>
                             </div>
                         </div>
 
-                        <!-- 判决条 + 操作 -->
-                        <div class="result-dashboard-footer"
-                             :class="resultData.is_anomaly ? 'footer-anomaly' : 'footer-normal'">
-                            <span class="footer-verdict">
-                                <span class="verdict-dot" :class="resultData.is_anomaly ? 'dot-anomaly' : 'dot-normal'"
-                                      x-text="resultData.is_anomaly ? '●' : '●'"></span>
-                                得分 <b x-text="resultData.score.toFixed(4)"></b>
-                                <span x-text="resultData.is_anomaly ? ' > ' : ' ≤ '"></span>
-                                阈值 <b>τ = <span x-text="resultData.threshold.toFixed(3)"></span></b>
-                                &rarr; <b x-text="resultData.is_anomaly ? '异常' : '正常'"></b>
-                            </span>
-                            <button class="btn-reset" @click="resetInference()">重新选择</button>
+                        <!-- 判定 badge -->
+                        <div class="inference-verdict-wrap">
+                            <span class="inference-verdict"
+                                  :class="resultData.is_anomaly ? 'inference-verdict--anomaly' : 'inference-verdict--normal'"
+                                  x-text="resultData.is_anomaly ? '● 异常' : '● 正常'"></span>
+                            <button class="btn-text" @click="resetInference()">重新选择 →</button>
                         </div>
 
                         <!-- 隐藏数据：供 JS 读取（tooltip + bbox） -->

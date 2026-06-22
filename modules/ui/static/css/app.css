@@ -514,14 +514,14 @@ html[data-theme="light"] .navbar--scrolled {
     -webkit-user-select: none;
 }
 
-/* 触发器按钮 — 匹配网站风格 */
+/* 触发器按钮 — 玻璃质感，统一所有下拉选择器 */
 .custom-select-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--sep-subtle);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 999px;
     color: var(--text);
     font-family: var(--font-body);
@@ -529,18 +529,31 @@ html[data-theme="light"] .navbar--scrolled {
     padding: 6px 12px 6px 14px;
     cursor: pointer;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
     transition: border-color var(--dur-fast) var(--ease-out),
                 box-shadow var(--dur-fast) var(--ease-out),
                 background var(--dur-fast) var(--ease-out),
-                transform 0.2s var(--ease-out);
+                transform 0.2s var(--ease-spring);
     white-space: nowrap;
     min-width: 80px;
 }
 
+html[data-theme="dark"] .custom-select-trigger {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
 .custom-select-trigger:hover {
-    border-color: var(--sep-default);
-    background: var(--bg-tertiary);
+    background: rgba(255, 255, 255, 0.88);
+    border-color: rgba(0, 0, 0, 0.14);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+html[data-theme="dark"] .custom-select-trigger:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.18);
 }
 
 .custom-select-trigger:active {
@@ -759,49 +772,69 @@ html[data-theme="dark"] .capsule-icon--moon {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   共享按钮组件 — Apple 式药丸按钮
+   共享按钮组件 — Apple 式药丸按钮（统一以「开始推理」为基准）
    ═══════════════════════════════════════════════════════════════════════════ */
-.btn-primary {
+.btn-primary,
+.btn-inference,
+.btn-compare,
+.training-start-btn {
+    appearance: none;
+    -webkit-appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 24px;
-    border-radius: 100px;
-    background: #1d1d1f;
+    padding: 10px 28px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
     color: #ffffff;
+    font-family: var(--font-body);
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: transform 0.2s var(--ease-spring),
-                background 0.2s var(--ease-out),
-                box-shadow 0.2s var(--ease-out);
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(41, 151, 255, 0.28);
+    transition: filter var(--dur-fast) var(--ease-out),
+                transform 0.35s var(--ease-spring),
+                box-shadow var(--dur-fast) var(--ease-out);
 }
 
-.btn-primary:hover {
-    background: #000000;
-    transform: scale(1.02);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+.btn-primary:hover:not(:disabled),
+.btn-inference:hover:not(:disabled),
+.btn-compare:hover:not(:disabled),
+.training-start-btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow: 0 6px 20px rgba(41, 151, 255, 0.38);
+    transform: translateY(-1px);
 }
 
-.btn-primary:active {
-    transform: scale(0.98);
+.btn-primary:active:not(:disabled),
+.btn-inference:active:not(:disabled),
+.btn-compare:active:not(:disabled),
+.training-start-btn:active:not(:disabled) {
+    transform: scale(0.97);
+    transition: transform 0.1s var(--ease-out), filter var(--dur-fast) var(--ease-out);
 }
 
-.btn-primary:disabled {
-    opacity: 0.5;
+.btn-primary:disabled,
+.btn-inference:disabled,
+.btn-compare:disabled,
+.training-start-btn:disabled {
+    opacity: 0.55;
     cursor: not-allowed;
     transform: none;
+    filter: grayscale(0.2);
 }
 
-.btn-secondary {
+.btn-secondary,
+.training-stop-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     padding: 10px 20px;
-    border-radius: 100px;
+    border-radius: 999px;
     background: transparent;
     color: var(--text);
     font-size: 15px;
@@ -813,14 +846,28 @@ html[data-theme="dark"] .capsule-icon--moon {
                 transform 0.2s var(--ease-spring);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.training-stop-btn:hover {
     background: var(--bg-secondary);
     border-color: var(--sep-strong);
     transform: scale(1.02);
 }
 
-.btn-secondary:active {
+.btn-secondary:active,
+.training-stop-btn:active {
     transform: scale(0.98);
+}
+
+/* 训练停止按钮：红色强调变体 */
+.training-stop-btn {
+    color: var(--bad);
+    border-color: var(--training-stop-border);
+    background: var(--training-stop-bg);
+}
+
+.training-stop-btn:hover {
+    border-color: rgba(255, 69, 58, 0.45);
+    background: rgba(255, 69, 58, 0.18);
 }
 
 .btn-text {
@@ -1345,44 +1392,7 @@ html[data-theme="dark"] .capsule-icon--moon {
     box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
-/* ── 推理按钮 ── */
-.btn-inference {
-    appearance: none;
-    -webkit-appearance: none;
-    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
-    color: #ffffff;
-    border: none;
-    border-radius: 999px;
-    padding: 10px 28px;
-    font-family: var(--font-body);
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    box-shadow: 0 4px 14px rgba(41, 151, 255, 0.28);
-    transition: filter var(--dur-fast) var(--ease-out),
-                transform 0.35s var(--ease-spring),
-                box-shadow var(--dur-fast) var(--ease-out);
-}
-
-.btn-inference:hover:not(:disabled) {
-    filter: brightness(1.06);
-    box-shadow: 0 6px 20px rgba(41, 151, 255, 0.38);
-    transform: translateY(-1px);
-}
-
-.btn-inference:active:not(:disabled) {
-    transform: scale(0.97);
-    transition: transform 0.1s var(--ease-out), filter var(--dur-fast) var(--ease-out);
-}
-
-.btn-inference:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
-    filter: grayscale(0.2);
-}
-
+/* ── 推理按钮状态覆盖 ── */
 .btn-inference.done {
     background: linear-gradient(180deg, #35d45c 0%, var(--ok) 100%);
     box-shadow: 0 4px 14px rgba(48, 209, 88, 0.28);
@@ -2147,41 +2157,10 @@ html[data-theme="dark"] .capsule-icon--moon {
     line-height: 1.6;
 }
 
-/* ── 对比按钮 ── */
+/* ── 对比按钮（继承 btn-primary 基础，仅保留布局覆盖）── */
 .btn-compare {
     display: block;
     margin: 0 auto 24px;
-    appearance: none;
-    -webkit-appearance: none;
-    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
-    color: #ffffff;
-    border: none;
-    border-radius: 999px;
-    padding: 14px 36px;
-    font-family: var(--font-body);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(41, 151, 255, 0.28);
-    transition: filter var(--dur-fast) var(--ease-out),
-                transform 0.35s var(--ease-spring),
-                box-shadow var(--dur-fast) var(--ease-out);
-}
-
-.btn-compare:hover:not(:disabled) {
-    filter: brightness(1.06);
-    box-shadow: 0 6px 22px rgba(41, 151, 255, 0.38);
-    transform: translateY(-1px);
-}
-
-.btn-compare:active:not(:disabled) {
-    transform: scale(0.97);
-}
-
-.btn-compare:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
 }
 
 /* ── 进度指示器 ── */
@@ -3124,15 +3103,6 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 .training-start-btn {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #2997ff, #5ac8fa);
-    border: none;
-    border-radius: 999px;
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s ease;
 }
 
 .training-start-btn:disabled {
@@ -3144,12 +3114,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     width: 100%;
     margin-top: 10px;
     padding: 10px;
-    background: var(--training-stop-bg);
-    border: 1px solid var(--training-stop-border);
-    border-radius: 999px;
-    color: #ff453a;
     font-size: 13px;
-    cursor: pointer;
 }
 
 .training-gallery {
@@ -3283,19 +3248,31 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
 /* 导航栏训练跳转按钮 */
 .navbar-jump-btn {
+    appearance: none;
+    -webkit-appearance: none;
     padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, #3aa3ff 0%, var(--accent) 100%);
+    border: none;
     border-radius: 999px;
-    color: var(--text-secondary);
+    color: #ffffff;
+    font-family: var(--font-body);
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(41, 151, 255, 0.25);
+    transition: filter var(--dur-fast) var(--ease-out),
+                transform 0.35s var(--ease-spring),
+                box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .navbar-jump-btn:hover {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--text);
+    filter: brightness(1.06);
+    box-shadow: 0 4px 12px rgba(41, 151, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.navbar-jump-btn:active {
+    transform: scale(0.97);
 }
 
 /* Training Studio 移动端适配 */

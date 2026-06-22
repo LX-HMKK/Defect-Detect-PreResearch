@@ -299,7 +299,7 @@
 
                 <!-- 横向滚动算法卡片轮播 -->
                 <div class="algo-carousel bento-grid scroll-reveal" x-data="algoCarousel" x-init="init()">
-                    <div class="algo-carousel-track" x-ref="track" @scroll.throttle="onScroll">
+                    <div class="algo-carousel-track" x-ref="track">
                         <!-- ═══ Slide 1: PatchCore ═══ -->
                         <div class="algo-card algo-card--slide algo-card--patchcore scroll-reveal" :class="{ 'is-active': current === 0 }">
                             <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
@@ -811,15 +811,27 @@
                         </div>
 
                         <!-- 数据来源 -->
-                        <div class="inference-toolbar-field">
+                        <div class="inference-toolbar-field inference-toolbar-field--source">
                             <span class="inference-toolbar-label">来源</span>
-                            <div class="source-toggle source-toggle--pill">
-                                <button class="source-toggle-btn"
+                            <div class="source-selector source-selector--glass">
+                                <button class="source-selector-card"
                                         :class="{ 'is-active': inferenceSource === 'pretrained' }"
-                                        @click="inferenceSource = 'pretrained'">预训练</button>
-                                <button class="source-toggle-btn"
+                                        @click="inferenceSource = 'pretrained'">
+                                    <span class="source-selector-icon">&#127942;</span>
+                                    <span class="source-selector-body">
+                                        <span class="source-selector-title">预训练</span>
+                                        <span class="source-selector-desc">官方预训练权重</span>
+                                    </span>
+                                </button>
+                                <button class="source-selector-card"
                                         :class="{ 'is-active': inferenceSource === 'self_trained' }"
-                                        @click="inferenceSource = 'self_trained'">自训练</button>
+                                        @click="inferenceSource = 'self_trained'">
+                                    <span class="source-selector-icon">&#128640;</span>
+                                    <span class="source-selector-body">
+                                        <span class="source-selector-title">自训练</span>
+                                        <span class="source-selector-desc">用户训练模型</span>
+                                    </span>
+                                </button>
                             </div>
                         </div>
 

@@ -29,28 +29,28 @@
     }
 
     /**
-     * 主初始化：查找所有流程图 SVG 并绑定 IntersectionObserver
+     * 主初始化：查找所有流程图 SVG 并做预处理（不自动播放）。
+     * 实际播放由 algo-carousel.js 在卡片推到最前时触发。
      */
     function initFlowcharts() {
         var svgs = document.querySelectorAll('.flowchart-svg');
         if (svgs.length === 0) return;
 
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    // 确保 SVG 已完全布局（getTotalLength 需要渲染后的几何信息）
-                    var svg = entry.target;
+        svgs.forEach(function(svg) {
+            // 延迟到布局完成后预处理
+            if (svg.getBoundingClientRect().width > 0) {
+                prepareFlowchart(svg);
+            } else {
+                var rafId = requestAnimationFrame(function check() {
                     if (svg.getBoundingClientRect().width > 0) {
                         prepareFlowchart(svg);
-                        animateFlowchart(svg);
-                        observer.unobserve(svg);
+                    } else {
+                        rafId = requestAnimationFrame(check);
                     }
-                }
-            });
-        }, { threshold: 0.25 });
-
-        svgs.forEach(function(svg) {
-            observer.observe(svg);
+                });
+                // 最多等待 3 秒，防止无限轮询
+                setTimeout(function() { cancelAnimationFrame(rafId); }, 3000);
+            }
         });
     }
 
@@ -95,6 +95,8 @@
         labels.forEach(function(label) {
             label.style.opacity = '0';
         });
+
+        svg.classList.add('is-prepared');
     }
 
     /**
@@ -104,6 +106,13 @@
      *   3) 标签淡入（stagger 100ms）
      */
     function animateFlowchart(svg) {
+        if (!svg) return;
+
+        // 若尚未预处理，先准备
+        if (!svg.classList.contains('is-prepared')) {
+            prepareFlowchart(svg);
+        }
+
         var nodes = svg.querySelectorAll('.fc-node rect');
         var arrows = svg.querySelectorAll('.fc-arrow');
         var labels = svg.querySelectorAll('.fc-label');
@@ -170,6 +179,7 @@
         waitForSelector('.flowchart-svg', initFlowcharts);
     }
 
-    // 挂载到全局以便外部手动触发
+    // 挂载到全局以便 algo-carousel.js 手动触发
     window.initFlowcharts = initFlowcharts;
+    window.animateFlowchart = animateFlowchart;
 })();

@@ -992,13 +992,11 @@ html[data-theme="dark"] .capsule-icon--moon {
 .section-kicker {
     display: block;
     text-align: center;
-    font-size: 12px;
+    font-size: 22px;
     font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 8px;
-    opacity: 0.85;
+    letter-spacing: 0.1px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1038,18 +1036,10 @@ html[data-theme="dark"] .capsule-icon--moon {
 
 .hero-subtitle {
     font-family: var(--font-body);
-    font-size: 19px;
+    font-size: 21px;
     color: var(--text-secondary);
     margin-top: 16px;
     line-height: 1.5;
-    /* 磨砂玻璃条带 */
-    display: inline-block;
-    padding: 8px 24px;
-    background: rgba(128, 128, 128, 0.06);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid var(--sep-subtle);
-    border-radius: 100px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

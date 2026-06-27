@@ -81,16 +81,11 @@ body::before {
 }
 
 .hero-subtitle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    background: var(--bg-system);
-    border: 1px solid var(--sep-default);
-    border-radius: 100px;
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    font-size: 14px;
+    display: block;
+    margin-top: 16px;
+    font-size: 21px;
+    font-weight: 400;
+    line-height: 1.5;
     color: var(--text-secondary);
 }
 

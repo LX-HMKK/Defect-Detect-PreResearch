@@ -59,15 +59,17 @@
 }
 
 /* ── 初始隐藏状态（动画由 JS 驱动） ── */
+/* --node-perimeter / --arrow-length 由 JS 写入带 px 的值；fallback 同样需带 px，
+   否则无单位的非零长度非法，整条声明失效会回退到初始值 0（节点永远可见）。 */
 .flowchart-svg .fc-node rect {
-    stroke-dasharray: var(--node-perimeter, 300);
-    stroke-dashoffset: var(--node-perimeter, 300);
+    stroke-dasharray: var(--node-perimeter, 300px);
+    stroke-dashoffset: var(--node-perimeter, 300px);
     transition: none;
 }
 
 .flowchart-svg .fc-arrow {
-    stroke-dasharray: var(--arrow-length, 100);
-    stroke-dashoffset: var(--arrow-length, 100);
+    stroke-dasharray: var(--arrow-length, 100px);
+    stroke-dashoffset: var(--arrow-length, 100px);
 }
 
 .flowchart-svg .fc-label {

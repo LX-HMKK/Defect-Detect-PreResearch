@@ -301,8 +301,8 @@
                 <div class="algo-carousel bento-grid scroll-reveal" x-data="algoCarousel" x-init="init()">
                     <div class="algo-carousel-track" x-ref="track">
                         <!-- ═══ Slide 1: PatchCore ═══ -->
-                        <div class="algo-card algo-card--slide algo-card--patchcore scroll-reveal" :class="{ 'is-active': current === 0 }">
-                            <div class="algo-card-accent" style="--algo-color: #2997ff;"></div>
+                        <div class="algo-card algo-card--slide algo-card--patchcore" style="--algo-color: #2997ff;" :class="{ 'is-active': current === 0 }">
+                            <div class="algo-card-accent"></div>
                             <div class="algo-card-body">
                                 <h3><span class="algo-icon">&#128269;</span> PatchCore <span class="algo-tag algo-tag--rec">首选</span></h3>
                                 <p>CNN 特征记忆库 + 最近邻搜索 &middot; 24.9M 参数</p>
@@ -379,8 +379,8 @@
                     </div>
 
                     <!-- ═══ Slide 2: PaDiM ═══ -->
-                    <div class="algo-card algo-card--slide algo-card--padim scroll-reveal" :class="{ 'is-active': current === 1 }">
-                        <div class="algo-card-accent" style="--algo-color: #30d158;"></div>
+                    <div class="algo-card algo-card--slide algo-card--padim" style="--algo-color: #30d158;" :class="{ 'is-active': current === 1 }">
+                        <div class="algo-card-accent"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128202;</span> PaDiM <span class="algo-tag algo-tag--alt">轻量</span></h3>
                             <p>CNN 多尺度特征 + 马氏距离 &middot; 2.8M 参数</p>
@@ -441,8 +441,8 @@
                     </div>
 
                     <!-- ═══ Slide 3: FRE ═══ -->
-                    <div class="algo-card algo-card--slide algo-card--fre scroll-reveal" :class="{ 'is-active': current === 2 }">
-                        <div class="algo-card-accent" style="--algo-color: #ff9f0a;"></div>
+                    <div class="algo-card algo-card--slide algo-card--fre" style="--algo-color: #ff9f0a;" :class="{ 'is-active': current === 2 }">
+                        <div class="algo-card-accent"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#128260;</span> FRE</h3>
                             <p>ResNet50 特征 + 自编码器重构 &middot; 23.0M 参数</p>
@@ -503,8 +503,8 @@
                     </div>
 
                     <!-- ═══ Slide 4: DRAEM ═══ -->
-                    <div class="algo-card algo-card--slide algo-card--draem scroll-reveal" :class="{ 'is-active': current === 3 }">
-                        <div class="algo-card-accent" style="--algo-color: #bf5af2;"></div>
+                    <div class="algo-card algo-card--slide algo-card--draem" style="--algo-color: #bf5af2;" :class="{ 'is-active': current === 3 }">
+                        <div class="algo-card-accent"></div>
                         <div class="algo-card-body">
                             <h3><span class="algo-icon">&#127919;</span> DRAEM</h3>
                             <p>合成异常增强 + 判别网络 &middot; 97.4M 参数</p>
@@ -565,6 +565,11 @@
                             </g>
                         </svg>
                     </div>
+                </div>
+
+                <!-- 滚动进度条：随横向滚动连续填充 -->
+                <div class="algo-carousel-progress" x-ref="carouselProgress">
+                    <div class="algo-carousel-progress-fill" x-ref="carouselProgressFill"></div>
                 </div>
 
                 <!-- 轮播控制：指示点 + 计数器 + 箭头 -->

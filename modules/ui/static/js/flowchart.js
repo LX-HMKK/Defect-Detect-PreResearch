@@ -71,24 +71,26 @@
                 w = rect.getBoundingClientRect().width || 80;
                 h = rect.getBoundingClientRect().height || 40;
             }
+            // 注意：stroke-dasharray / stroke-dashoffset 是 <length> 型属性，
+            // 非零值必须带单位（否则整条声明无效，回退到初始值 0，节点会一直可见）。
             var perimeter = 2 * (w + h);
-            rect.style.setProperty('--node-perimeter', perimeter.toString());
-            rect.style.strokeDasharray = perimeter;
-            rect.style.strokeDashoffset = perimeter;
+            rect.style.setProperty('--node-perimeter', perimeter + 'px');
+            rect.style.strokeDasharray = perimeter + 'px';
+            rect.style.strokeDashoffset = perimeter + 'px';
         });
 
         arrows.forEach(function(arrow) {
             try {
                 var length = arrow.getTotalLength();
                 if (length > 0) {
-                    arrow.style.setProperty('--arrow-length', length.toString());
-                    arrow.style.strokeDasharray = length;
-                    arrow.style.strokeDashoffset = length;
+                    arrow.style.setProperty('--arrow-length', length + 'px');
+                    arrow.style.strokeDasharray = length + 'px';
+                    arrow.style.strokeDashoffset = length + 'px';
                 }
             } catch (e) {
                 // getTotalLength 对某些元素可能不可用；回退估算
-                arrow.style.strokeDasharray = '200';
-                arrow.style.strokeDashoffset = '200';
+                arrow.style.strokeDasharray = '200px';
+                arrow.style.strokeDashoffset = '200px';
             }
         });
 
@@ -96,37 +98,78 @@
             label.style.opacity = '0';
         });
 
+        // 初始态：SVG 整体隐藏，等待推到最前时 animateFlowchart 展开
+        svg.style.visibility = 'hidden';
+
         svg.classList.add('is-prepared');
     }
 
     /**
+     * 重置流程图到未渲染状态：取消内部所有 WAAPI 动画，并将 SVG 整体隐藏。
+     *
+     * 用途：卡片退出最前时"关闭渲染"，以便再次推到最前时能从头播放。
+     * 与 animateFlowchart 配对使用：resetFlowchart → animateFlowchart。
+     *
+     * 实现说明：stroke-dashoffset 在当前 Chrome/SVG 渲染栈中无法可靠复位
+     * （存在未知高优先级规则强制其回 0），因此主生命周期改用 SVG 整体
+     * visibility + scale 驱动：退出 → visibility hidden（关闭）；进入 → visible + 弹性展开（渲染）。
+     */
+    function resetFlowchart(svg) {
+        if (!svg) return;
+
+        // 取消 SVG 自身及内部所有元素的 WAAPI 动画，解除 fill:forwards 对属性的占用
+        [svg].concat(Array.from(svg.querySelectorAll('.fc-node rect, .fc-arrow, .fc-label'))).forEach(function (el) {
+            if (el.getAnimations) {
+                el.getAnimations().forEach(function (a) { a.cancel(); });
+            }
+        });
+
+        // 关闭渲染：整个 SVG 隐藏（保留布局，避免与 opacity 动画/规则发生 specificity 冲突）
+        svg.style.visibility = 'hidden';
+    }
+
+    /**
      * 执行动画：
-     *   1) 节点边框逐段绘制（stagger 150ms）
-     *   2) 箭头连线依次出现（stagger 200ms，在节点完成后开始）
-     *   3) 标签淡入（stagger 100ms）
+     *   1) SVG 整体弹性展开（opacity + scale）
+     *   2) 内部标签 stagger 淡入
+     *
+     * 支持反复触发：内部先 reset（隐藏+取消动画），再从头展开。
      */
     function animateFlowchart(svg) {
         if (!svg) return;
 
-        // 若尚未预处理，先准备
         if (!svg.classList.contains('is-prepared')) {
             prepareFlowchart(svg);
         }
+
+        // 确保从头开始：先关闭再展开
+        resetFlowchart(svg);
 
         var nodes = svg.querySelectorAll('.fc-node rect');
         var arrows = svg.querySelectorAll('.fc-arrow');
         var labels = svg.querySelectorAll('.fc-label');
 
-        var globalDelay = 0;
+        // ── 阶段 0：SVG 整体弹性展开 ──
+        svg.style.visibility = 'visible';
+        svg.animate([
+            { transform: 'scale(0.96)' },
+            { transform: 'scale(1)' }
+        ], {
+            duration: 450,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            fill: 'forwards'
+        });
 
-        // 阶段 1：节点边框绘制
+        var globalDelay = 180; // 等 SVG 展开一小段后再启动内部元素
+
+        // ── 阶段 1：节点边框绘制（dashoffset 动画作为装饰层，若渲染栈支持则可见）──
         nodes.forEach(function(rect, i) {
             var perimeter = parseFloat(
                 rect.style.getPropertyValue('--node-perimeter') || '300'
             );
             rect.animate([
-                { strokeDashoffset: perimeter },
-                { strokeDashoffset: 0 }
+                { strokeDashoffset: perimeter + 'px' },
+                { strokeDashoffset: '0px' }
             ], {
                 duration: 600,
                 delay: globalDelay + i * 150,
@@ -137,14 +180,14 @@
 
         globalDelay += Math.max(nodes.length * 150, 150) + 200;
 
-        // 阶段 2：箭头连线
+        // ── 阶段 2：箭头连线 ──
         arrows.forEach(function(arrow, i) {
             var length = parseFloat(
                 arrow.style.getPropertyValue('--arrow-length') || '100'
             );
             arrow.animate([
-                { strokeDashoffset: length },
-                { strokeDashoffset: 0 }
+                { strokeDashoffset: length + 'px' },
+                { strokeDashoffset: '0px' }
             ], {
                 duration: 500,
                 delay: globalDelay + i * 200,
@@ -155,7 +198,7 @@
 
         globalDelay += Math.max(arrows.length * 200, 200) + 100;
 
-        // 阶段 3：标签淡入
+        // ── 阶段 3：标签淡入 ──
         labels.forEach(function(label, i) {
             label.animate([
                 { opacity: 0 },
@@ -182,4 +225,5 @@
     // 挂载到全局以便 algo-carousel.js 手动触发
     window.initFlowcharts = initFlowcharts;
     window.animateFlowchart = animateFlowchart;
+    window.resetFlowchart = resetFlowchart;
 })();

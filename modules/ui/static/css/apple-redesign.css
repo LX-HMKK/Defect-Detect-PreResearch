@@ -166,6 +166,8 @@ body::before {
     max-width: 1200px;
     margin: 20px auto 0;
     perspective: 1200px;
+    /* 当前居中算法的颜色，由 JS 推送到最前时更新；驱动进度条与卡片辉光 */
+    --active-algo: var(--accent);
 }
 
 .algo-carousel-track {
@@ -198,6 +200,8 @@ body::before {
 }
 
 .algo-card--slide {
+    /* --card-closeness: 0=远离中心, 1=居中；由 JS 每帧滚动驱动连续更新 */
+    --card-closeness: 1;
     flex: 0 0 var(--carousel-card-w);
     scroll-snap-align: center;
     position: relative;
@@ -208,22 +212,52 @@ body::before {
     backdrop-filter: blur(18px) saturate(150%);
     -webkit-backdrop-filter: blur(18px) saturate(150%);
     transform-style: preserve-3d;
-    will-change: transform, opacity;
-    transition: transform 0.55s var(--ease-spring),
-                opacity 0.45s var(--ease-out),
-                box-shadow 0.5s var(--ease-out-expo);
-}
+    will-change: transform, opacity, filter;
 
-/* 非当前卡片：缩小并弱化，像 AirPods Pro 卡片轮播中的待选项 */
-.algo-card--slide:not(.is-active) {
-    opacity: 0.35;
-    transform: scale(0.72);
+    /* 连续深度变换：替代旧的离散 is-active 切换。
+       缩放 + Z 位移 + 透明度 + 模糊 + 亮度/饱和度，全部由 --card-closeness 驱动，
+       随滚动位置逐帧平滑过渡 —— 这是 AirPods Pro"灵动滚动条"体感的核心。 */
+    opacity: calc(0.30 + 0.70 * var(--card-closeness));
+    transform:
+        scale(calc(0.72 + 0.28 * var(--card-closeness)))
+        translateZ(calc(-130px * (1 - var(--card-closeness))));
+    filter:
+        blur(calc(6px * (1 - var(--card-closeness))))
+        brightness(calc(0.80 + 0.20 * var(--card-closeness)))
+        saturate(calc(0.65 + 0.35 * var(--card-closeness)));
+    box-shadow:
+        0 calc(12px + 40px * var(--card-closeness))
+            calc(40px + 40px * var(--card-closeness))
+            rgba(0, 0, 0, calc(0.10 + 0.20 * var(--card-closeness))),
+        0 0 calc(90px * var(--card-closeness))
+            color-mix(in srgb, var(--active-algo) 26%, transparent);
 }
 
 .algo-card--slide.is-active {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: var(--shadow-lg), 0 0 80px var(--accent-dim);
+    z-index: 2;
+}
+
+/* 滚动进度条：随横向滚动连续填充，呼应"灵动滚动条" */
+.algo-carousel-progress {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    height: 2px;
+    margin: 6px auto 0;
+    background: var(--sep-subtle);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.algo-carousel-progress-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0%;
+    background: var(--active-algo);
+    border-radius: inherit;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--active-algo) 55%, transparent);
+    will-change: width;
 }
 
 .algo-card--slide .algo-card-accent {

@@ -28,7 +28,7 @@ def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title
         for j in range(len(model_labels)):
             val = data_matrix[i][j]
             color = "white" if val > 60 else "black"
-            ax.text(j, i, f"{val:.1f}", ha="center", va="center",
+            ax.text(j, i, f"{val:.2f}", ha="center", va="center",
                     fontsize=9, color=color)
     # 最优列加粗描边（每行各自的最大值单元格）
     max_idx = np.argmax(data_matrix, axis=1)

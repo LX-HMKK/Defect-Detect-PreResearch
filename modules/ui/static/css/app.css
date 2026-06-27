@@ -199,7 +199,7 @@ body {
 
 .snap-page-inner {
     width: 100%;
-    max-width: 1400px;
+    max-width: 1200px; /* 原 1400px — 统一内容基准 */
     margin: 0 auto;
     padding: max(48px, 6vh) 32px;
 }
@@ -1676,7 +1676,7 @@ html[data-theme="dark"] .capsule-icon--moon {
    结果仪表盘卡片 — 一体化布局
    ═══════════════════════════════════════════════════════════════════════════ */
 .result-dashboard {
-    max-width: 780px;
+    max-width: 1200px; /* 原 780px — 统一内容基准 */
     margin: 0 auto;
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);

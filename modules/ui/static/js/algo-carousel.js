@@ -70,6 +70,7 @@
 
                     window.addEventListener('resize', function () {
                         self._requestLayout();
+                        self._positionPill();
                     }, { passive: true });
 
                     // 视口生命周期：离开页面 → 关闭渲染；返回 → 重新渲染
@@ -80,8 +81,8 @@
                     return this.$refs.track;
                 },
 
-                get progressFill() {
-                    return this.$refs.carouselProgressFill;
+                get pill() {
+                    return this.$refs.fusedPill;
                 },
 
                 _slides: function () {
@@ -110,7 +111,6 @@
 
                     var center = track.scrollLeft + track.clientWidth / 2;
                     var maxScroll = track.scrollWidth - track.clientWidth;
-                    var progress = maxScroll > 0 ? track.scrollLeft / maxScroll : 0;
 
                     var closest = 0;
                     var minDist = Infinity;
@@ -137,11 +137,7 @@
                         }
                     }, this);
 
-                    // 进度条
-                    if (this.progressFill) {
-                        var pct = Math.max(0, Math.min(1, progress)) * 100;
-                        this.progressFill.style.width = pct.toFixed(2) + '%';
-                    }
+                    // 进度由融合状态条的滑动 pill 承担（_positionPill 在 current 切换时驱动）
 
                     // 活动卡片切换 → 触发流程图生命周期
                     if (closest !== this.current) {
@@ -159,6 +155,19 @@
                     slides.forEach(function (slide, i) {
                         slide.classList.toggle('is-active', i === this.current);
                     }, this);
+                    this._positionPill();   // 滑动 pill 跟随活动 tab
+                },
+
+                /* ── 融合状态条：滑动 pill 定位到当前 tab（Apple tabnav-indicator） ── */
+                _positionPill: function () {
+                    var pill = this.$refs.fusedPill;
+                    var tabs = this.$refs.fusedTabs;
+                    if (!pill || !tabs) return;
+                    var tabEls = tabs.querySelectorAll('.algo-fused-tab');
+                    var tab = tabEls[this.current];
+                    if (!tab) return;
+                    pill.style.transform = 'translateX(' + tab.offsetLeft + 'px)';
+                    pill.style.width = tab.offsetWidth + 'px';
                 },
 
                 _setActiveTint: function () {

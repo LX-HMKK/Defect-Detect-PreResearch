@@ -129,6 +129,16 @@ document.addEventListener('alpine:init', function () {
                 draem: 100,
             },
 
+            // 模型推荐 batch_size —— DRAEM 显存占用大（Perlin 增强 + UNet 判别），
+            // 在 8GB VRAM 上 batch=32 会 CUDA OOM，训练在首个 epoch 前崩溃 → 无训练曲线。
+            // 故 DRAEM 默认 4（与 configs/draem.yaml 一致）；其余模型 32 安全。
+            modelDefaultBatch: {
+                patchcore: 32,
+                padim: 32,
+                fre: 32,
+                draem: 4,
+            },
+
             // 训练状态
             trainingState: 'idle', // idle | training | completed | error
             currentEpoch: 0,
@@ -150,6 +160,7 @@ document.addEventListener('alpine:init', function () {
                 var self = this;
                 self.resetMonitor();
                 self.epochs = self.modelDefaultEpochs[self.selectedModel] || 100;
+                self.batchSize = self.modelDefaultBatch[self.selectedModel] || 32;
 
                 // Canvas 绘制缓存：避免每次 SSE 推送都强制同步布局
                 self._chartLastRect = null;
@@ -173,6 +184,7 @@ document.addEventListener('alpine:init', function () {
 
                 self.$watch('selectedModel', function (model) {
                     self.epochs = self.modelDefaultEpochs[model] || 100;
+                    self.batchSize = self.modelDefaultBatch[model] || 32;
                 });
                 self.$watch('selectedDataset', function (dataset) {
                     self.excludedSamples = [];

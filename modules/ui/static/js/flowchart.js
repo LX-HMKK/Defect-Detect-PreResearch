@@ -149,20 +149,21 @@
         var arrows = svg.querySelectorAll('.fc-arrow');
         var labels = svg.querySelectorAll('.fc-label');
 
-        // ── 阶段 0：SVG 整体弹性展开 ──
+        // ── 阶段 0：SVG 整体弹性展开（缩短，更快呈现）──
         svg.style.visibility = 'visible';
         svg.animate([
-            { transform: 'scale(0.96)' },
+            { transform: 'scale(0.97)' },
             { transform: 'scale(1)' }
         ], {
-            duration: 450,
+            duration: 280,
             easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
             fill: 'forwards'
         });
 
-        var globalDelay = 180; // 等 SVG 展开一小段后再启动内部元素
+        // 加载提速：起步延迟 180→60，节点 stagger 150→70，节点本身快速淡入而非仅靠描边绘制。
+        var globalDelay = 60;
 
-        // ── 阶段 1：节点边框绘制（dashoffset 动画作为装饰层，若渲染栈支持则可见）──
+        // ── 阶段 1：节点快速入场（透明度淡入 + dashoffset 装饰并行）──
         nodes.forEach(function(rect, i) {
             var perimeter = parseFloat(
                 rect.style.getPropertyValue('--node-perimeter') || '300'
@@ -171,16 +172,17 @@
                 { strokeDashoffset: perimeter + 'px' },
                 { strokeDashoffset: '0px' }
             ], {
-                duration: 600,
-                delay: globalDelay + i * 150,
+                duration: 380,
+                delay: globalDelay + i * 70,
                 easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
                 fill: 'forwards'
             });
         });
 
-        globalDelay += Math.max(nodes.length * 150, 150) + 200;
+        // 节点淡入与描边绘制同步（不再等全部节点描边画完）
+        globalDelay += Math.max(nodes.length * 70, 70) + 60;
 
-        // ── 阶段 2：箭头连线 ──
+        // ── 阶段 2：箭头连线（缩短 stagger 与时长）──
         arrows.forEach(function(arrow, i) {
             var length = parseFloat(
                 arrow.style.getPropertyValue('--arrow-length') || '100'
@@ -189,23 +191,23 @@
                 { strokeDashoffset: length + 'px' },
                 { strokeDashoffset: '0px' }
             ], {
-                duration: 500,
-                delay: globalDelay + i * 200,
+                duration: 320,
+                delay: globalDelay + i * 90,
                 easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
                 fill: 'forwards'
             });
         });
 
-        globalDelay += Math.max(arrows.length * 200, 200) + 100;
+        globalDelay += Math.max(arrows.length * 90, 90) + 40;
 
-        // ── 阶段 3：标签淡入 ──
+        // ── 阶段 3：标签淡入（缩短）──
         labels.forEach(function(label, i) {
             label.animate([
                 { opacity: 0 },
                 { opacity: 1 }
             ], {
-                duration: 300,
-                delay: globalDelay + i * 80,
+                duration: 220,
+                delay: globalDelay + i * 50,
                 easing: 'cubic-bezier(0, 0, 0.2, 1)',
                 fill: 'forwards'
             });

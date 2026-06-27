@@ -311,21 +311,30 @@ class AnomalyDetector:
             return False, f"[FAIL] 模型加载失败: {str(e)}"
 
     def load_self_trained_model(self, model_key: str, model_dir: Path, category: str) -> Tuple[bool, str]:
-        """从自训练目录加载模型。"""
-        from modules.algorithm.trainer import AnomalyDetectionTrainer
+        """从自训练目录加载模型。
 
-        data_root = resolve_project_path(get('paths.data_root', './data'))
+        注意：自训练模型的训练数据位于上传临时目录（.cache/uploads/...），训练结束后
+        可能已被清理，且不在 ./data/{category} 下。因此本方法【不】调用 trainer.setup()
+        ——后者会创建 datamodule 并要求 ./data/{category} 存在，对自训练推理会触发
+        FileNotFoundError（candidate C）。推理使用 PredictDataset（单图），不需要
+        datamodule，故直接用 get_model_from_config 构建模型并注入 state_dict。
+        """
+        from modules.algorithm.trainer import get_model_from_config
+        import yaml
+
+        # 读取模型 YAML 取 init_args（与训练时一致）
         config_path = resolve_project_path(f"configs/{model_key}.yaml")
-        trainer = AnomalyDetectionTrainer(
-            model_name=model_key,
-            category=category,
-            data_path=str(data_root),
-            config_path=str(config_path),
-            source="user",
-        )
-        trainer.setup()
+        model_config = None
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f) or {}
+            model_config = (cfg.get('model') or {}).get('init_args')
 
-        # 创建推理引擎（setup 不创建 Engine）
+        # 直接构建模型（无需数据集，避免 ./data/{category} 不存在导致崩溃）
+        self.model = get_model_from_config(model_key, model_config)
+        self.model.eval()
+
+        # 创建推理引擎
         temp_dir = resolve_project_path(get('paths.temp_dir', './.cache'))
         engine = Engine(
             default_root_dir=str(temp_dir / "lightning_logs"),
@@ -340,15 +349,18 @@ class AnomalyDetector:
             return False, "自训练模型目录缺少 checkpoint 文件"
         ckpt_path = ckpt_files[0]
         checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-        trainer.model.load_state_dict(checkpoint["state_dict"], strict=False)
+        missing, unexpected = self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+        if missing:
+            print(f"[WARN] 自训练 {model_key} state_dict 缺失 {len(missing)} 键（前3: {missing[:3]}）")
+        if unexpected:
+            print(f"[WARN] 自训练 {model_key} state_dict 多余 {len(unexpected)} 键（前3: {unexpected[:3]}）")
 
-        self.model = trainer.model
         self.model_key = model_key
         self.current_dataset = category
         self.current_source = 'self_trained'
         self.current_model = model_key
         self.engine = engine
-        self.datamodule = trainer.datamodule
+        self.datamodule = None  # 推理走 PredictDataset，无需 datamodule
         self.current_checkpoint = ckpt_path
         return True, f"[OK] 成功加载自训练模型 {model_key} ({model_dir})"
 

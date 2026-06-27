@@ -179,10 +179,18 @@ document.addEventListener('alpine:init', function () {
             // ─────────────────────────────────────────────
             scrolled: false,
             currentSection: 0,
-            snapProgress: 0,  // 0.0 ~ 1.0，表示两页之间的滚动进度（驱动进度环填充）
-            sectionCount: 4,
+            snapProgress: 0,  // 0.0 ~ 1.0，整体滚动进度（驱动页码进度发丝线填充）
 
-            /** 导航点 tooltip 标签 */
+            // ── 5 页逻辑视图：封面(1) + 算法介绍(2) + 训练(3) + 推理(4) + 对比(5) ──
+            // 首页 s0 内部含「封面 + 算法轮播」两屏，按轮播可见性切换 1↔2；
+            // 其余 section 直接映射为页码（s1→3, s2→4, s3→5）。不拆分 section，保留滚动架构。
+            currentPage: 1,
+            pageCount: 5,
+            /** 5 页名称（导航栏标题接力 / 页码指示器共用） */
+            pageNames: ['封面', '算法介绍', '训练工作室', '单模型推理', '四模型对比'],
+
+            /** 兼容旧引用 */
+            sectionCount: 4,
             sectionNames: ['算法介绍', '训练工作室', '单模型推理', '四模型对比'],
 
             setupScrollObserver: function () {
@@ -202,6 +210,8 @@ document.addEventListener('alpine:init', function () {
 
                 // 同步页码总数（label 使用）
                 self.sectionCount = sections.length;
+                // 5 页逻辑视图 = section 数 + 1（首页 s0 含「封面 + 算法轮播」两屏）
+                self.pageCount = sections.length + 1;
 
                 // ── RAF 节流滚动处理：避免在每次 wheel/touch 事件都读取 layout ──
                 var rafPending = false;
@@ -221,6 +231,7 @@ document.addEventListener('alpine:init', function () {
                                     self.snapProgress = Math.min(1, pendingScrollY / totalHeight);
                                 }
                             }
+                            self._updateCurrentPage(container);
                         });
                     }
                 };
@@ -245,6 +256,7 @@ document.addEventListener('alpine:init', function () {
 
                         if (maxRatio > 0 && maxIdx !== self.currentSection) {
                             self.currentSection = maxIdx;
+                            self._updateCurrentPage(container);
                         }
                     },
                     {
@@ -276,6 +288,7 @@ document.addEventListener('alpine:init', function () {
                             });
                             if (closest !== self.currentSection) {
                                 self.currentSection = closest;
+                                self._updateCurrentPage(container);
                             }
                         }, 120);
                     }, { passive: true });
@@ -312,6 +325,29 @@ document.addEventListener('alpine:init', function () {
                 var target = sections[idx];
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            },
+
+            /**
+             * 计算 5 页逻辑视图的当前页码。
+             * 首页 s0 内部：轮播进入视口上半区 → 算法介绍(2)，否则封面(1)。
+             * 其余 section：s1→3, s2→4, s3→5。
+             */
+            _updateCurrentPage: function (container) {
+                var page;
+                if (this.currentSection === 0) {
+                    var carousel = this._carouselEl || (this._carouselEl = document.querySelector('.algo-carousel'));
+                    var vh = (container && container.clientHeight) ? container.clientHeight : window.innerHeight;
+                    if (carousel && carousel.getBoundingClientRect().top < vh * 0.5) {
+                        page = 2;   // 算法介绍
+                    } else {
+                        page = 1;   // 封面
+                    }
+                } else {
+                    page = this.currentSection + 2;
+                }
+                if (page !== this.currentPage) {
+                    this.currentPage = page;
                 }
             },
 

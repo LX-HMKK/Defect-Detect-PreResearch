@@ -21,8 +21,7 @@ data:
 # 模型配置 (Anomalib 2.x 格式)
 model:
   class_path: anomalib.models.Draem
-  init_args:
-    # DRAEM 使用默认参数
+  init_args: {}  # DRAEM 使用默认参数；显式空 dict，避免 YAML 注释占位被解析为 None
 
 # 优化器配置
 optimization:

@@ -207,7 +207,7 @@
                 </svg>
                 <span class="navbar-title">缺陷检测</span>
                 <!-- Section 标题接力 -->
-                <span class="navbar-section" x-show="currentSection > 0" x-text="sectionNames[currentSection]"></span>
+                <span class="navbar-section" x-show="currentPage > 1" x-text="pageNames[currentPage - 1]"></span>
             </div>
 
             <div class="navbar-right">
@@ -254,13 +254,13 @@
     <!-- ══════════════════════════════════════════════════ -->
     <!-- 进度环导航点 -->
     <!-- ══════════════════════════════════════════════════ -->
-    <div class="snap-dots" aria-label="页面导航">
-        <svg class="snap-ring" viewBox="0 0 40 40" width="40" height="40">
-            <circle cx="20" cy="20" r="17" fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" opacity="0.3"/>
-            <circle cx="20" cy="20" r="17" fill="none" stroke="var(--accent)" stroke-width="1.5"
-                    stroke-linecap="round" stroke-dasharray="106.8" :stroke-dashoffset="106.8 - 106.8 * snapProgress"/>
-        </svg>
-        <span class="snap-dot-label" x-text="(currentSection + 1) + ' / ' + sectionCount"></span>
+    <div class="snap-dots page-indicator" aria-label="页面导航"
+         :class="{ 'is-cover': currentPage === 1 }">
+        <span class="page-num" x-text="String(currentPage).padStart(2, '0')"></span>
+        <span class="page-line" aria-hidden="true">
+            <span class="page-line-fill" :style="{ height: (snapProgress * 100).toFixed(1) + '%' }"></span>
+        </span>
+        <span class="page-total" x-text="'/ ' + String(pageCount).padStart(2, '0')"></span>
     </div>
 
     <!-- ══════════════════════════════════════════════════ -->
@@ -310,72 +310,88 @@
                                 <p>CNN 特征记忆库 + 最近邻搜索 &middot; 24.9M 参数</p>
                                 <p class="algo-card-kicker">零训练、推理最快，工业首选</p>
                             </div>
-                            <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+                            <svg class="flowchart-svg" viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-pc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
                                 </marker>
                             </defs>
-                            <!-- Row 1: 正常样本 → CNN特征 → Patch特征 → 记忆库 -->
-                            <g class="fc-node">
-                                <rect x="8" y="62" width="85" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="50" y="89" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                            <!-- 输入图示（左端视觉锚点）-->
+                            <g class="fc-deco" opacity="0.5">
+                                <rect x="8" y="24" width="40" height="40" rx="6" fill="var(--bg-tertiary)"/>
+                                <path d="M12 60 L24 44 L34 54 L44 40 L52 50 L52 60 Z" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <circle cx="44" cy="34" r="3" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <text x="28" y="76" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">输入</text>
                             </g>
-                            <line class="fc-arrow" x1="93" y1="84" x2="116" y2="84"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <!-- Row 1: 正常样本 → CNN特征 → Patch特征 → 记忆库（coreset 子采样）-->
+                            <line class="fc-arrow" x1="56" y1="62" x2="74" y2="62" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
                             <g class="fc-node">
-                                <rect x="118" y="62" width="85" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="160" y="89" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
+                                <rect x="78" y="40" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="138" y="62" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">正常样本</text>
+                                <text class="fc-label" x="138" y="78" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">train/good</text>
                             </g>
-                            <line class="fc-arrow" x1="203" y1="84" x2="226" y2="84"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <line class="fc-arrow" x1="198" y1="64" x2="226" y2="64" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
                             <g class="fc-node">
-                                <rect x="228" y="62" width="85" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="270" y="89" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">Patch 特征</text>
+                                <rect x="230" y="40" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="290" y="62" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">CNN 特征</text>
+                                <text class="fc-label" x="290" y="78" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">WideResNet50</text>
                             </g>
-                            <line class="fc-arrow" x1="313" y1="84" x2="336" y2="84"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <line class="fc-arrow" x1="350" y1="64" x2="378" y2="64" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
                             <g class="fc-node">
-                                <rect x="338" y="58" width="74" height="52" rx="8"
-                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                                <text class="fc-label" x="375" y="81" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">记忆库</text>
-                                <text class="fc-label" x="375" y="97" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(coreset)</text>
+                                <rect x="382" y="40" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="442" y="62" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">Patch 特征</text>
+                                <text class="fc-label" x="442" y="78" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">局部 patch</text>
+                            </g>
+                            <line class="fc-arrow" x1="502" y1="64" x2="530" y2="64" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <g class="fc-node">
+                                <rect x="534" y="36" width="130" height="56" rx="12" fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="599" y="60" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--accent)">记忆库</text>
+                                <text class="fc-label" x="599" y="76" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">coreset 10%</text>
+                            </g>
+                            <!-- 记忆库条点装饰 -->
+                            <g class="fc-deco" opacity="0.7">
+                                <rect x="540" y="100" width="118" height="4" rx="2" fill="var(--accent-dim)"/>
+                                <circle cx="548" cy="102" r="2" fill="var(--accent)"/>
+                                <circle cx="562" cy="102" r="2" fill="var(--accent)"/>
+                                <circle cx="576" cy="102" r="2" fill="var(--accent)"/>
+                                <circle cx="590" cy="102" r="2" fill="var(--accent)"/>
+                                <circle cx="604" cy="102" r="2" fill="var(--accent)"/>
+                                <circle cx="618" cy="102" r="2" fill="var(--accent)"/>
                             </g>
                             <!-- Vertical connector: 记忆库 → 最近邻距离 -->
-                            <polyline class="fc-arrow" points="375,110 375,158 175,158 175,186"
+                            <polyline class="fc-arrow" points="599,96 599,150 200,150 200,210"
                                       fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
-                            <!-- Row 2: 测试样本特征 → 最近邻距离 → 异常得分 -->
+                            <!-- Row 2: 测试样本特征 → 最近邻距离 → 异常得分 → 热力图输出 -->
                             <g class="fc-node">
-                                <rect x="8" y="188" width="95" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="55" y="215" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">测试样本特征</text>
+                                <rect x="78" y="212" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="138" y="234" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">测试样本特征</text>
+                                <text class="fc-label" x="138" y="250" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">推理时提取</text>
                             </g>
-                            <line class="fc-arrow" x1="103" y1="210" x2="128" y2="210"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <line class="fc-arrow" x1="198" y1="236" x2="226" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
                             <g class="fc-node">
-                                <rect x="130" y="188" width="90" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="175" y="215" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">最近邻距离</text>
+                                <rect x="230" y="212" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="290" y="234" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">最近邻距离</text>
+                                <text class="fc-label" x="290" y="250" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">kNN 检索</text>
                             </g>
-                            <line class="fc-arrow" x1="220" y1="210" x2="246" y2="210"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <line class="fc-arrow" x1="350" y1="236" x2="378" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
                             <g class="fc-node">
-                                <rect x="248" y="184" width="85" height="52" rx="8"
-                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                                <text class="fc-label" x="290" y="207" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                                <text class="fc-label" x="290" y="223" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                                <rect x="382" y="208" width="120" height="56" rx="12" fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="442" y="232" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="442" y="248" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">max distance</text>
+                            </g>
+                            <line class="fc-arrow" x1="502" y1="236" x2="530" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pc)"/>
+                            <!-- 输出热力图图示（右端视觉锚点）-->
+                            <g class="fc-deco" opacity="0.85">
+                                <rect x="534" y="200" width="120" height="72" rx="8" fill="var(--bg-tertiary)"/>
+                                <rect x="542" y="208" width="104" height="56" rx="4" fill="url(#pcHeatmap)" opacity="0.8"/>
+                                <defs>
+                                    <linearGradient id="pcHeatmap" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stop-color="#2997ff" stop-opacity="0.1"/>
+                                        <stop offset="60%" stop-color="#ff9f0a" stop-opacity="0.5"/>
+                                        <stop offset="100%" stop-color="#ff3b30" stop-opacity="0.8"/>
+                                    </linearGradient>
+                                </defs>
+                                <text x="594" y="286" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">异常热力图</text>
                             </g>
                         </svg>
                     </div>
@@ -388,56 +404,70 @@
                             <p>CNN 多尺度特征 + 马氏距离 &middot; 2.8M 参数</p>
                             <p class="algo-card-kicker">轻量高效，适合边缘部署</p>
                         </div>
-                        <svg class="flowchart-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+                        <svg class="flowchart-svg" viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg">
                             <defs>
                                 <marker id="arrow-pdim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
                                 </marker>
+                                <linearGradient id="pdimHeatmap" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stop-color="#30d158" stop-opacity="0.1"/>
+                                    <stop offset="60%" stop-color="#ff9f0a" stop-opacity="0.5"/>
+                                    <stop offset="100%" stop-color="#ff3b30" stop-opacity="0.8"/>
+                                </linearGradient>
                             </defs>
+                            <!-- 输入图示 -->
+                            <g class="fc-deco" opacity="0.5">
+                                <rect x="8" y="44" width="40" height="40" rx="6" fill="var(--bg-tertiary)"/>
+                                <path d="M12 80 L24 64 L34 74 L44 60 L52 70 L52 80 Z" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <circle cx="44" cy="54" r="3" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <text x="28" y="96" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">输入</text>
+                            </g>
                             <!-- Row 1: 正常样本 → CNN多尺度特征 → Patch高斯分布 -->
+                            <line class="fc-arrow" x1="56" y1="82" x2="74" y2="82" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
                             <g class="fc-node">
-                                <rect x="10" y="72" width="82" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="51" y="99" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                                <rect x="78" y="58" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="138" y="80" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">正常样本</text>
+                                <text class="fc-label" x="138" y="96" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">train/good</text>
                             </g>
-                            <line class="fc-arrow" x1="92" y1="94" x2="116" y2="94"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <line class="fc-arrow" x1="198" y1="82" x2="226" y2="82" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
                             <g class="fc-node">
-                                <rect x="118" y="72" width="112" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="174" y="99" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 多尺度特征</text>
+                                <rect x="230" y="58" width="130" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="295" y="80" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">CNN 多尺度特征</text>
+                                <text class="fc-label" x="295" y="96" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">layer1/2/3</text>
                             </g>
-                            <line class="fc-arrow" x1="230" y1="94" x2="254" y2="94"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <line class="fc-arrow" x1="360" y1="82" x2="388" y2="82" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
                             <g class="fc-node">
-                                <rect x="256" y="68" width="100" height="52" rx="8"
-                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                                <text class="fc-label" x="306" y="89" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">Patch 高斯分布</text>
-                                <text class="fc-label" x="306" y="106" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(μ, Σ per patch)</text>
+                                <rect x="392" y="54" width="130" height="56" rx="12" fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="457" y="78" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--accent)">Patch 高斯分布</text>
+                                <text class="fc-label" x="457" y="94" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">μ, Σ per patch</text>
                             </g>
+                            <!-- 高斯分布装饰 -->
+                            <g class="fc-deco" opacity="0.6" transform="translate(540,54)">
+                                <path d="M0 56 C 8 56 8 20 20 20 C 32 20 32 56 40 56 L 0 56 Z" fill="var(--accent-dim)"/>
+                                <line x1="20" y1="20" x2="20" y2="56" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 2"/>
+                            </g>
+                            <text class="fc-deco" x="560" y="120" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)" opacity="0.6">N(μ,Σ)</text>
                             <!-- Vertical connector: Patch高斯 → 马氏距离 -->
-                            <polyline class="fc-arrow" points="306,120 306,154 232,154 232,186"
+                            <polyline class="fc-arrow" points="457,110 457,160 232,160 232,212"
                                       fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
-                            <!-- Row 2: 马氏距离 → 异常得分 -->
+                            <!-- Row 2: 马氏距离 → 异常得分 → 热力图输出 -->
                             <g class="fc-node">
-                                <rect x="192" y="188" width="80" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="232" y="215" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">马氏距离</text>
+                                <rect x="172" y="212" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="232" y="234" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">马氏距离</text>
+                                <text class="fc-label" x="232" y="250" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">(x−μ)ᵀΣ⁻¹(x−μ)</text>
                             </g>
-                            <line class="fc-arrow" x1="272" y1="210" x2="296" y2="210"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <line class="fc-arrow" x1="292" y1="236" x2="320" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
                             <g class="fc-node">
-                                <rect x="298" y="184" width="85" height="52" rx="8"
-                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                                <text class="fc-label" x="340" y="207" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                                <text class="fc-label" x="340" y="223" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                                <rect x="324" y="208" width="120" height="56" rx="12" fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="384" y="232" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="384" y="248" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">distance</text>
+                            </g>
+                            <line class="fc-arrow" x1="444" y1="236" x2="472" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-pdim)"/>
+                            <!-- 输出热力图图示 -->
+                            <g class="fc-deco" opacity="0.85">
+                                <rect x="476" y="200" width="120" height="72" rx="8" fill="var(--bg-tertiary)"/>
+                                <rect x="484" y="208" width="104" height="56" rx="4" fill="url(#pdimHeatmap)" opacity="0.8"/>
+                                <text x="536" y="286" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">异常热力图</text>
                             </g>
                         </svg>
                     </div>
@@ -456,50 +486,66 @@
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
                                 </marker>
                             </defs>
+                            <!-- 输入图示 -->
+                            <g class="fc-deco" opacity="0.5">
+                                <rect x="8" y="47" width="40" height="40" rx="6" fill="var(--bg-tertiary)"/>
+                                <path d="M12 83 L24 67 L34 77 L44 63 L52 73 L52 83 Z" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <circle cx="44" cy="57" r="3" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <text x="28" y="99" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">输入</text>
+                            </g>
                             <!-- Row 1: 正常样本 → CNN特征 → 线性自编码器 -->
+                            <line class="fc-arrow" x1="56" y1="85" x2="74" y2="85" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
                             <g class="fc-node">
-                                <rect x="8" y="75" width="82" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="49" y="102" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                                <rect x="78" y="61" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="138" y="83" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">正常样本</text>
+                                <text class="fc-label" x="138" y="99" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">train/good</text>
                             </g>
-                            <line class="fc-arrow" x1="90" y1="97" x2="114" y2="97"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <line class="fc-arrow" x1="198" y1="85" x2="226" y2="85" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
                             <g class="fc-node">
-                                <rect x="116" y="75" width="82" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="157" y="102" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">CNN 特征</text>
+                                <rect x="230" y="61" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="290" y="83" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">CNN 特征</text>
+                                <text class="fc-label" x="290" y="99" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">ResNet50 layer3</text>
                             </g>
-                            <line class="fc-arrow" x1="198" y1="97" x2="222" y2="97"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <line class="fc-arrow" x1="350" y1="85" x2="378" y2="85" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
                             <g class="fc-node">
-                                <rect x="224" y="71" width="110" height="52" rx="8"
-                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                                <text class="fc-label" x="279" y="92" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">线性自编码器</text>
-                                <text class="fc-label" x="279" y="109" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(encoder→decoder)</text>
+                                <rect x="382" y="57" width="130" height="56" rx="12" fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="447" y="81" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--accent)">线性自编码器</text>
+                                <text class="fc-label" x="447" y="97" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">encoder → decoder</text>
                             </g>
+                            <!-- 自编码器瓶颈装饰 -->
+                            <g class="fc-deco" opacity="0.55" transform="translate(530,57)">
+                                <rect x="0" y="0" width="22" height="56" rx="4" fill="var(--accent-dim)"/>
+                                <rect x="6" y="8" width="10" height="40" rx="2" fill="var(--accent)" opacity="0.5"/>
+                            </g>
+                            <text class="fc-deco" x="541" y="124" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)" opacity="0.6">latent</text>
                             <!-- Vertical connector: 自编码器 → 重构误差 -->
-                            <polyline class="fc-arrow" points="279,123 279,158 147,158 147,186"
+                            <polyline class="fc-arrow" points="447,113 447,162 200,162 200,212"
                                       fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
-                            <!-- Row 2: 重构误差 → 异常得分 -->
+                            <!-- Row 2: 重构误差 → 异常得分 → 热力图输出 -->
                             <g class="fc-node">
-                                <rect x="105" y="188" width="84" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="147" y="215" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">重构误差</text>
+                                <rect x="140" y="212" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="200" y="234" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">重构误差</text>
+                                <text class="fc-label" x="200" y="250" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">‖x − x̂‖</text>
                             </g>
-                            <line class="fc-arrow" x1="189" y1="210" x2="214" y2="210"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <line class="fc-arrow" x1="260" y1="236" x2="288" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
                             <g class="fc-node">
-                                <rect x="216" y="184" width="85" height="52" rx="8"
-                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                                <text class="fc-label" x="258" y="207" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                                <text class="fc-label" x="258" y="223" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                                <rect x="292" y="208" width="120" height="56" rx="12" fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="352" y="232" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="352" y="248" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">reconstruction</text>
+                            </g>
+                            <line class="fc-arrow" x1="412" y1="236" x2="440" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-fre)"/>
+                            <!-- 输出热力图图示 -->
+                            <g class="fc-deco" opacity="0.85">
+                                <rect x="444" y="200" width="120" height="72" rx="8" fill="var(--bg-tertiary)"/>
+                                <rect x="452" y="208" width="104" height="56" rx="4" fill="url(#freHeatmap)" opacity="0.8"/>
+                                <defs>
+                                    <linearGradient id="freHeatmap" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stop-color="#ff9f0a" stop-opacity="0.1"/>
+                                        <stop offset="60%" stop-color="#ff9f0a" stop-opacity="0.5"/>
+                                        <stop offset="100%" stop-color="#ff3b30" stop-opacity="0.8"/>
+                                    </linearGradient>
+                                </defs>
+                                <text x="504" y="286" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">异常热力图</text>
                             </g>
                         </svg>
                     </div>
@@ -518,73 +564,87 @@
                                     <polygon points="0 0, 8 3, 0 6" fill="var(--text-tertiary)"/>
                                 </marker>
                             </defs>
+                            <!-- 输入图示 -->
+                            <g class="fc-deco" opacity="0.5">
+                                <rect x="8" y="48" width="40" height="40" rx="6" fill="var(--bg-tertiary)"/>
+                                <path d="M12 84 L24 68 L34 78 L44 64 L52 74 L52 84 Z" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <circle cx="44" cy="58" r="3" fill="var(--text-tertiary)" opacity="0.6"/>
+                                <text x="28" y="100" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">输入</text>
+                            </g>
                             <!-- Row 1: 正常样本 → 合成异常 → 判别网络 -->
+                            <line class="fc-arrow" x1="56" y1="86" x2="74" y2="86" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
                             <g class="fc-node">
-                                <rect x="8" y="66" width="82" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="49" y="93" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">正常样本</text>
+                                <rect x="78" y="62" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="138" y="84" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">正常样本</text>
+                                <text class="fc-label" x="138" y="100" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">train/good</text>
                             </g>
-                            <line class="fc-arrow" x1="90" y1="88" x2="114" y2="88"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <line class="fc-arrow" x1="198" y1="86" x2="226" y2="86" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
                             <g class="fc-node">
-                                <rect x="116" y="62" width="102" height="52" rx="8"
-                                      fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
-                                <text class="fc-label" x="167" y="83" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--warn)">合成异常</text>
-                                <text class="fc-label" x="167" y="100" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(纹理增强)</text>
+                                <rect x="230" y="58" width="120" height="56" rx="12" fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"/>
+                                <text class="fc-label" x="290" y="82" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--warn)">合成异常</text>
+                                <text class="fc-label" x="290" y="98" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">Perlin + DTD 纹理</text>
                             </g>
-                            <line class="fc-arrow" x1="218" y1="88" x2="244" y2="88"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <line class="fc-arrow" x1="350" y1="86" x2="378" y2="86" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
                             <g class="fc-node">
-                                <rect x="246" y="62" width="100" height="52" rx="8"
-                                      fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
-                                <text class="fc-label" x="296" y="83" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--accent)">判别网络训练</text>
-                                <text class="fc-label" x="296" y="100" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">(UNet-like)</text>
+                                <rect x="382" y="58" width="130" height="56" rx="12" fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1.5"/>
+                                <text class="fc-label" x="447" y="82" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--accent)">判别网络</text>
+                                <text class="fc-label" x="447" y="98" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">UNet 重构+分割</text>
                             </g>
+                            <!-- 判别网络结构装饰 -->
+                            <g class="fc-deco" opacity="0.5" transform="translate(530,58)">
+                                <rect x="0" y="0" width="22" height="56" rx="4" fill="var(--accent-dim)"/>
+                                <rect x="4" y="8" width="14" height="40" rx="2" fill="var(--accent)" opacity="0.4"/>
+                            </g>
+                            <text class="fc-deco" x="541" y="124" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)" opacity="0.6">U-Net</text>
                             <!-- Vertical connector: 判别网络 → 异常分割 -->
-                            <polyline class="fc-arrow" points="296,114 296,152 162,152 162,186"
+                            <polyline class="fc-arrow" points="447,114 447,162 200,162 200,212"
                                       fill="none" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
-                            <!-- Row 2: 异常分割 → 异常得分 -->
+                            <!-- Row 2: 异常分割 → 异常得分 → 热力图输出 -->
                             <g class="fc-node">
-                                <rect x="112" y="188" width="100" height="44" rx="8"
-                                      fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
-                                <text class="fc-label" x="162" y="215" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" fill="var(--text)">异常分割</text>
+                                <rect x="140" y="212" width="120" height="48" rx="12" fill="var(--bg-secondary)" stroke="var(--sep-default)" stroke-width="1.5"/>
+                                <text class="fc-label" x="200" y="234" text-anchor="middle" font-family="var(--font-body)" font-size="13" fill="var(--text)">异常分割</text>
+                                <text class="fc-label" x="200" y="250" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-tertiary)">像素级 mask</text>
                             </g>
-                            <line class="fc-arrow" x1="212" y1="210" x2="240" y2="210"
-                                  stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <line class="fc-arrow" x1="260" y1="236" x2="288" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
                             <g class="fc-node">
-                                <rect x="242" y="184" width="85" height="52" rx="8"
-                                      fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
-                                <text class="fc-label" x="284" y="207" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="12" font-weight="600" fill="var(--ok)">异常得分</text>
-                                <text class="fc-label" x="284" y="223" text-anchor="middle"
-                                      font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">→ 热力图</text>
+                                <rect x="292" y="208" width="120" height="56" rx="12" fill="var(--ok-bg)" stroke="var(--ok)" stroke-width="1.5"/>
+                                <text class="fc-label" x="352" y="232" text-anchor="middle" font-family="var(--font-body)" font-size="13" font-weight="600" fill="var(--ok)">异常得分</text>
+                                <text class="fc-label" x="352" y="248" text-anchor="middle" font-family="var(--font-body)" font-size="10" fill="var(--text-secondary)">segmentation</text>
+                            </g>
+                            <line class="fc-arrow" x1="412" y1="236" x2="440" y2="236" stroke="var(--text-tertiary)" stroke-width="1.5" marker-end="url(#arrow-draem)"/>
+                            <!-- 输出热力图图示 -->
+                            <g class="fc-deco" opacity="0.85">
+                                <rect x="444" y="200" width="120" height="72" rx="8" fill="var(--bg-tertiary)"/>
+                                <rect x="452" y="208" width="104" height="56" rx="4" fill="url(#draemHeatmap)" opacity="0.8"/>
+                                <defs>
+                                    <linearGradient id="draemHeatmap" x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stop-color="#bf5af2" stop-opacity="0.1"/>
+                                        <stop offset="60%" stop-color="#ff9f0a" stop-opacity="0.5"/>
+                                        <stop offset="100%" stop-color="#ff3b30" stop-opacity="0.8"/>
+                                    </linearGradient>
+                                </defs>
+                                <text x="504" y="286" text-anchor="middle" font-family="var(--font-body)" font-size="9" fill="var(--text-tertiary)">异常热力图</text>
                             </g>
                         </svg>
                     </div>
                 </div>
 
-                <!-- 滚动进度条：随横向滚动连续填充 -->
-                <div class="algo-carousel-progress" x-ref="carouselProgress">
-                    <div class="algo-carousel-progress-fill" x-ref="carouselProgressFill"></div>
-                </div>
-
-                <!-- 轮播控制：指示点 + 计数器 + 箭头 -->
-                <div class="algo-carousel-controls">
-                    <button class="algo-carousel-btn algo-carousel-btn--prev" @click="prev()" aria-label="上一张">&#8592;</button>
-                    <div class="algo-carousel-dots">
-                        <template x-for="(_, i) in [0,1,2,3]" :key="i">
-                            <button class="algo-carousel-dot" :class="{ 'is-active': current === i }" @click="goTo(i)" :aria-label="'第 ' + (i + 1) + ' 张'"></button>
+                <!-- 融合状态条：算法名 tab + 滑动 pill（进度）+ 计数器
+                     学习 Apple AirPods Pro tabnav-indicator：状态标签 + 滑动指示一体化 -->
+                <div class="algo-fused-bar" x-ref="fusedBar">
+                    <div class="algo-fused-tabs" x-ref="fusedTabs">
+                        <template x-for="(name, i) in ['PatchCore','PaDiM','FRE','DRAEM']" :key="i">
+                            <button class="algo-fused-tab"
+                                    :class="{ 'is-active': current === i }"
+                                    @click="goTo(i)"
+                                    :aria-label="name"
+                                    x-text="name"></button>
                         </template>
+                        <span class="algo-fused-pill" x-ref="fusedPill" aria-hidden="true"></span>
                     </div>
-                    <button class="algo-carousel-btn algo-carousel-btn--next" @click="next()" aria-label="下一张">&#8594;</button>
+                    <span class="algo-fused-counter"
+                          x-text="String(current + 1).padStart(2, '0') + ' / ' + String(count).padStart(2, '0')"></span>
                 </div>
-                <div class="algo-carousel-counter" x-text="String(current + 1).padStart(2, '0') + ' / 04'"></div>
             </div>
 
             <!-- 滚动提示 -->

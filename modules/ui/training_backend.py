@@ -223,7 +223,10 @@ def run_training_job(
                     config = {}
                 if 'model' not in config:
                     config['model'] = {}
-                if 'init_args' not in config['model']:
+                # init_args 可能因 YAML 中写成注释占位（如 draem.yaml 的 `init_args:` 后仅注释）
+                # 而被解析为 None —— 此时必须先初始化为 {}，否则下方 init_args[key]=value 会触发
+                # TypeError: 'NoneType' object does not support item assignment，导致 DRAEM 训练在开始前崩溃。
+                if 'init_args' not in config['model'] or config['model']['init_args'] is None:
                     config['model']['init_args'] = {}
                 init_args = config['model']['init_args']
                 for key, value in advanced_params.items():

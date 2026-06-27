@@ -923,36 +923,63 @@ html[data-theme="dark"] .capsule-icon--moon {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   进度环导航点
+   页码指示器 — Apple 极简纵向（页码 + 进度发丝线 + 总数）
    ═══════════════════════════════════════════════════════════════════════════ */
-.snap-dots {
+.page-indicator {
     position: fixed;
-    right: 24px;
+    right: 28px;
     top: 50%;
     transform: translateY(-50%);
     z-index: 99;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 9px;
+    opacity: 1;
+    transition: opacity 0.45s var(--ease-out);
+}
+/* 封面页（page 1）压低存在感，呼应 Apple 产品页 hero 无 chrome 的克制 */
+.page-indicator.is-cover {
+    opacity: 0.5;
 }
 
-.snap-ring {
-    display: block;
-    filter: drop-shadow(0 0 6px var(--accent-dim));
-    transition: filter 0.3s var(--ease-out);
-}
-
-.snap-ring circle:last-child {
-    transition: stroke-dashoffset 0.3s var(--ease-out);
-}
-
-.snap-dot-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-tertiary);
+.page-num {
+    font-family: var(--font-display);
+    font-size: 16px;
     font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.page-line {
+    position: relative;
+    width: 1.5px;
+    height: 46px;
+    background: var(--sep-strong);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.page-line-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0%;
+    background: var(--text-secondary);
+    border-radius: inherit;
+    transition: height 0.15s linear;
+}
+
+.page-total {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 400;
     letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2795,14 +2822,15 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     .inference-controls { flex-direction: column; gap: 12px; }
     .btn-inference { width: 100%; }
 
-    /* Progress ring: move to bottom bar */
-    .snap-dots {
+    /* Page indicator: move to bottom bar */
+    .page-indicator {
         position: fixed;
         right: auto; top: auto;
         bottom: 0; left: 0;
         transform: none;
         flex-direction: row;
         justify-content: center;
+        align-items: center;
         gap: 12px;
         padding: 12px 0;
         background: var(--bg-root);
@@ -2812,7 +2840,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         width: 100%;
         z-index: 100;
     }
-    .snap-ring { width: 28px; height: 28px; }
+    .page-indicator.is-cover { opacity: 1; }   /* 底栏不压低 */
+    .page-line { height: 24px; }
 
     /* Add bottom padding for nav dots */
     .snap-container { padding-bottom: 56px; }

@@ -529,8 +529,6 @@ html[data-theme="light"] .navbar--scrolled {
     padding: 6px 12px 6px 14px;
     cursor: pointer;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
     transition: border-color var(--dur-fast) var(--ease-out),
                 box-shadow var(--dur-fast) var(--ease-out),
                 background var(--dur-fast) var(--ease-out),
@@ -604,8 +602,6 @@ html[data-theme="dark"] .custom-select-trigger:hover {
     border: 1px solid var(--sep-default);
     border-radius: var(--r-md);
     box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
     z-index: 200;
     overflow: hidden;
     /* 入场动画 */
@@ -2550,8 +2546,6 @@ html[data-theme="dark"] .capsule-icon--moon {
     flex-wrap: wrap;
     width: fit-content;
     max-width: min(760px, 92vw);
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
@@ -2928,9 +2922,6 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     border: 1px solid var(--training-glass-border);
     border-radius: 24px;
     padding: 24px;
-    /* 从 blur(20px) 降级为 blur(8px)，降低滚动时 GPU 离屏渲染压力 */
-    backdrop-filter: blur(8px) saturate(140%);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 
 .training-config-card {

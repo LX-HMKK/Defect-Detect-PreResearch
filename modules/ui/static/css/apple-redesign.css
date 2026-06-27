@@ -203,8 +203,6 @@ body::before {
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     padding: 28px;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
     transform-style: preserve-3d;
     will-change: transform, opacity, filter;
 
@@ -434,8 +432,6 @@ body::before {
     padding: 12px 18px;
     font-size: 15px;
     min-width: 140px;
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
     transition: background var(--dur-fast) var(--ease-out),
                 border-color var(--dur-fast) var(--ease-out),
                 box-shadow var(--dur-fast) var(--ease-out),
@@ -634,8 +630,6 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     background: var(--bg-system);
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-md);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
 /* Drop Zone 强化 */
@@ -669,8 +663,6 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     padding: 32px;
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
     box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
 }
 
@@ -696,8 +688,6 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     padding: 20px;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
     transition: transform 0.35s var(--ease-spring), box-shadow 0.35s var(--ease-out);
     will-change: transform, opacity;
 }
@@ -1171,8 +1161,6 @@ html[data-theme="dark"] .training-chart-area.is-training {
     background: var(--bg-secondary);
     border: 1px solid var(--sep-subtle);
     border-radius: 100px;
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
 }
 
 /* 滑动激活 pill */

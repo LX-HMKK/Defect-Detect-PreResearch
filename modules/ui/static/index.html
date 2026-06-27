@@ -41,14 +41,16 @@
         -webkit-overflow-scrolling: touch;
     }
     .snap-page {
-        min-height: 100dvh;
+        min-height: auto;
         display: flex;
         flex-direction: column;
         position: relative;
+        padding: max(120px, 12vh) 32px;
     }
     .snap-page--home {
         scroll-snap-align: start;
         scroll-snap-stop: always;
+        min-height: 100dvh;
     }
     /* 固定导航栏 */
     .navbar {

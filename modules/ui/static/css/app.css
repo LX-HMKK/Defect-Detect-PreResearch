@@ -183,18 +183,20 @@ body {
 }
 
 .snap-page {
-    min-height: 100dvh;
+    min-height: auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
-    padding: 0;
+    padding: max(120px, 12vh) 32px;
 }
 
-/* 仅首页保留吸附，其余页面自由滚动 */
+/* 仅首页保留全屏吸附 */
 .snap-page--home {
     scroll-snap-align: start;
     scroll-snap-stop: always;
+    min-height: 100dvh;
+    padding: max(120px, 12vh) 32px;
 }
 
 .snap-page-inner {

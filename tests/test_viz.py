@@ -1,5 +1,4 @@
 """可视化脚本套件回归测试（断言式，沿用 test_ui_static.py 风格）"""
-import json
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -23,11 +22,16 @@ def test_viz_package_importable():
 
 def test_load_comparison_results():
     """load_comparison_results 应从 results/comparison 读 4 算法 × 6 数据集"""
-    from tools.viz._common import load_comparison_results
+    from tools.viz._common import load_comparison_results, DATASET_ORDER, MODEL_ORDER
     results = load_comparison_results()
-    # bottle 必须有 4 个模型
-    assert "bottle" in results
-    assert "patchcore" in results["bottle"]
+    # 锁定 6 数据集 × 4 模型契约
+    assert len(results) == 6, f"应为 6 个数据集，实际 {len(results)}"
+    for ds in DATASET_ORDER:
+        assert ds in results, f"缺失数据集: {ds}"
+        assert len(results[ds]) == 4, f"{ds} 应有 4 个模型，实际 {len(results[ds])}"
+        for m in MODEL_ORDER:
+            assert m in results[ds], f"{ds} 缺失模型: {m}"
+    # bottle/patchcore 精确值校验
     assert results["bottle"]["patchcore"]["image_AUROC"] == 1.0
 
 

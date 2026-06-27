@@ -70,8 +70,8 @@ def load_comparison_results() -> Dict[str, Dict[str, dict]]:
                     data = json.loads(json_file.read_text(encoding="utf-8"))
                     metrics = data.get("metrics", data)
                     all_results.setdefault(category, {})[model] = metrics
-                except (json.JSONDecodeError, IOError):
-                    pass
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"[viz] 跳过损坏的结果文件: {json_file.name} ({e})", file=sys.stderr)
                 break
     return all_results
 

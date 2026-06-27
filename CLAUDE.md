@@ -241,7 +241,7 @@ memory/                         # Claude Code 会话记忆
 
 ### 早停机制
 
-DRAEM/FRE 监控 `val_image_AUROC`（需在各模型 YAML 的 `early_stopping.enabled: true` 启用）；PatchCore/PaDiM 为单 epoch 特征提取/高斯建模，不需要早停。早停参数（`patience`、`min_delta`、`monitor_metric`）在各模型 `{model}.yaml` 的 `early_stopping` 下配置。`configs/config.yaml` 的 `early_stopping` section 作为后备默认值，默认 `enabled: false`。
+DRAEM/FRE 监控 `train_loss`（mode: min）——因评估指标（image_AUROC 等）只在 `test()` 时计算，不在训练时计算，故无法用 `val_image_AUROC` 早停。`train_loss` 仅判收敛，无法防过拟合。patience：FRE=10、DRAEM=5（在各模型 `{model}.yaml` 的 `early_stopping` 下配置）。PatchCore/PaDiM 为单 epoch 特征提取/高斯建模，不需要早停。`configs/config.yaml` 的 `early_stopping` section 作为后备默认值，默认 `enabled: false`。
 
 ## 编码规范
 

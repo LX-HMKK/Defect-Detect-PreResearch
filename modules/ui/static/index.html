@@ -974,70 +974,63 @@
                     <!-- ============================================================ -->
                     <template x-if="inferenceState === 'done' && resultData">
                     <div class="result-dashboard scroll-reveal" x-transition>
-                        <!-- 标题栏 -->
-                        <div class="result-dashboard-header">
-                            <div class="result-dashboard-title">
-                                <span class="result-dashboard-label">推理结果</span>
-                                <span class="result-dashboard-meta" x-text="resultData.model_name + ' · ' + selectedDataset"></span>
-                            </div>
-                            <span class="result-badge"
-                                  :class="resultData.is_anomaly ? 'badge-anomaly' : 'badge-normal'"
-                                  x-text="resultData.is_anomaly ? '异常' : '正常'"></span>
-                        </div>
-
-                        <!-- 对比滑块：全宽 -->
-                        <div class="result-dashboard-compare" x-data="imageCompare">
-                            <div class="compare-container">
-                                <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
-                                <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
-                                     :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
-                                <div class="compare-handle" :style="{ left: sliderPos + '%' }"
-                                     @pointerdown="startDrag">
-                                    <div class="compare-handle-line"></div>
-                                    <div class="compare-handle-grip">
-                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
-                                            <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
-                                        </svg>
+                        <!-- 左图右信息分栏 -->
+                        <div class="result-dashboard-grid">
+                            <!-- 左列：对比滑块（主视觉） -->
+                            <div class="result-dashboard-compare" x-data="imageCompare">
+                                <div class="compare-container">
+                                    <img :src="resultData.image_b64" class="compare-image compare-original" alt="原图">
+                                    <img :src="resultData.heatmap_b64" class="compare-image compare-heatmap"
+                                         :style="{ clipPath: 'inset(0 ' + (100 - sliderPos) + '% 0 0)' }" alt="热力图">
+                                    <div class="compare-handle" :style="{ left: sliderPos + '%' }"
+                                         @pointerdown="startDrag">
+                                        <div class="compare-handle-line"></div>
+                                        <div class="compare-handle-grip">
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="10" cy="10" r="8" fill="#ffffff" stroke="#2997ff" stroke-width="2"/>
+                                                <path d="M7 10h6M10 7v6" stroke="#2997ff" stroke-width="1.5" stroke-linecap="round"/>
+                                            </svg>
+                                        </div>
                                     </div>
+                                    <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
                                 </div>
-                                <input type="range" min="0" max="100" x-model="sliderPos" class="compare-range" aria-label="对比滑块">
-                            </div>
-                            <!-- 图例 overlay（左下角） -->
-                            <div class="heatmap-legend heatmap-legend--overlay">
-                                <div class="legend-label">异常得分</div>
-                                <div class="legend-bar-wrap">
-                                    <div class="legend-bar"></div>
-                                    <div class="legend-labels">
-                                        <span>1.0</span><span>0.5</span><span>0.0</span>
+                                <!-- 图例 overlay（左下角） -->
+                                <div class="heatmap-legend heatmap-legend--overlay">
+                                    <div class="legend-label">异常得分</div>
+                                    <div class="legend-bar-wrap">
+                                        <div class="legend-bar"></div>
+                                        <div class="legend-labels">
+                                            <span>1.0</span><span>0.5</span><span>0.0</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- 三列大字指标行（AirPods Pro 工作台） -->
-                        <div class="inference-metrics">
-                            <div class="inference-metric">
-                                <div class="inference-metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
-                                <div class="inference-metric-label">异常得分</div>
+                            <!-- 右列：信息栏 -->
+                            <div class="result-dashboard-aside">
+                                <div class="result-dashboard-aside-top">
+                                    <span class="inference-verdict"
+                                          :class="resultData.is_anomaly ? 'inference-verdict--anomaly' : 'inference-verdict--normal'"
+                                          x-text="resultData.is_anomaly ? '● 异常' : '● 正常'"></span>
+                                    <span class="result-dashboard-meta" x-text="resultData.model_name + ' · ' + selectedDataset"></span>
+                                </div>
+                                <div class="inference-metrics inference-metrics--stack">
+                                    <div class="inference-metric">
+                                        <div class="inference-metric-value result-score-value" x-text="resultData.score.toFixed(4)"></div>
+                                        <div class="inference-metric-label">异常得分</div>
+                                    </div>
+                                    <div class="inference-metric">
+                                        <div class="inference-metric-value result-confidence-value"
+                                             x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
+                                        <div class="inference-metric-label">置信度</div>
+                                    </div>
+                                    <div class="inference-metric">
+                                        <div class="inference-metric-value" x-text="resultData.threshold.toFixed(3)"></div>
+                                        <div class="inference-metric-label">阈值 τ</div>
+                                    </div>
+                                </div>
+                                <button class="btn-text result-reselect-btn" @click="resetInference()">重新选择 →</button>
                             </div>
-                            <div class="inference-metric">
-                                <div class="inference-metric-value result-confidence-value"
-                                     x-text="(resultData.confidence * 100).toFixed(1) + '%'"></div>
-                                <div class="inference-metric-label">置信度</div>
-                            </div>
-                            <div class="inference-metric">
-                                <div class="inference-metric-value" x-text="resultData.threshold.toFixed(3)"></div>
-                                <div class="inference-metric-label">阈值 τ</div>
-                            </div>
-                        </div>
-
-                        <!-- 判定 badge -->
-                        <div class="inference-verdict-wrap">
-                            <span class="inference-verdict"
-                                  :class="resultData.is_anomaly ? 'inference-verdict--anomaly' : 'inference-verdict--normal'"
-                                  x-text="resultData.is_anomaly ? '● 异常' : '● 正常'"></span>
-                            <button class="btn-text" @click="resetInference()">重新选择 →</button>
                         </div>
 
                         <!-- 隐藏数据：供 JS 读取（tooltip + bbox） -->

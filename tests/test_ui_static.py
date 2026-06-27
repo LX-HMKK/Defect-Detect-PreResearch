@@ -74,3 +74,15 @@ def test_training_gallery_does_not_stretch_monitor():
     assert "display: grid" in gallery_block
     assert "overflow-y: auto" in gallery_block
     assert "max-height:" in gallery_block
+
+
+def test_result_dashboard_uses_split_layout():
+    """推理结果卡应为左图右信息分栏（I3），移除旧标题栏与重复 badge（I4/I5）。"""
+    text = _html_text()
+    assert "result-dashboard-grid" in text
+    assert "result-dashboard-aside" in text
+    assert "inference-metrics--stack" in text
+    # 旧的标题栏与重复 badge 已移除
+    assert "result-dashboard-header" not in text
+    assert "result-badge" not in text
+    assert "inference-verdict-wrap" not in text

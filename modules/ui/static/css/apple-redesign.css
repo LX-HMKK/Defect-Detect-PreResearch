@@ -489,34 +489,12 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     box-shadow: var(--shadow-lg);
 }
 
-.result-dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-}
-
-.result-dashboard-label {
-    font-size: var(--text-caption);
-    font-weight: 600;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
 .result-dashboard-meta {
     display: block;
     font-size: var(--text-title);
     font-weight: 600;
     color: var(--text);
     margin-top: 4px;
-}
-
-.result-badge {
-    padding: 8px 16px;
-    border-radius: 100px;
-    font-size: 15px;
-    font-weight: 600;
 }
 
 .badge-normal {
@@ -573,14 +551,6 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     font-weight: 600;
 }
 
-.inference-verdict-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 24px;
-}
-
 .inference-verdict {
     display: inline-flex;
     align-items: center;
@@ -601,6 +571,58 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     color: var(--bad);
 }
 
+/* ── 结果卡：左图右信息分栏（AirPods Pro 工作台）── */
+.result-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 32px;
+    align-items: stretch;
+}
+.result-dashboard-compare {
+    min-width: 0;
+}
+.result-dashboard-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    justify-content: center;
+    min-width: 0;
+}
+.result-dashboard-aside-top {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.result-dashboard-aside-top .result-dashboard-meta {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+/* 右栏纵向指标（替代原三列横排） */
+.inference-metrics--stack {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: none;
+    margin: 0;
+    text-align: left;
+}
+.inference-metrics--stack .inference-metric {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--sep-subtle);
+}
+.inference-metrics--stack .inference-metric:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.result-reselect-btn {
+    align-self: flex-start;
+    margin-top: 8px;
+}
 @media (max-width: 768px) {
     .inference-toolbar {
         flex-direction: column;
@@ -620,6 +642,8 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
     .result-dashboard {
         padding: 20px;
     }
+    .result-dashboard-grid { grid-template-columns: 1fr; gap: 24px; }
+    .inference-metrics--stack .inference-metric { padding-bottom: 12px; }
 }
 
 /* ── 工作台 ── */

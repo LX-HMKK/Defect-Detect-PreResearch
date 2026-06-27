@@ -46,9 +46,9 @@ def _plot_numeric_param(ax, rows, param_name, default_val, model_name):
                 ax.annotate(f"{yv:.1f}", (xv, yv), textcoords="offset points",
                             xytext=(0, 8), fontsize=8, ha="center")
     # 默认值竖虚线
-    ax.axvline(x=default_val, color="#bf5af2", linestyle="--", alpha=0.6)
+    ax.axvline(x=default_val, color=ALGO_COLORS["draem"], linestyle="--", alpha=0.6)
     ax.annotate("★ 默认", (default_val, ax.get_ylim()[1]), fontsize=9,
-                color="#bf5af2", ha="center", va="top",
+                color=ALGO_COLORS["draem"], ha="center", va="top",
                 xytext=(0, -10), textcoords="offset points")
     ax.set_xlabel(param_name, fontsize=10)
     ax.set_ylabel("指标 (%)", fontsize=10)
@@ -91,10 +91,11 @@ def generate_all():
     # PatchCore coreset_sampling_ratio
     for (model, param), rows in groups.items():
         fig, ax = plt.subplots(figsize=(7, 5))
+        default_val = DEFAULT_VALUES.get((model, param))
         if param == "coreset_sampling_ratio":
-            _plot_numeric_param(ax, rows, "coreset_sampling_ratio", 0.1, model)
+            _plot_numeric_param(ax, rows, "coreset_sampling_ratio", default_val, model)
         elif param == "latent_dim":
-            _plot_numeric_param(ax, rows, "latent_dim", 220, model)
+            _plot_numeric_param(ax, rows, "latent_dim", default_val, model)
         elif param == "backbone":
             _plot_backbone(ax, rows, model)
         plt.tight_layout()

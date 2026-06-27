@@ -272,6 +272,17 @@ def generate_report(all_results: dict, output_path: Path):
 
     lines.append(f"\n---\n*报告由 run_report.py 自动生成*")
 
+    # 可视化图表引用提示
+    lines.append("")
+    lines.append("## 可视化图表")
+    lines.append("")
+    lines.append("本报告配套的可视化图表由 `tools/viz/run_all.py` 生成，存放于 `results/figures/`：")
+    lines.append("- 基准对比热力图：`benchmark_heatmap_*.png`（4 张 + 1 组合，PRO 用 YlOrRd 暖色）")
+    lines.append("- 消融敏感性折线图：`ablation_*.png`（3 张）")
+    lines.append("- 小样本双轴折线 + 鲁棒性评分卡：`small_sample_dual_axis.png`")
+    lines.append("")
+    lines.append("生成命令：`python tools/viz/run_all.py`")
+
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
 

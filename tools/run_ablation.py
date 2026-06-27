@@ -114,6 +114,13 @@ def main():
             for v in [100, 220, 500]
         ])
 
+    # DRAEM 消融：未开展
+    # 理由（详见 docs/最终汇报文档.md 5.2 节 DRAEM 参数说明）：
+    #   1. draem.yaml 的 model.init_args 为空 dict，采用 anomalib 默认参数
+    #   2. 早停监控 train_loss 仅判收敛，无法防过拟合
+    #   3. 受限于项目周期与 GPU 资源（DRAEM 100 epoch × 多组参数耗时过长）
+    # 后续工作方向：anomaly_scales / lr 网格搜索（见 8.3 未来工作）
+
     print("=" * 70)
     print("参数消融实验")
     print(f"  数据集: {args.category}")

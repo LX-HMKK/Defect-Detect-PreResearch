@@ -63,3 +63,11 @@ def test_ablation_sensitivity_generates_three_plots():
     assert (FIGURES_DIR / "ablation_patchcore_coreset_sampling_ratio.png").exists()
     assert (FIGURES_DIR / "ablation_padim_backbone.png").exists()
     assert (FIGURES_DIR / "ablation_fre_latent_dim.png").exists()
+
+
+def test_small_sample_dual_axis_generates():
+    """小样本双轴折线图应生成 1 张 PNG"""
+    from tools.viz import small_sample_dual_axis
+    small_sample_dual_axis.generate()
+    assert (FIGURES_DIR / "small_sample_dual_axis.png").exists()
+    assert (FIGURES_DIR / "small_sample_dual_axis.png").stat().st_size > 2000

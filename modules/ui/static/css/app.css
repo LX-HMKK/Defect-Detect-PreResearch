@@ -2789,7 +2789,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
 
     /* Hero smaller */
     .hero { padding: 40px 0 32px; }
-    .hero-title { font-size: 48px; text-shadow: 0 0 40px var(--accent-glow); }
+    .hero-title { font-size: 48px; }
     .hero-subtitle { font-size: 16px; padding: 6px 16px; }
 
     /* Algo grid: single column */
@@ -2864,7 +2864,7 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
    Mobile Responsive — 手机
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
-    .hero-title { font-size: 36px; text-shadow: 0 0 24px var(--accent-glow); }
+    .hero-title { font-size: 36px; }
     .snap-page-inner { padding: 24px 12px; }
     .section-title { font-size: 22px; }
 

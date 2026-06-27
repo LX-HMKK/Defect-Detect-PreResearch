@@ -138,7 +138,7 @@ modules/
       theme.js                 # 主题切换交互（localStorage + data-theme）
       inference-interact.js    # [Legacy] Gradio 推理结果交互增强
       css/
-        app.css                # Phase 2 主样式表（亮/暗双模式，~2700 行）
+        app.css                # Phase 2 主样式表（亮/暗双模式，~3300 行）
         apple-redesign.css     # 训练工作室/单模型推理/四模型对比重设计样式
         flowchart.css          # SVG 流程图动画样式
       js/
@@ -150,6 +150,7 @@ modules/
         cursor-glow.js         # 鼠标光晕跟随效果
         flowchart.js           # SVG 流程图绘制动画
         hero-visual.js         # 首页 hero 区域 SVG 流程图动画
+        algo-carousel.js       # 首页算法轮播（AirPods Pro 风格推近 + closeness 驱动缩放/模糊 + 进度条）
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
@@ -212,7 +213,7 @@ memory/                         # Claude Code 会话记忆
 
 - **`.snap-dots`** — 右侧固定导航点（改为进度环）。SVG 圆环通过 `snapProgress` 驱动 `stroke-dashoffset` 实现连续填充。移动端移至底部横条。
 
-- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~2500 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、自定义下拉选择器、上传区、骨架屏、进度条微光扫过、一体化仪表盘卡片 `.result-dashboard`、对比滑块、热力图图例 overlay、bbox overlay、四模型对比网格 `.compare-grid`、流水线收缩摘要 `.pipeline-summary`、页脚动画、全页加载遮罩）。系统字体栈（`SF Pro Display` → `PingFang SC` → `Microsoft YaHei`），零外部字体依赖。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。Chrome 115+ `@supports (animation-timeline: view())` 块已禁用（与 JS scroll-snap 动画编排冲突）。
+- **`modules/ui/static/css/app.css`** — Phase 2 主样式表（~3300 行）。CSS 自定义属性实现亮/暗双模式，包含 15+ 组件（导航栏磨砂玻璃、自定义下拉选择器、上传区、骨架屏、进度条微光扫过、一体化仪表盘卡片 `.result-dashboard`、对比滑块、热力图图例 overlay、bbox overlay、四模型对比网格 `.compare-grid`、流水线收缩摘要 `.pipeline-summary`、页脚动画、全页加载遮罩）。系统字体栈（`SF Pro Display` → `PingFang SC` → `Microsoft YaHei`），零外部字体依赖。关键陷阱：`.compare-heatmap` 全局选择器 `position: absolute`（单模型滑块用）曾泄漏到四模型对比槽位导致热力图不可见——已通过 `.compare-container .compare-heatmap` 收缩范围 + `.compare-slot .compare-heatmap { position: relative }` 防御。Chrome 115+ `@supports (animation-timeline: view())` 块已禁用（与 JS scroll-snap 动画编排冲突）。
 
 ### Gradio Legacy 组件
 
@@ -415,17 +416,18 @@ git log --all --format="%H %B" | grep -i "Co-authored-by"
 **默认 UI**: FastAPI + Alpine.js SPA (`modules/ui/server.py` + `modules/ui/static/`)。
 
 - 5 层动效体系：环境光呼吸 → 鼠标光晕跟随 → 滚动驱动动画 → 微交互（胶囊开关/数字跳动/弹簧按钮）→ 视图过渡
-- 四页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍 → 单模型推理 → 训练工作室 → 四模型对比
+- 四页 CSS scroll-snap 全屏吸附（`.snap-container` + `scroll-snap-type: y mandatory`）：算法介绍(s0) → 训练工作室(s1) → 单模型推理(s2) → 四模型对比(s3)
 - 每页 100dvh 全视口，滚动吸附到整页，无半页停留
 - 右侧进度环导航点（SVG 圆环 + 页码"1/4"），实时反映滚动位置
 - **进出动画**：统一由 JS WAAPI 驱动（`snapPageEnter` / `snapPageExit`），方向向下推送（与滚动方向一致），CSS 退出动画已删除以避免双动画竞争
-- **S1 布局**：三列流水线（上传→选择→推理）→ 完成后收缩为 `.pipeline-summary` 步骤摘要 → 一体化仪表盘卡片 `.result-dashboard`（标题栏 + 全宽对比滑块 + 三列指标行 + 底部判决/操作）
-- **S2（训练工作室）布局**：左侧样本上传与参数配置，右侧实时监控曲线与指标面板；上传后生成可排除样本的画廊，训练完成触发全局模型列表刷新
-- **S3（S4）布局**：共享原图居中显示（max-height: 200px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
+- **S1（训练工作室）布局**：左侧样本上传与参数配置，右侧实时监控曲线与指标面板；上传后生成可排除样本的画廊，训练完成触发全局模型列表刷新
+- **S2（单模型推理）布局**：三列流水线（上传→选择→推理）→ 完成后收缩为 `.pipeline-summary` 步骤摘要 → `.result-dashboard` 左图右信息分栏（`.result-dashboard-grid`：左列对比滑块主视觉 `.result-dashboard-compare` + 右列判决/元信息 `.result-dashboard-aside`）
+- **S3（四模型对比）布局**：共享原图画廊居中（`.compare-shared-image` max-width 560px / img max-height 180px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
 - 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
 - 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
 - 布局精修规范：`docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md`
 - Training Studio 规范：`docs/superpowers/specs/2026-06-20-training-studio-design.md`
+- 最新布局美学规范：`docs/superpowers/specs/2026-06-27-ui-layout-aesthetics-design.md`（排版/去玻璃化/snap 放宽/Hero 重构/推理结果左图右信息分栏，覆盖上述早期规范）
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
 
@@ -435,7 +437,7 @@ git log --all --format="%H %B" | grep -i "Co-authored-by"
 
 ### Alpine 陷阱：`x-data` 子作用域访问父属性
 
-`section#s2` 带有 `x-data="compare"`（子作用域），其内的 Alpine 表达式无法直接访问 `app` 作用域的属性（如 `resultData`）。`x-show` / `:src` 等绑定必须使用当前作用域内的属性（如 `compareDone`、`compareSlots`）。
+`section#s3` 带有 `x-data="compare"`（子作用域），其内的 Alpine 表达式无法直接访问 `app` 作用域的属性（如 `resultData`）。`x-show` / `:src` 等绑定必须使用当前作用域内的属性（如 `compareDone`、`compareSlots`）。
 
 ### CSS 陷阱：`.compare-heatmap` 选择器泄漏
 
@@ -511,6 +513,8 @@ document.querySelector('.snap-dot-label').textContent           // "1 / 4"
 - [configs/config.yaml](configs/config.yaml) — 主配置（所有可调参数集中管理）
 - [docs/superpowers/specs/2026-06-21-airpods-pro-ui-direction.md](docs/superpowers/specs/2026-06-21-airpods-pro-ui-direction.md) — AirPods Pro 风格全站 UI 改造方向（明亮主调、产品主角、从容动效）
 - [docs/superpowers/plans/2026-06-21-full-ui-airpods-plan.md](docs/superpowers/plans/2026-06-21-full-ui-airpods-plan.md) — 全站 AirPods Pro 风格改造综合规划（6 批次实施）
+- [docs/superpowers/specs/2026-06-27-ui-layout-aesthetics-design.md](docs/superpowers/specs/2026-06-27-ui-layout-aesthetics-design.md) — UI 布局美学重设计规范（排版/去玻璃化/snap 放宽/Hero 重构/推理结果左图右信息分栏）
+- [docs/superpowers/plans/2026-06-27-ui-layout-aesthetics-plan.md](docs/superpowers/plans/2026-06-27-ui-layout-aesthetics-plan.md) — UI 布局美学重设计实现计划（13 任务）
 - [docs/superpowers/specs/2026-06-21-ui-redesign-design.md](docs/superpowers/specs/2026-06-21-ui-redesign-design.md) — UI 重设计规范（Training Studio + 自训练模型推理）
 - [docs/superpowers/plans/archive/2026-06-21-ui-redesign-plan.md](docs/superpowers/plans/archive/2026-06-21-ui-redesign-plan.md) — UI 重设计实现计划（13 任务，已归档）
 - [docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md](docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md) — Phase 2 UI 设计规范（FastAPI + Alpine.js SPA）

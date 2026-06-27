@@ -71,6 +71,14 @@ body::before {
     position: relative;
     z-index: 1;
 }
+.hero--fullscreen {
+    min-height: calc(100dvh - 48px);   /* 减去 navbar 高度 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
 
 .hero-title {
     font-size: clamp(56px, 8vw, 96px);
@@ -105,9 +113,9 @@ body::before {
 /* ── Hero Visual ── */
 .hero-visual {
     width: 100%;
-    max-width: 560px;
-    margin: 16px auto 0;
-    aspect-ratio: 3.5 / 1;
+    max-width: 920px;        /* 原 560px — 放大为主视觉 */
+    margin: 32px auto 0;
+    aspect-ratio: 3 / 1;     /* 原 3.5/1 — 对齐 SVG viewBox 720×240 */
 }
 .hero-visual svg {
     width: 100%;

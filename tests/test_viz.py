@@ -51,3 +51,6 @@ def test_benchmark_heatmap_generates_all_metrics():
     for metric in ["image_AUROC", "image_AUPR", "pixel_AUROC", "pixel_PRO"]:
         assert (FIGURES_DIR / f"benchmark_heatmap_{metric}.png").exists()
         assert (FIGURES_DIR / f"benchmark_heatmap_{metric}.png").stat().st_size > 1000
+    # 组合图（1×4 并排，文档 Task 9 复制到 docs/images/report/）
+    assert (FIGURES_DIR / "benchmark_heatmap_all.png").exists()
+    assert (FIGURES_DIR / "benchmark_heatmap_all.png").stat().st_size > 1000

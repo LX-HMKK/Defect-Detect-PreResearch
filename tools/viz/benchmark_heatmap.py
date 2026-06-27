@@ -7,6 +7,9 @@ import sys
 import io
 from pathlib import Path
 
+import numpy as np
+from matplotlib.patches import Rectangle
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -19,9 +22,20 @@ from tools.viz._common import (
 FIGURES_DIR = PROJECT_ROOT / "results" / "figures"
 
 
+def _build_matrix(results, datasets, models, metric):
+    """从结果构造 [datasets × models] 百分比矩阵，值 0-1 转 0-100"""
+    matrix = []
+    for ds in datasets:
+        row = []
+        for m in models:
+            v = results.get(ds, {}).get(m, {}).get(metric, 0)
+            row.append(v * 100 if v <= 1.0 else v)
+        matrix.append(row)
+    return matrix
+
+
 def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title):
     """在指定 ax 上画热力图，单元格标数值，最优列加粗描边"""
-    import numpy as np
     im = ax.imshow(data_matrix, cmap=cmap, vmin=0, vmax=100, aspect="auto")
     # 单元格数值
     for i in range(len(dataset_labels)):
@@ -33,18 +47,14 @@ def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title
     # 最优列加粗描边（每行各自的最大值单元格）
     max_idx = np.argmax(data_matrix, axis=1)
     for i, j in enumerate(max_idx):
-        ax.add_patch(plt_rect(j - 0.5, i - 0.5, 1, 1, edgecolor="#bf5af2", lw=2.5, fill=False))
+        ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1,
+                               edgecolor=ALGO_COLORS["draem"], lw=2.5, fill=False))
     ax.set_xticks(range(len(model_labels)))
     ax.set_xticklabels([m.upper() for m in model_labels], fontsize=9, rotation=30, ha="right")
     ax.set_yticks(range(len(dataset_labels)))
     ax.set_yticklabels(dataset_labels, fontsize=9)
     ax.set_title(title, fontsize=11, fontweight="bold", pad=8)
     return im
-
-
-def plt_rect(x, y, w, h, **kwargs):
-    from matplotlib.patches import Rectangle
-    return Rectangle((x, y), w, h, **kwargs)
 
 
 def generate_all():
@@ -60,16 +70,10 @@ def generate_all():
     fig, axes = plt.subplots(1, 4, figsize=(22, 5))
     for idx, metric in enumerate(metrics):
         display_name, cmap = METRIC_DISPLAY[metric]
-        matrix = []
-        for ds in datasets:
-            row = []
-            for m in models:
-                val = results.get(ds, {}).get(m, {}).get(metric, 0)
-                row.append(val * 100 if val <= 1.0 else val)
-            matrix.append(row)
+        matrix = _build_matrix(results, datasets, models, metric)
         im = _plot_one_heatmap(axes[idx], matrix, datasets, models, cmap, display_name)
-        if idx == 0:
-            fig.colorbar(im, ax=axes[idx], shrink=0.8)
+        # 每个子图都加 colorbar：PRO 用 YlOrRd 暖色需自己的色标，Blues 面板共享 vmin/vmax=0/100
+        fig.colorbar(im, ax=axes[idx], shrink=0.8)
 
     plt.tight_layout()
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,13 +84,7 @@ def generate_all():
     # 同时存 4 张单图（文档按需引用）
     for metric in metrics:
         display_name, cmap = METRIC_DISPLAY[metric]
-        matrix = []
-        for ds in datasets:
-            row = [results.get(ds, {}).get(m, {}).get(metric, 0) * 100
-                   if results.get(ds, {}).get(m, {}).get(metric, 0) <= 1.0
-                   else results.get(ds, {}).get(m, {}).get(metric, 0)
-                   for m in models]
-            matrix.append(row)
+        matrix = _build_matrix(results, datasets, models, metric)
         fig2, ax2 = plt.subplots(figsize=(7, 5))
         im2 = _plot_one_heatmap(ax2, matrix, datasets, models, cmap, display_name)
         fig2.colorbar(im2, ax=ax2, shrink=0.8)
@@ -102,4 +100,6 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    from modules._runtime import configure_runtime_temp
+    configure_runtime_temp()
     generate_all()

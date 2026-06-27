@@ -1004,8 +1004,8 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
 }
 
 .snap-page-inner.training-studio .training-start-btn {
-    padding: 12px;
-    font-size: 14px;
+    padding: 11px 21px;
+    font-size: 17px;
 }
 
 .snap-page-inner.training-studio .training-monitor-body {

@@ -35,7 +35,7 @@ def _build_matrix(results, datasets, models, metric):
 
 
 def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title):
-    """在指定 ax 上画热力图，单元格标数值，最优列加粗描边"""
+    """在指定 ax 上画热力图，单元格标数值，每行最优单元格描紫边"""
     im = ax.imshow(data_matrix, cmap=cmap, vmin=0, vmax=100, aspect="auto")
     # 单元格数值
     for i in range(len(dataset_labels)):
@@ -44,7 +44,7 @@ def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title
             color = "white" if val > 60 else "black"
             ax.text(j, i, f"{val:.2f}", ha="center", va="center",
                     fontsize=9, color=color)
-    # 最优列加粗描边（每行各自的最大值单元格）
+    # 每行最优单元格描紫边（该数据集上最优算法）
     max_idx = np.argmax(data_matrix, axis=1)
     for i, j in enumerate(max_idx):
         ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1,

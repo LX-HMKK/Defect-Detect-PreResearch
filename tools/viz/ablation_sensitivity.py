@@ -40,11 +40,15 @@ def _plot_numeric_param(ax, rows, param_name, default_val, model_name):
         y_vals = [r[metric] * 100 for r in rows_sorted]
         ax.plot(x_vals, y_vals, marker="o", color=METRIC_COLORS[metric],
                 label=METRIC_LABELS[metric], linewidth=2, markersize=6)
-        # 数据点标数值
-        for xv, yv in zip(x_vals, y_vals):
+        # 标注：PRO 全标，AUROC 只标首尾端点
+        for idx, (xv, yv) in enumerate(zip(x_vals, y_vals)):
             if metric == "pixel_PRO":
                 ax.annotate(f"{yv:.1f}", (xv, yv), textcoords="offset points",
                             xytext=(0, 8), fontsize=8, ha="center")
+            elif metric == "image_AUROC" and idx in (0, len(x_vals) - 1):
+                ax.annotate(f"{yv:.1f}", (xv, yv), textcoords="offset points",
+                            xytext=(0, -12), fontsize=8, ha="center",
+                            color=METRIC_COLORS[metric])
     # 默认值竖虚线
     ax.axvline(x=default_val, color=ALGO_COLORS["draem"], linestyle="--", alpha=0.6)
     ax.annotate("★ 默认", (default_val, ax.get_ylim()[1]), fontsize=9,
@@ -64,9 +68,15 @@ def _plot_backbone(ax, rows, model_name):
         y_vals = [r[metric] * 100 for r in rows]
         ax.plot(x_labels, y_vals, marker="o", color=METRIC_COLORS[metric],
                 label=METRIC_LABELS[metric], linewidth=2, markersize=6)
-        for xl, yv in zip(x_labels, y_vals):
-            ax.annotate(f"{yv:.1f}", (xl, yv), textcoords="offset points",
-                        xytext=(0, 8), fontsize=8, ha="center")
+        for idx, (xl, yv) in enumerate(zip(x_labels, y_vals)):
+            if metric == "pixel_PRO":
+                ax.annotate(f"{yv:.1f}", (xl, yv), textcoords="offset points",
+                            xytext=(0, 8), fontsize=8, ha="center")
+            elif metric == "image_AUROC":
+                ax.annotate(f"{yv:.1f}", (xl, yv), textcoords="offset points",
+                            xytext=(0, -12), fontsize=8, ha="center",
+                            color=METRIC_COLORS[metric])
+            # pixel_AUROC: 不标注（与 _plot_numeric_param 一致，保持简洁）
     ax.set_xlabel("backbone", fontsize=10)
     ax.set_ylabel("指标 (%)", fontsize=10)
     ax.set_title(f"{model_name.upper()} — backbone 消融", fontsize=12, fontweight="bold")

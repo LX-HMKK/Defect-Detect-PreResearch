@@ -218,7 +218,7 @@ html {
     overflow: hidden;
     scroll-behavior: smooth;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px;   /* 原 15px — 对齐 Apple 正文 17px */
     color: var(--text);
     background: var(--bg-root);
     -webkit-font-smoothing: antialiased;

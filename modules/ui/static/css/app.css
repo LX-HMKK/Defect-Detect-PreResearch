@@ -787,13 +787,14 @@ html[data-theme="dark"] .capsule-icon--moon {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 28px;
+    padding: 11px 21px;       /* 原 10px 28px — Apple CTA 11px 21px */
     border-radius: 999px;
     background: var(--text);
     color: var(--bg-root);
     font-family: var(--font-body);
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 17px;           /* 原 15px */
+    font-weight: 500;          /* 原 600 */
+    letter-spacing: -0.37px;   /* 新增 — Apple CTA */
     border: 1px solid transparent;
     cursor: pointer;
     white-space: nowrap;

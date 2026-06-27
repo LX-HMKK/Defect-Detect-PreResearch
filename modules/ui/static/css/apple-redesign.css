@@ -460,8 +460,8 @@ html[data-theme="dark"] .inference-toolbar .custom-select-trigger:hover {
 }
 
 .inference-toolbar .btn-primary {
-    padding: 12px 28px;
-    font-size: 15px;
+    padding: 11px 21px;
+    font-size: 17px;
 }
 
 /* 结果舞台 */

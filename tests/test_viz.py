@@ -42,3 +42,12 @@ def test_load_ablation_results():
     assert isinstance(results, list)
     assert len(results) == 9  # patchcore×4 + padim×2 + fre×3
     assert results[0]["model"] == "patchcore"
+
+
+def test_benchmark_heatmap_generates_all_metrics():
+    """基准热力图应生成 4 张 PNG（AUROC/AUPR/PixelAUROC/PRO）"""
+    from tools.viz import benchmark_heatmap
+    benchmark_heatmap.generate_all()
+    for metric in ["image_AUROC", "image_AUPR", "pixel_AUROC", "pixel_PRO"]:
+        assert (FIGURES_DIR / f"benchmark_heatmap_{metric}.png").exists()
+        assert (FIGURES_DIR / f"benchmark_heatmap_{metric}.png").stat().st_size > 1000

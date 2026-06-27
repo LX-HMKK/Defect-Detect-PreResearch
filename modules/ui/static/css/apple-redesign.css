@@ -390,7 +390,7 @@ body::before {
     border: 1px solid var(--sep-subtle);
     border-radius: var(--r-xl);
     margin: 0 auto 32px;
-    max-width: 1000px;
+    max-width: 1200px;   /* 原 1000px — 与结果卡对齐，消除宽度跳变 */
     box-shadow: var(--shadow-sm);
 }
 

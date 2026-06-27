@@ -54,3 +54,12 @@ def test_benchmark_heatmap_generates_all_metrics():
     # 组合图（1×4 并排，文档 Task 9 复制到 docs/images/report/）
     assert (FIGURES_DIR / "benchmark_heatmap_all.png").exists()
     assert (FIGURES_DIR / "benchmark_heatmap_all.png").stat().st_size > 1000
+
+
+def test_ablation_sensitivity_generates_three_plots():
+    """消融敏感性折线图应生成 3 张（PatchCore/PaDiM/FRE）"""
+    from tools.viz import ablation_sensitivity
+    ablation_sensitivity.generate_all()
+    assert (FIGURES_DIR / "ablation_patchcore_coreset_sampling_ratio.png").exists()
+    assert (FIGURES_DIR / "ablation_padim_backbone.png").exists()
+    assert (FIGURES_DIR / "ablation_fre_latent_dim.png").exists()

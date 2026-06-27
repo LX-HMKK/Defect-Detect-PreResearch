@@ -71,3 +71,21 @@ def test_small_sample_dual_axis_generates():
     small_sample_dual_axis.generate()
     assert (FIGURES_DIR / "small_sample_dual_axis.png").exists()
     assert (FIGURES_DIR / "small_sample_dual_axis.png").stat().st_size > 2000
+
+
+def test_run_all_generates_all_figures():
+    """run_all 应生成全部 8 张图表"""
+    from tools.viz import run_all
+    run_all.main()
+    expected = [
+        "benchmark_heatmap_image_AUROC.png",
+        "benchmark_heatmap_image_AUPR.png",
+        "benchmark_heatmap_pixel_AUROC.png",
+        "benchmark_heatmap_pixel_PRO.png",
+        "ablation_patchcore_coreset_sampling_ratio.png",
+        "ablation_padim_backbone.png",
+        "ablation_fre_latent_dim.png",
+        "small_sample_dual_axis.png",
+    ]
+    for f in expected:
+        assert (FIGURES_DIR / f).exists(), f"缺失: {f}"

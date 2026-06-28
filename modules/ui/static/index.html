@@ -272,32 +272,18 @@
         <!-- Section 0: 算法介绍（首页） -->
         <!-- ============================================== -->
         <section id="s0" class="snap-page snap-page--home" x-ref="section0">
+            <!-- Hero 液态扭曲封面：超大标题文字液态扭曲（WebGL2，鼠标驱动；标题画进纹理位移）-->
+            <div class="hero-fluid-layer">
+                <canvas class="hero-fluid-canvas" aria-hidden="true"></canvas>
+                <!-- 静态兜底标题：canvas 激活时由 is-fluid-active 隐藏；降级/无障碍时显示 -->
+                <h1 class="hero-title hero-title--fluid-fallback scroll-reveal">
+                    工业级<br>无监督<br>缺陷检测
+                </h1>
+                <p class="hero-subtitle hero-subtitle--fluid scroll-reveal">
+                    <span>无监督</span><span>像素级</span><span>实时推理</span>
+                </p>
+            </div>
             <div class="snap-page-inner">
-                <div class="hero hero--fullscreen">
-                    <h1 class="hero-title scroll-reveal">工业级<br>无监督<br>缺陷检测</h1>
-                    <p class="hero-subtitle scroll-reveal">
-                        <span>无监督</span><span>像素级</span><span>实时推理</span>
-                    </p>
-                    <div class="hero-visual scroll-reveal" aria-hidden="true">
-                        <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient id="hvGrad" x1="0" y1="0" x2="720" y2="0">
-                                    <stop offset="0%" stop-color="#2997ff" stop-opacity="0.55"/>
-                                    <stop offset="100%" stop-color="#2997ff" stop-opacity="0.05"/>
-                                </linearGradient>
-                            </defs>
-                            <path class="hv-path" d="M 60 120 L 220 120 L 260 80 L 420 80 L 460 120 L 660 120"/>
-                            <g class="hv-node"><rect x="20" y="90" width="80" height="60" rx="12"/></g>
-                            <text class="hv-label" x="60" y="125">输入</text>
-                            <g class="hv-node"><rect x="180" y="90" width="80" height="60" rx="12"/></g>
-                            <text class="hv-label" x="220" y="125">特征</text>
-                            <g class="hv-node"><rect x="340" y="50" width="80" height="60" rx="12"/></g>
-                            <text class="hv-label" x="380" y="85">得分</text>
-                            <g class="hv-node"><rect x="620" y="90" width="80" height="60" rx="12"/></g>
-                            <text class="hv-label" x="660" y="125">热力图</text>
-                        </svg>
-                    </div>
-                </div>
 
                 <!-- 横向滚动算法卡片轮播 -->
                 <div class="algo-carousel bento-grid scroll-reveal" x-data="algoCarousel" x-init="init()">
@@ -1267,7 +1253,7 @@
     <!-- JavaScript（app.js 必须在 Alpine CDN 之前加载） -->
     <!-- ══════════════════════════════════════════════════ -->
     <script src="/static/js/animations.js"></script>
-    <script src="/static/js/hero-visual.js"></script>
+    <script src="/static/js/hero-fluid.js"></script>
     <script src="/static/js/algo-carousel.js"></script>
     <script src="/static/js/cursor-glow.js"></script>
     <script src="/static/js/inference.js"></script>

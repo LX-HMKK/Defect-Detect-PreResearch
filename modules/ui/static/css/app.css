@@ -1069,6 +1069,76 @@ html[data-theme="dark"] .capsule-icon--moon {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Hero 液态扭曲封面 — 鼠标驱动 WebGL2 文字位移（S0 首屏）
+   隐喻：液态扭曲 = 检测器扫描注入扰动 → 异常浮现
+   超大标题画进纹理，shader 用位移场采样 → 文字本身液态扭曲
+   静息态几乎静止(正常样本基线)，鼠标进入激发扰动，快速划动产生方向性湍流
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* 首屏容器：流内 100dvh，下方 algo-carousel 自然下排，不覆盖 */
+.hero-fluid-layer {
+    position: relative;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+    /* 静态兜底底色：canvas 未激活/降级时露出 */
+    background: radial-gradient(ellipse 70% 50% at 50% 45%,
+        var(--accent-dim) 0%, transparent 65%), var(--bg-root);
+}
+/* canvas 默认隐藏，仅 is-fluid-active 时显示（避免降级时空白 canvas 盖住兜底标题）*/
+.hero-fluid-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    pointer-events: none;   /* 不挡鼠标，事件冒泡到 layer/window */
+}
+.hero-fluid-layer.is-fluid-active .hero-fluid-canvas {
+    display: block;
+}
+/* 静态兜底标题：canvas 激活时隐藏(sr-only)，降级/无障碍时可见居中 */
+.hero-title--fluid-fallback {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    width: 90%;
+    max-width: 1200px;
+    text-align: center;
+}
+.hero-fluid-layer.is-fluid-active .hero-title--fluid-fallback {
+    /* sr-only：canvas 渲染液态标题，DOM 标题仅供无障碍/降级 */
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    transform: none;
+}
+/* 副标题：液态封面下方居中（canvas 标题居中，副标题沉底）*/
+.hero-subtitle--fluid {
+    position: absolute;
+    bottom: 16%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    width: 90%;
+    max-width: 1200px;
+    text-align: center;
+    margin-top: 0;
+    /* 液态封面上可读性：轻投影 */
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+}
+html[data-theme="light"] .hero-subtitle--fluid {
+    text-shadow: 0 1px 8px rgba(255, 255, 255, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    算法卡片网格 — Section 0
    ═══════════════════════════════════════════════════════════════════════════ */
 .algo-grid {
@@ -2769,6 +2839,8 @@ html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+    /* 液态扭曲降级：隐藏 canvas，露出静态兜底标题（is-fluid-active 不会被添加）*/
+    .hero-fluid-canvas { display: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

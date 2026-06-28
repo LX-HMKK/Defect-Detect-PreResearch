@@ -119,6 +119,7 @@ docs/*.pptx
 docs/superpowers/*
 !docs/superpowers/specs/
 !docs/superpowers/plans/
+!docs/superpowers/INDEX.md
 docs/images/report/drawio/
 
 # ============================================================

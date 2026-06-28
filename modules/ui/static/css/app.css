@@ -196,7 +196,7 @@ body {
     scroll-snap-align: start;
     scroll-snap-stop: always;
     min-height: 100dvh;
-    padding: max(120px, 12vh) 32px;
+    padding: 0;  /* 封面满屏：hero-fluid-layer 100dvh 顶满视口；下方 carousel 由 .snap-page-inner 自带 padding 留白 */
 }
 
 .snap-page-inner {
@@ -1119,23 +1119,6 @@ html[data-theme="dark"] .capsule-icon--moon {
     white-space: nowrap;
     border: 0;
     transform: none;
-}
-/* 副标题：液态封面下方居中（canvas 标题居中，副标题沉底）*/
-.hero-subtitle--fluid {
-    position: absolute;
-    bottom: 16%;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1;
-    width: 90%;
-    max-width: 1200px;
-    text-align: center;
-    margin-top: 0;
-    /* 液态封面上可读性：轻投影 */
-    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
-}
-html[data-theme="light"] .hero-subtitle--fluid {
-    text-shadow: 0 1px 8px rgba(255, 255, 255, 0.4);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

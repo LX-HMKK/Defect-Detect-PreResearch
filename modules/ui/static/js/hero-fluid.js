@@ -47,9 +47,9 @@
     // ── 参数（复刻 trae grid-distortion 默认值，按需微调）──
     var GRID = 30;          // 位移网格分辨率 n×n。值越小网格越粗 → 扭曲块越大越粗犷（像素感越强），
                             //   值越大网格越细 → 扭曲越平滑细腻。trae 默认 15，本项目用 30 偏细腻。
-    var MOUSE = 0.25;       // 鼠标影响半径（归一化 0~1，相对画布短边）。鼠标在此半径内的网格点
+    var MOUSE = 0.15;       // 鼠标影响半径（归一化 0~1，相对画布短边）。鼠标在此半径内的网格点
                             //   才会被注入位移力。值大影响范围广（整片文字被推），值小只扭曲局部。
-    var STRENGTH = 0.15;    // 位移注入强度。每帧鼠标速度乘以此值写入网格点。值大扭曲更剧烈（甩一下
+    var STRENGTH = 0.05;    // 位移注入强度。每帧鼠标速度乘以此值写入网格点。值大扭曲更剧烈（甩一下
                             //   就大幅度变形），值小更克制。配合 100× 倍率后写入数据纹理的 R/G 通道。
     var RELAXATION = 0.9;   // 每帧位移衰减系数（拖尾来源）。每帧所有网格点位移 ×此值。越接近 1 拖尾
                             //   越长（残留久，像墨迹拖痕），越接近 0 瞬间归零（无拖尾）。0.9 ≈ 拖尾
@@ -139,12 +139,16 @@
         ctx.fillRect(0, 0, texW, texH);
 
         // text 文字（高分辨率，保留抗锯齿）
-        var fontStack = '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif';
+        // 字体：Noto Sans SC Black(900) 优先——本机已装思源黑体 VF，几何感强、工业暗调最配；
+        //   命名实例 "Noto Sans SC Black" 优先，保证本机渲染 900 Black（而非 VF 默认 Regular）；
+        //   回退 PingFang SC Heavy(Mac 900) / Microsoft YaHei Bold(Win 无 Noto 时 700)。
+        //   权重 900 贯通整条栈：Black 实例原生无合成，PingFang 取 Heavy。
+        var fontStack = '"Noto Sans SC Black", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif';
         ctx.fillStyle = uval.textCss;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         var fontSize = 320;
-        ctx.font = '700 ' + fontSize + 'px ' + fontStack;
+        ctx.font = '900 ' + fontSize + 'px ' + fontStack;
         var lines = ['无监督', '缺陷检测'];
         var lh = 360;
         var startY = texH / 2 - lh * (lines.length - 1) / 2;

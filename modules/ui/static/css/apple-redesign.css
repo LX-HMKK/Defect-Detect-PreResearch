@@ -81,8 +81,9 @@ body::before {
 }
 
 .hero-title {
+    font-family: 'Noto Sans SC Black', 'Noto Sans SC', var(--font-display);
     font-size: clamp(56px, 8vw, 96px);
-    font-weight: 600;
+    font-weight: 900;          /* Black — 与 canvas 液态标题统一，工业冲击力 */
     letter-spacing: -0.01em;
     line-height: 1.05;
     margin-bottom: 12px;

@@ -51,6 +51,7 @@
         scroll-snap-align: start;
         scroll-snap-stop: always;
         min-height: 100dvh;
+        padding: 0;  /* 封面满屏：覆盖上方 .snap-page 的 120px 内边距，与 app.css 同步 */
     }
     /* 固定导航栏 */
     .navbar {
@@ -277,11 +278,8 @@
                 <canvas class="hero-fluid-canvas" aria-hidden="true"></canvas>
                 <!-- 静态兜底标题：canvas 激活时由 is-fluid-active 隐藏；降级/无障碍时显示 -->
                 <h1 class="hero-title hero-title--fluid-fallback scroll-reveal">
-                    工业级<br>无监督<br>缺陷检测
+                    无监督<br>缺陷检测
                 </h1>
-                <p class="hero-subtitle hero-subtitle--fluid scroll-reveal">
-                    <span>无监督</span><span>像素级</span><span>实时推理</span>
-                </p>
             </div>
             <div class="snap-page-inner">
 

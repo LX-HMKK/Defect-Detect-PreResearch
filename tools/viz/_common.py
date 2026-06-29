@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FIGURES_DIR = PROJECT_ROOT / "results" / "figures"
 
 # 4 算法标准色（与 modules/ui static/css 的 --algo-color 一致）
 ALGO_COLORS: Dict[str, str] = {
@@ -49,12 +50,12 @@ def setup_matplotlib():
     return plt
 
 
-def load_comparison_results() -> Dict[str, Dict[str, dict]]:
+def load_comparison_results(root: Path | None = None) -> Dict[str, Dict[str, dict]]:
     """加载 results/comparison/*_results.json，返回 {dataset: {model: metrics}}
 
     跳过含 'training_' 的用户自训练结果文件。
     """
-    comparison_dir = PROJECT_ROOT / "results" / "comparison"
+    comparison_dir = (root or PROJECT_ROOT) / "results" / "comparison"
     all_results: Dict[str, Dict[str, dict]] = {}
     if not comparison_dir.exists():
         return all_results
@@ -76,9 +77,9 @@ def load_comparison_results() -> Dict[str, Dict[str, dict]]:
     return all_results
 
 
-def load_ablation_results() -> List[dict]:
+def load_ablation_results(root: Path | None = None) -> List[dict]:
     """加载 results/comparison/ablation_results.json 消融数据列表"""
-    path = PROJECT_ROOT / "results" / "comparison" / "ablation_results.json"
+    path = (root or PROJECT_ROOT) / "results" / "comparison" / "ablation_results.json"
     if not path.exists():
         return []
     return json.loads(path.read_text(encoding="utf-8"))

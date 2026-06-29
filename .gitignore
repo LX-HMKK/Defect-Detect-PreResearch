@@ -116,6 +116,8 @@ data/*
 # 文档 — 排除二进制 pptx
 # ============================================================
 docs/*.pptx
+docs/*.pdf
+docs/*.docx
 docs/superpowers/*
 !docs/superpowers/specs/
 !docs/superpowers/plans/
@@ -131,3 +133,8 @@ AGENTS.md
 # Superpowers 脑暴可视化临时文件
 # ============================================================
 .superpowers/
+
+# ============================================================
+# PPT-Master 导出项目（大体积 PPTX、SVG、备份）
+# ============================================================
+projects/defect_detect_defense_ppt169_20260629/

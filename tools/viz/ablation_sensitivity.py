@@ -87,16 +87,17 @@ def _plot_backbone(ax, rows, model_name):
                 ha="center", color="#888")
 
 
-def generate_all():
+def generate_all(root: Path | None = None):
     plt = setup_matplotlib()
-    results = load_ablation_results()
+    results = load_ablation_results(root)
     # 按 (model, param) 分组
     groups = {}
     for r in results:
         key = (r["model"], r["param"])
         groups.setdefault(key, []).append(r)
 
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    figures_dir = (root or PROJECT_ROOT) / "results" / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
 
     # PatchCore coreset_sampling_ratio
     for (model, param), rows in groups.items():
@@ -109,11 +110,11 @@ def generate_all():
         elif param == "backbone":
             _plot_backbone(ax, rows, model)
         plt.tight_layout()
-        plt.savefig(str(FIGURES_DIR / f"ablation_{model}_{param}.png"),
+        plt.savefig(str(figures_dir / f"ablation_{model}_{param}.png"),
                     dpi=150, bbox_inches="tight", facecolor="white")
         plt.close()
 
-    print(f"[OK] 消融敏感性折线图已生成: {FIGURES_DIR}")
+    print(f"[OK] 消融敏感性折线图已生成: {figures_dir}")
 
 
 if __name__ == "__main__":

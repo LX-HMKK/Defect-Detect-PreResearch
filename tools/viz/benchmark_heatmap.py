@@ -57,10 +57,10 @@ def _plot_one_heatmap(ax, data_matrix, dataset_labels, model_labels, cmap, title
     return im
 
 
-def generate_all():
+def generate_all(root: Path | None = None):
     """生成 4 张基准热力图并排保存为单张组合图，同时存单张"""
     plt = setup_matplotlib()
-    results = load_comparison_results()
+    results = load_comparison_results(root)
     datasets = [d for d in DATASET_ORDER if d in results]
     models = [m for m in MODEL_ORDER if any(m in results.get(d, {}) for d in datasets)]
 
@@ -76,8 +76,9 @@ def generate_all():
         fig.colorbar(im, ax=axes[idx], shrink=0.8)
 
     plt.tight_layout()
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    combined = FIGURES_DIR / "benchmark_heatmap_all.png"
+    figures_dir = (root or PROJECT_ROOT) / "results" / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    combined = figures_dir / "benchmark_heatmap_all.png"
     plt.savefig(str(combined), dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
 
@@ -89,11 +90,11 @@ def generate_all():
         im2 = _plot_one_heatmap(ax2, matrix, datasets, models, cmap, display_name)
         fig2.colorbar(im2, ax=ax2, shrink=0.8)
         plt.tight_layout()
-        plt.savefig(str(FIGURES_DIR / f"benchmark_heatmap_{metric}.png"),
+        plt.savefig(str(figures_dir / f"benchmark_heatmap_{metric}.png"),
                     dpi=150, bbox_inches="tight", facecolor="white")
         plt.close()
 
-    print(f"[OK] 基准热力图已生成: {FIGURES_DIR}")
+    print(f"[OK] 基准热力图已生成: {figures_dir}")
 
 
 if __name__ == "__main__":

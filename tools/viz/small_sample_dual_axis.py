@@ -42,12 +42,12 @@ FALLBACK_DATA = {
 }
 
 
-def _load_small_sample():
+def _load_small_sample(root: Path | None = None):
     """优先从 results/small_sample/small_sample_summary.json 读真实数据，无则用回退数据。
 
     真实文件结构：{category, sample_sizes: ["N30",...], results: {N30: {model: {metrics}}}}
     """
-    summary_path = PROJECT_ROOT / "results" / "small_sample" / "small_sample_summary.json"
+    summary_path = (root or PROJECT_ROOT) / "results" / "small_sample" / "small_sample_summary.json"
     if summary_path.exists():
         try:
             raw = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -74,9 +74,9 @@ def _load_small_sample():
     return FALLBACK_DATA
 
 
-def generate():
+def generate(root: Path | None = None):
     plt = setup_matplotlib()
-    data = _load_small_sample()
+    data = _load_small_sample(root)
 
     # 上半：双轴折线；下半：鲁棒性评分卡（高度比 3:1）
     fig, (ax_au, ax_card) = plt.subplots(
@@ -154,11 +154,12 @@ def generate():
         table[(1, j)].set_facecolor("#e8f4fd")
 
     plt.tight_layout()
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    plt.savefig(str(FIGURES_DIR / "small_sample_dual_axis.png"),
+    figures_dir = (root or PROJECT_ROOT) / "results" / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    plt.savefig(str(figures_dir / "small_sample_dual_axis.png"),
                 dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
-    print(f"[OK] 小样本双轴折线图已生成: {FIGURES_DIR}")
+    print(f"[OK] 小样本双轴折线图已生成: {figures_dir}")
 
 
 if __name__ == "__main__":

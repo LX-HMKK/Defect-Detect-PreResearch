@@ -23,16 +23,16 @@ if __name__ == "__main__":
 from tools.viz import benchmark_heatmap, ablation_sensitivity, small_sample_dual_axis
 
 
-def main():
+def main(root: Path | None = None):
     print("=" * 60)
     print("生成全部可视化图表 → results/figures/")
     print("=" * 60)
     print("\n[1/3] 基准对比热力图...")
-    benchmark_heatmap.generate_all()
+    benchmark_heatmap.generate_all(root)
     print("\n[2/3] 消融敏感性折线图...")
-    ablation_sensitivity.generate_all()
+    ablation_sensitivity.generate_all(root)
     print("\n[3/3] 小样本双轴折线图...")
-    small_sample_dual_axis.generate()
+    small_sample_dual_axis.generate(root)
     print("\n" + "=" * 60)
     print("全部图表生成完毕!")
     print("  基准热力图: benchmark_heatmap_*.png (4 张 + 1 组合)")

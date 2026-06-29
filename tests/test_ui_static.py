@@ -19,8 +19,8 @@ def test_apple_redesign_css_exists():
     assert (STATIC / "css" / "apple-redesign.css").exists()
 
 
-def test_hero_visual_js_exists():
-    assert (STATIC / "js" / "hero-visual.js").exists()
+def test_hero_fluid_js_exists():
+    assert (STATIC / "js" / "hero-fluid.js").exists()
 
 
 def test_algo_carousel_js_exists():
@@ -30,13 +30,14 @@ def test_algo_carousel_js_exists():
 def test_index_html_links_redesign_assets():
     text = _html_text()
     assert "/static/css/apple-redesign.css" in text
-    assert "/static/js/hero-visual.js" in text
+    assert "/static/js/hero-fluid.js" in text
     assert "/static/js/algo-carousel.js" in text
 
 
 def test_index_html_has_new_structure():
     text = _html_text()
-    assert "hero-visual" in text
+    assert "hero-fluid-layer" in text
+    assert "hero-fluid-canvas" in text
     assert "bento-grid" in text
     assert "algo-carousel" in text
     assert "algo-carousel-track" in text

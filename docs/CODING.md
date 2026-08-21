@@ -140,10 +140,7 @@ git log --all --format="%H %B" | grep -i "Co-authored-by"
 - **S2（单模型推理）布局**：三列流水线（上传→选择→推理）→ 完成后收缩为 `.pipeline-summary` 步骤摘要 → `.result-dashboard` 左图右信息分栏（`.result-dashboard-grid`：左列对比滑块主视觉 `.result-dashboard-compare` + 右列判决/元信息 `.result-dashboard-aside`）
 - **S3（四模型对比）布局**：共享原图画廊居中（`.compare-shared-image` max-width 560px / img max-height 180px）→ 单行摘要栏 `.compare-summary-row` → 四列对比网格（顶部横线色标 `.compare-slot-accent`，仅热力图 + 得分/置信度）
 - 亮/暗双模式：胶囊开关，localStorage 持久化，`prefers-color-scheme` 系统跟随
-- 设计规范：`docs/superpowers/specs/2026-06-19-apple-ui-phase2-design.md`
-- 布局精修规范：`docs/superpowers/specs/2026-06-19-ui-layout-polish-design.md`
-- Training Studio 规范：`docs/superpowers/specs/2026-06-20-training-studio-design.md`
-- 最新布局美学规范：`docs/superpowers/specs/2026-06-27-ui-layout-aesthetics-design.md`（排版/去玻璃化/snap 放宽/Hero 重构/推理结果左图右信息分栏，覆盖上述早期规范）
+- 设计规范以代码现状为准；历史 UI 迭代已归档至 `CHANGELOG.md`。
 
 **回退**: `python scripts/run_ui.py --gradio` 启动原有 Gradio UI（`modules/ui/demo.py`），功能完整保留。
 

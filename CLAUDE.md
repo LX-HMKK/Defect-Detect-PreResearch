@@ -229,7 +229,6 @@ Angular 协议：`<类型>(<范围>): <主题>`，主题 ≤72 字符，命令�
 抽离参考（按需查阅，勿通读）：
 - [docs/COMMANDS.md](docs/COMMANDS.md) — 环境配置 + 低频分析工具命令
 - [docs/CODING.md](docs/CODING.md) — 编码规范细则与示例 + Git 提交规范 + Phase 2 UI 架构详解 + 全部陷阱 + UI 调试
-- [docs/superpowers/INDEX.md](docs/superpowers/INDEX.md) — 历史 UI 设计规范与实施计划索引
 
 ---
 

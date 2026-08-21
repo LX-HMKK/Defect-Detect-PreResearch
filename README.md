@@ -218,7 +218,7 @@ python tools/viz/run_all.py                                  # 一键生成 8 �
 </p>
 
 <p align="center">
-  <img src="docs/assets/small_sample_dual_axis.png" alt="小样本双轴图" width="88%">
+  <img src="docs/images/report/small_sample_dual_axis.png" alt="小样本双轴图" width="88%">
 </p>
 
 ---

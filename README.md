@@ -276,4 +276,4 @@ python tools/viz/run_all.py                                  # 一键生成 8 �
 
 ## 📝 许可
 
-本项目基于 [anomalib](https://github.com/openvinotoolkit/anomalib) 实现，仅用于学术研究。
+本项目基于 [anomalib](https://github.com/openvinotoolkit/anomalib) 实现，采用 [Apache License 2.0](LICENSE) 开源协议，仅用于学术研究。

@@ -30,18 +30,16 @@
 
 import os
 import shutil
-import sys
 import json
 import warnings
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union, Any, Mapping
+from typing import Dict, List, Optional, Tuple, Union, Any
 
 import torch
 import numpy as np
 import cv2  # Import cv2 first to avoid DLL loading issues with anomalib
 import pandas as pd
-from tqdm import tqdm
 
 # anomalib 2.x 导入
 from anomalib.data import MVTec, Folder
@@ -64,6 +62,14 @@ from modules.config import get_model_config, get_data_config, get
 
 # 忽略警告
 warnings.filterwarnings('ignore')
+
+# 模型结果子目录命名（单一来源，与 UI 扫描逻辑保持一致；避免散落重复）
+MODEL_SUBDIR_MAP = {
+    'fre': 'Fre',
+    'patchcore': 'Patchcore',
+    'draem': 'Draem',
+    'padim': 'Padim',
+}
 
 # ================================================================================
 # 预训练模型缓存配置
@@ -152,14 +158,7 @@ def find_latest_checkpoint(
     if not model_root.exists():
         return None
 
-    # 模型结果子目录命名（与 UI 扫描逻辑保持一致）
-    subdirs = {
-        'fre': 'Fre',
-        'patchcore': 'Patchcore',
-        'draem': 'Draem',
-        'padim': 'Padim',
-    }
-    model_subdir = subdirs.get(model_name)
+    model_subdir = MODEL_SUBDIR_MAP.get(model_name)
     if not model_subdir:
         return None
 
@@ -806,13 +805,7 @@ class AnomalyDetectionTrainer:
         if not self.source:
             return
 
-        model_subdir_map = {
-            'fre': 'Fre',
-            'patchcore': 'Patchcore',
-            'draem': 'Draem',
-            'padim': 'Padim',
-        }
-        model_subdir = model_subdir_map.get(self.model_name, self.model_name.capitalize())
+        model_subdir = MODEL_SUBDIR_MAP.get(self.model_name, self.model_name.capitalize())
         base = self.output_dir / self.model_name / model_subdir
 
         # 可能的历史源目录

@@ -323,13 +323,6 @@ def run_training_job(
             except Exception:
                 pass
 
-        metrics_queue.put({
-            'event': 'completed',
-            'model': model_name,
-            'category': category,
-            'results': results,
-        })
-
         return {
             'status': 'completed',
             'model': model_name,

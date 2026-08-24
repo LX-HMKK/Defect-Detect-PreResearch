@@ -20,7 +20,7 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(PROJECT_ROOT))
-from modules._runtime import configure_runtime_temp
+from modules._runtime import configure_runtime_temp, get_all_categories
 
 configure_runtime_temp()
 
@@ -31,20 +31,6 @@ def print_banner() -> None:
     print("Model Evaluation")
     print("Check 4 core metrics from saved results files")
     print("=" * 70)
-
-
-def get_all_categories(data_path: str) -> list[str]:
-    """自动发现数据目录中的所有类别（包含 train/ 子目录的文件夹）"""
-    data_dir = Path(data_path)
-    if not data_dir.exists():
-        return []
-    categories: list[str] = []
-    for item in sorted(data_dir.iterdir()):
-        if item.is_file() or item.name.startswith('.'):
-            continue
-        if (item / 'train').exists():
-            categories.append(item.name)
-    return categories
 
 
 def parse_args() -> argparse.Namespace:

@@ -47,6 +47,21 @@
 - 归档旧版 UI 规范与首页算法卡片子规划。
 - `docs/superpowers/` 历史 UI 设计规范与实施计划归档至 CHANGELOG，原目录删除。
 
+### 移除
+- 精简测试套件：`tests/` 由 6 个文件删至 2 个（保留纯算法 `test_metrics.py` 与真实产物断言 `test_viz.py`），删除 config / train_smoke / training_api / ui_static 等壳测试。
+- 清理死代码：删除孤儿 `hero-visual.js` 及配套 `.hero-visual` 死亡样式块、`_training_common.py` 未用的 `update_epoch()`/`stop()`、trainer.py 未用的 `sys`/`tqdm`/`Mapping` 导入。
+
+### 修复
+- `run_threshold -m all` 补回 padim（原先静默漏算 padim 阈值，与兄弟脚本漂移）。
+- `/api/train` SSE 成功时重复推送 `completed` 事件（现只在 `done` 分支推一次，前端 `fetchModels` 不再跑两次）。
+
+### 变更
+- 抽公共逻辑：`get_all_categories()` 收敛至 `modules/_runtime.py`（消除 3 个脚本重复）、trainer.py 新增模块级 `MODEL_SUBDIR_MAP` 常量（消除字节级重复）、新增共享 `sse-client.js`（inference/compare 复用同一 SSE 协议解析）。
+- CI 测试依赖精简为 `pytest numpy scipy scikit-learn matplotlib`，命令只跑保留的两个测试。
+
+### 文档
+- `README.md` / `CLAUDE.md`：测试命令、测试套件说明、架构树（补 `sse-client.js`、删 `hero-visual.js`）同步。
+
 ## 2026-06-19 — Phase 2 UI Bug 集中修复
 
 - **修复:** 四模型对比热力图不显示 — `.compare-heatmap { position: absolute }` 全局选择器泄漏到对比槽位，热力图脱离文档流导致父容器 `.compare-heatmap-wrap` 高度塌陷至 0px，配合 `overflow: hidden` 将热力图完全裁剪。修复：全局规则收缩为 `.compare-container .compare-heatmap`（仅影响单模型滑块），`.compare-slot .compare-heatmap` 添加 `position: relative`

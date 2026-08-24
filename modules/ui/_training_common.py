@@ -103,15 +103,6 @@ class TrainingTaskManager:
             self._started_at = datetime.now().isoformat()
             return True
 
-    def update_epoch(self, epoch: int):
-        with self._lock:
-            if self._current:
-                self._current['current_epoch'] = epoch
-
-    def stop(self):
-        """仅设置停止信号，不释放锁。"""
-        self.stop_event.set()
-
     def finish(self):
         """任务完成后释放锁并重置状态。"""
         with self._lock:

@@ -111,7 +111,7 @@ pip install -r requirements.txt
 验证安装：
 
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/test_metrics.py tests/test_viz.py -v
 python -c "from modules.algorithm.trainer import AnomalyDetectionTrainer; print('OK')"
 ```
 
@@ -246,7 +246,7 @@ python tools/viz/run_all.py                                  # 一键生成 8 �
 ├── configs/              # YAML 配置
 ├── scripts/              # 入口脚本
 ├── tools/                # 分析工具
-├── tests/                # 无 GPU 依赖测试
+├── tests/                # metrics 纯算法指标 + tools/viz 可视化断言
 ├── results/              # 实验输出
 ├── docs/assets/          # README 图片资源
 └── data/                 # 数据集

@@ -528,18 +528,6 @@ async def train(request: TrainRequest):
                             }, ensure_ascii=False),
                         }
 
-                    elif event_type == "completed":
-                        # run_training_job 内部也会推送 completed，兼容处理
-                        yield {
-                            "event": "completed",
-                            "data": json.dumps({
-                                "status": payload.get("status"),
-                                "model": payload.get("model"),
-                                "category": payload.get("category"),
-                                "results": payload.get("results"),
-                            }, ensure_ascii=False),
-                        }
-
             finally:
                 # 客户端断开或训练结束均释放训练锁
                 training_manager.finish()

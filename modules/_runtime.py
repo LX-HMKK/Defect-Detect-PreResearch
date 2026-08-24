@@ -28,3 +28,17 @@ def configure_runtime_temp() -> None:
     pycache_dir.mkdir(exist_ok=True)
     sys.pycache_prefix = str(pycache_dir)
     os.environ["PYTHONPYCACHEPREFIX"] = str(pycache_dir)
+
+
+def get_all_categories(data_path: str | Path) -> list[str]:
+    """自动发现数据目录中的所有类别（包含 train/ 子目录的文件夹），按名称排序。"""
+    data_dir = Path(data_path)
+    if not data_dir.exists():
+        return []
+    categories: list[str] = []
+    for item in sorted(data_dir.iterdir()):
+        if item.is_file() or item.name.startswith('.'):
+            continue
+        if (item / 'train').exists():
+            categories.append(item.name)
+    return categories

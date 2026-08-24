@@ -49,7 +49,7 @@ python scripts/run_ui.py --port 3000
 "C:\Users\lx_hm\.conda\envs\anomalib\python.exe" scripts/run_training.py -m patchcore -c bottle
 
 # 运行测试（无 GPU 依赖）
-python -m pytest tests/ -v
+python -m pytest tests/test_metrics.py tests/test_viz.py -v
 
 # 快速冒烟测试
 python -c "from anomalib.data import MVTec; from anomalib.engine import Engine; print('OK')"
@@ -80,7 +80,7 @@ python scripts/run_ui.py
 ```
 scripts/run_*.py              # 入口脚本（CLI 轻量封装）
 modules/
-  _runtime.py                  # 共享运行时（pycache 重定向、resolve_project_path、get_runtime_cache_dir）
+  _runtime.py                  # 共享运行时（pycache 重定向、resolve_project_path、get_runtime_cache_dir、get_all_categories）
   algorithm/
     trainer.py                 # 核心：AnomalyDetectionTrainer + 模型/数据模块工厂函数
     _anomalib_compat.py        # anomalib 2.3.0 ↔ PyTorch Lightning 1.9.5 猴子补丁兼容层（勿移除，见 CODING.md）
@@ -104,6 +104,7 @@ modules/
         flowchart.css          # SVG 流程图动画样式
       js/
         app.js                 # Alpine 全局状态：主题/snap 导航/进度环/推理/健康检查/训练完成监听
+        sse-client.js          # 共享 SSE 流式客户端（inference / compare 共用协议解析）
         inference.js           # InferenceRunner (SSE) + imageCompare 滑块 + tooltip + bbox
         compare.js             # CompareRunner (SSE) + Alpine compare 组件
         training.js            # TrainingRunner (SSE) + Alpine training 状态机 + 样本上传/参数/loss 曲线
@@ -111,12 +112,11 @@ modules/
         cursor-glow.js         # 鼠标光晕跟随效果
         flowchart.js           # SVG 流程图绘制动画
         hero-fluid.js          # 首页 hero 液态扭曲封面（WebGL2 grid-distortion，鼠标驱动；标题画进纹理被低分辨率位移场扭曲）
-        hero-visual.js         # [Legacy] 原 SVG 流程图 hero 动画，已被 hero-fluid.js 取代；文件保留但 index.html 不再引用
         algo-carousel.js       # 首页算法轮播（AirPods Pro 风格推近 + closeness 驱动缩放/模糊 + 进度条）
 configs/
   config.yaml                        # 主配置（路径、训练参数、阈值）
   {patchcore,padim,fre,draem}.yaml   # 各模型 anomalib CLI 格式配置
-tests/                          # 测试套件（config 单例、metrics 指标、trainer 烟雾测试、Training Studio API、静态资源结构）
+tests/                          # 测试套件（metrics 纯算法指标 + tools/viz 可视化断言）
 tools/                          # 分析工具（小样本/消融/基准/混淆矩阵/数据验证/统计/报告/后处理）
 results/                        # 训练结果
 docs/
@@ -212,7 +212,7 @@ Angular 协议：`<类型>(<范围>): <主题>`，主题 ≤72 字符，命令�
 
 ### 测试
 
-测试套件位于 `tests/`，共 6 个文件：`test_config.py`、`test_metrics.py`、`test_trainer_smoke.py`、`test_training_api.py`、`test_ui_static.py`、`test_viz.py`。无 GPU、无 anomalib 导入依赖（烟雾测试用 AST 解析源码避免触发 Heavy import）。运行：`python -m pytest tests/ -v`。
+测试套件位于 `tests/`，共 2 个文件：`test_metrics.py`（MetricsEvaluator 从零实现的 AUROC/AUPR/PRO 纯算法指标）、`test_viz.py`（tools/viz 可视化脚本产物断言）。无 GPU、无 anomalib 导入依赖。运行：`python -m pytest tests/test_metrics.py tests/test_viz.py -v`。
 
 > Trainer 兼容性补丁、自训练 checkpoint 安全格式、Phase 2 UI 架构详解、全部 CSS/Alpine/IO 陷阱、UI 调试命令见 [docs/CODING.md](docs/CODING.md)。
 

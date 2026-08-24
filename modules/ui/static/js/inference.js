@@ -33,80 +33,18 @@ const InferenceRunner = {
         }
         this.abortController = new AbortController();
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: this.abortController.signal,
-            });
-
-            if (!response.ok) {
-                const text = await response.text().catch(function () { return ''; });
-                onError(`HTTP ${response.status}: ${text || response.statusText}`);
-                return;
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                // 归一化行尾：\r\n → \n（sse-starlette 使用 CRLF，但 JS 解析器期望 LF）
-                buffer = buffer.replace(/\r\n/g, '\n');
-
-                // SSE 协议：event/data 行对，以 \n\n 分隔
-                while (buffer.includes('\n\n')) {
-                    const idx = buffer.indexOf('\n\n');
-                    const chunk = buffer.slice(0, idx);
-                    buffer = buffer.slice(idx + 2);
-
-                    let eventType = '';
-                    let dataStr = '';
-
-                    for (const line of chunk.split('\n')) {
-                        if (line.startsWith('event: ')) {
-                            eventType = line.slice(7).trim();
-                        } else if (line.startsWith('data: ')) {
-                            dataStr = line.slice(6);
-                        }
-                    }
-
-                    if (!eventType || !dataStr) continue;
-
-                    try {
-                        const data = JSON.parse(dataStr);
-                        switch (eventType) {
-                            case 'progress':
-                                onProgress(data);
-                                break;
-                            case 'result':
-                                onResult(data);
-                                break;
-                            case 'error':
-                                onError(data.message || '未知错误');
-                                return;
-                            case 'done':
-                                onDone();
-                                return;
-                        }
-                    } catch (e) {
-                        console.warn('[inference] SSE 数据解析失败:', dataStr);
-                    }
-                }
-            }
-        } catch (err) {
-            if (err.name === 'AbortError') {
-                console.log('[inference] 请求已取消');
-                return;
-            }
-            onError(err.message || '网络错误');
-        }
+        // 共享 SSE 客户端（sse-client.js）处理 fetch + CRLF 归一 + \n\n 切块 +
+        // event:/data: 解析，按事件分发到 handler。handler 返回 false 表示终止流。
+        await SSEClient.run(url, payload, this.abortController.signal, {
+            progress: function (data) { onProgress(data); return true; },
+            result:   function (data) { onResult(data); return true; },
+            error:    function (data) { onError(data.message || '未知错误'); return false; },
+            done:     function () { onDone(); return false; },
+        }, {
+            tag: 'inference',
+            onHttpError: onError,
+            onTransportError: onError,
+        });
     },
 
     /** 取消当前推理请求 */

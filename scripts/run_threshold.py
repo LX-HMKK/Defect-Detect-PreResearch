@@ -18,7 +18,7 @@ if sys.platform == "win32":
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(PROJECT_ROOT))
-from modules._runtime import configure_runtime_temp, resolve_project_path
+from modules._runtime import configure_runtime_temp, resolve_project_path, get_all_categories
 from modules.config import get
 
 configure_runtime_temp()
@@ -29,20 +29,6 @@ def print_banner() -> None:
     print("=" * 70)
     print("Threshold Computation")
     print("=" * 70)
-
-
-def get_all_categories(data_path: str) -> list[str]:
-    data_dir = Path(data_path)
-    if not data_dir.exists():
-        return []
-
-    categories: list[str] = []
-    for item in data_dir.iterdir():
-        if item.is_file() or item.name.startswith("."):
-            continue
-        if (item / "train").exists():
-            categories.append(item.name)
-    return sorted(categories)
 
 
 def parse_args() -> argparse.Namespace:
@@ -187,7 +173,7 @@ def main() -> None:
     print_banner()
     args = parse_args()
 
-    models = ["fre", "patchcore", "draem"] if args.model == "all" else [args.model]
+    models = ["fre", "patchcore", "draem", "padim"] if args.model == "all" else [args.model]
     if args.category == "all":
         categories = get_all_categories(args.data_path)
         if not categories:

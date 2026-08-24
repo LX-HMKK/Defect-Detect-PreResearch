@@ -1,4 +1,4 @@
-"""可视化脚本套件回归测试（断言式，沿用 test_ui_static.py 风格）"""
+"""可视化脚本套件回归测试（断言式）"""
 import json
 from pathlib import Path
 
